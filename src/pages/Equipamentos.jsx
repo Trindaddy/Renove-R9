@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Input from '../components/Input.jsx';
 import { listarEquipamentos } from '../services/equipamentosService';
+import { EquipmentStatus, EquipmentStatusLabel } from '../enums/EquipmentStatus';
 
 export default function Equipamentos() {
   const [busca, setBusca] = useState('');
