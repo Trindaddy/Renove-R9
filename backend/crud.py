@@ -1,0 +1,326 @@
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, text
+from typing import List, Optional
+from datetime import datetime, timedelta
+import json
+
+import models
+import schemas
+from alertas import verificar_alerta_escassez, notificar_alerta_escassez
+
+def get_usuario(db: Session, usuario_id: int):
+    return db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+
+def get_usuario_by_email(db: Session, email: str):
+    return db.query(models.Usuario).filter(models.Usuario.email == email).first()
+
+def get_usuario_by_matricula(db: Session, matricula: str):
+    return db.query(models.Usuario).filter(models.Usuario.matricula == matricula).first()
+
+def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    
+    db_usuario = models.Usuario(
+        matricula=usuario.matricula,
+        nome=usuario.nome,
+        email=usuario.email,
+        senha_hash=pwd_context.hash(usuario.senha),
+        role=usuario.role,
+        curso=usuario.curso,
+        turma=usuario.turma,
+        ativo=usuario.ativo
+    )
+    db.add(db_usuario)
+    db.commit()
+    db.refresh(db_usuario)
+    return db_usuario
+
+def get_notebook(db: Session, notebook_id: int):
+    return db.query(models.Notebook).filter(models.Notebook.id == notebook_id).first()
+
+def get_notebook_by_patrimonio(db: Session, patrimonio: str):
+    return db.query(models.Notebook).filter(models.Notebook.patrimonio == patrimonio).first()
+
+def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, limit: int = 100):
+    query = db.query(models.Notebook)
+    if status:
+        query = query.filter(models.Notebook.status == status)
+    return query.offset(skip).limit(limit).all()
+
+def create_notebook(db: Session, notebook: schemas.NotebookCreate):
+    db_notebook = models.Notebook(**notebook.model_dump())
+    db.add(db_notebook)
+    db.commit()
+    db.refresh(db_notebook)
+    
+    registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=db_notebook.id,
+        tipo_movimentacao=schemas.TipoMovimentacao.cadastro,
+        status_novo=db_notebook.status,
+        descricao=f"Notebook {db_notebook.patrimonio} cadastrado no sistema"
+    ))
+    
+    return db_notebook
+
+def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate):
+    db_notebook = get_notebook(db, notebook_id)
+    if not db_notebook:
+        return None
+    
+    status_anterior = db_notebook.status
+    update_data = notebook_update.model_dump(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        setattr(db_notebook, key, value)
+    
+    db.commit()
+    db.refresh(db_notebook)
+    
+    if 'status' in update_data:
+        registrar_historico(db, schemas.HistoricoCreate(
+            notebook_id=db_notebook.id,
+            tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
+            status_anterior=status_anterior,
+            status_novo=db_notebook.status,
+            descricao=f"Status alterado de {status_anterior} para {db_notebook.status}"
+        ))
+        verificar_e_notificar_escassez(db)
+    
+    return db_notebook
+
+def get_emprestimo(db: Session, emprestimo_id: int):
+    return db.query(models.Emprestimo).options(
+        joinedload(models.Emprestimo.notebook),
+        joinedload(models.Emprestimo.usuario),
+        joinedload(models.Emprestimo.responsavel)
+    ).filter(models.Emprestimo.id == emprestimo_id).first()
+
+def listar_emprestimos(
+    db: Session, 
+    status: Optional[str] = None, 
+    usuario_id: Optional[int] = None,
+    skip: int = 0, 
+    limit: int = 100
+):
+    query = db.query(models.Emprestimo).options(
+        joinedload(models.Emprestimo.notebook),
+        joinedload(models.Emprestimo.usuario),
+        joinedload(models.Emprestimo.responsavel)
+    )
+    if status:
+        query = query.filter(models.Emprestimo.status == status)
+    if usuario_id:
+        query = query.filter(models.Emprestimo.usuario_id == usuario_id)
+    return query.order_by(models.Emprestimo.data_emprestimo.desc()).offset(skip).limit(limit).all()
+
+def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None):
+    notebook = get_notebook(db, emprestimo.notebook_id)
+    if not notebook or notebook.status != "Disponível":
+        raise ValueError("Notebook não está disponível para empréstimo")
+    
+    usuario = get_usuario(db, emprestimo.usuario_id)
+    if not usuario or not usuario.ativo:
+        raise ValueError("Usuário inválido ou inativo")
+    
+    # Verificar se usuário já tem empréstimo ativo
+    emprestimo_ativo = db.query(models.Emprestimo).filter(
+        models.Emprestimo.usuario_id == usuario.id,
+        models.Emprestimo.status == "Ativo"
+    ).first()
+    
+    if emprestimo_ativo:
+        raise ValueError("Usuário já possui um empréstimo ativo")
+    
+    # Calcular data prevista se não informada
+    data_prevista = emprestimo.data_prevista_devolucao
+    if not data_prevista:
+        config_horas = db.query(models.Configuracao).filter(models.Configuracao.chave == "tempo_maximo_emprestimo_horas").first()
+        horas = int(config_horas.valor) if config_horas else 4
+        data_prevista = datetime.now() + timedelta(hours=horas)
+    
+    db_emprestimo = models.Emprestimo(
+        notebook_id=emprestimo.notebook_id,
+        usuario_id=emprestimo.usuario_id,
+        responsavel_id=responsavel_id or emprestimo.responsavel_id,
+        data_prevista_devolucao=data_prevista,
+        observacao_saida=emprestimo.observacao_saida,
+        motivo=emprestimo.motivo,
+        status="Ativo"
+    )
+    
+    # Atualizar status do notebook
+    notebook.status = "Emprestado"
+    
+    db.add(db_emprestimo)
+    db.commit()
+    db.refresh(db_emprestimo)
+    
+    # Registrar no histórico
+    registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=notebook.id,
+        usuario_id=usuario.id,
+        responsavel_id=responsavel_id or emprestimo.responsavel_id,
+        tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
+        status_anterior="Disponível",
+        status_novo="Emprestado",
+        descricao=f"Empréstimo para {usuario.nome} ({usuario.matricula})",
+        metadata=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
+    ))
+    
+    verificar_e_notificar_escassez(db)
+    
+    return db_emprestimo
+
+def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, responsavel_id: Optional[int] = None):
+    notebook = get_notebook_by_patrimonio(db, dados.notebook_patrimonio)
+    if not notebook:
+        raise ValueError(f"Notebook {dados.notebook_patrimonio} não encontrado")
+    
+    usuario = get_usuario_by_matricula(db, dados.usuario_matricula)
+    if not usuario:
+        raise ValueError(f"Usuário com matrícula {dados.usuario_matricula} não encontrado")
+    
+    data_prevista = datetime.now() + timedelta(hours=dados.horas_previstas or 4)
+    
+    emprestimo = schemas.EmprestimoCreate(
+        notebook_id=notebook.id,
+        usuario_id=usuario.id,
+        responsavel_id=responsavel_id,
+        motivo=dados.motivo,
+        data_prevista_devolucao=data_prevista
+    )
+    
+    return criar_emprestimo(db, emprestimo, responsavel_id)
+
+def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None):
+    emprestimo = get_emprestimo(db, emprestimo_id)
+    if not emprestimo or emprestimo.status != "Ativo":
+        raise ValueError("Empréstimo não encontrado ou já finalizado")
+    
+    notebook = get_notebook(db, emprestimo.notebook_id)
+    
+    # Atualizar empréstimo
+    emprestimo.status = "Devolvido"
+    emprestimo.data_devolucao = datetime.now()
+    emprestimo.observacao_devolucao = dados.observacao_devolucao
+    if responsavel_id:
+        emprestimo.responsavel_id = responsavel_id
+    
+    # Liberar notebook
+    notebook.status = "Disponível"
+    
+    db.commit()
+    db.refresh(emprestimo)
+    
+    # Registrar no histórico
+    registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=notebook.id,
+        usuario_id=emprestimo.usuario_id,
+        responsavel_id=responsavel_id,
+        tipo_movimentacao=schemas.TipoMovimentacao.devolucao,
+        status_anterior="Emprestado",
+        status_novo="Disponível",
+        descricao=f"Devolução do notebook {notebook.patrimonio}",
+        metadata=json.dumps({"emprestimo_id": emprestimo.id})
+    ))
+    
+    return emprestimo
+
+def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optional[int] = None):
+    emprestimo = get_emprestimo(db, emprestimo_id)
+    if not emprestimo or emprestimo.status != "Ativo":
+        raise ValueError("Empréstimo não encontrado ou não está ativo")
+    
+    notebook = get_notebook(db, emprestimo.notebook_id)
+    
+    emprestimo.status = "Cancelado"
+    notebook.status = "Disponível"
+    
+    db.commit()
+    db.refresh(emprestimo)
+    
+    registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=notebook.id,
+        usuario_id=emprestimo.usuario_id,
+        responsavel_id=responsavel_id,
+        tipo_movimentacao=schemas.TipoMovimentacao.cancelamento,
+        status_anterior="Emprestado",
+        status_novo="Disponível",
+        descricao="Empréstimo cancelado"
+    ))
+    
+    verificar_e_notificar_escassez(db)
+    
+    return emprestimo
+
+def get_historico(db: Session, notebook_id: Optional[int] = None, skip: int = 0, limit: int = 100):
+    query = db.query(models.Historico).options(
+        joinedload(models.Historico.notebook),
+        joinedload(models.Historico.usuario)
+    )
+    if notebook_id:
+        query = query.filter(models.Historico.notebook_id == notebook_id)
+    return query.order_by(models.Historico.created_at.desc()).offset(skip).limit(limit).all()
+
+def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
+    db_historico = models.Historico(**historico.model_dump())
+    db.add(db_historico)
+    db.commit()
+    db.refresh(db_historico)
+    return db_historico
+
+def get_dashboard_stats(db: Session):
+    total = db.query(models.Notebook).count()
+    disponiveis = db.query(models.Notebook).filter(models.Notebook.status == "Disponível").count()
+    emprestados = db.query(models.Notebook).filter(models.Notebook.status == "Emprestado").count()
+    manutencao = db.query(models.Notebook).filter(models.Notebook.status == "Manutenção").count()
+    reservados = db.query(models.Notebook).filter(models.Notebook.status == "Reservado").count()
+    emprestimos_ativos = db.query(models.Emprestimo).filter(models.Emprestimo.status == "Ativo").count()
+    
+    percentual = round((disponiveis / total * 100), 2) if total > 0 else 0
+    
+    alerta = verificar_alerta_escassez(db)
+    
+    return schemas.DashboardStats(
+        total=total,
+        disponiveis=disponiveis,
+        emprestados=emprestados,
+        manutencao=manutencao,
+        reservados=reservados,
+        percentual_disponivel=percentual,
+        emprestimos_ativos=emprestimos_ativos,
+        alerta_escassez=alerta["ativo"]
+    )
+
+def verificar_e_notificar_escassez(db: Session):
+    alerta = verificar_alerta_escassez(db)
+    if alerta["ativo"]:
+        notificar_alerta_escassez(alerta)
+        # Registrar no histórico
+        notebook = db.query(models.Notebook).first()
+        if notebook:
+            registrar_historico(db, schemas.HistoricoCreate(
+                notebook_id=notebook.id,
+                tipo_movimentacao=schemas.TipoMovimentacao.alerta_escassez,
+                descricao=alerta["mensagem"],
+                metadata=json.dumps({
+                    "percentual_atual": alerta["percentual_atual"],
+                    "limite": alerta["limite_percentual"]
+                })
+            ))
+    return alerta
+
+def verificar_atrasos(db: Session):
+    """Verifica empréstimos atrasados e atualiza status"""
+    atrasados = db.query(models.Emprestimo).filter(
+        models.Emprestimo.status == "Ativo",
+        models.Emprestimo.data_prevista_devolucao < datetime.now()
+    ).all()
+    
+    for emp in atrasados:
+        emp.status = "Atrasado"
+    
+    db.commit()
+    return len(atrasados)
+

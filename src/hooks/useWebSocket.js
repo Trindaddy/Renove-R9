@@ -1,0 +1,76 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+
+const WS_URL = 'ws://localhost:8000/ws';
+
+export function useWebSocket() {
+  const [connected, setConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState(null);
+  const ws = useRef(null);
+  const reconnectTimeout = useRef(null);
+
+  const connect = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      ws.current = new WebSocket(WS_URL);
+
+      ws.current.onopen = () => {
+        setConnected(true);
+        console.log('📡 WebSocket conectado');
+        // Enviar ping a cada 30s
+        ws.current._pingInterval = setInterval(() => {
+          if (ws.current?.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 30000);
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setLastMessage(data);
+        } catch (err) {
+          console.error('Erro ao parsear mensagem WebSocket:', err);
+        }
+      };
+
+      ws.current.onclose = () => {
+        setConnected(false);
+        clearInterval(ws.current?._pingInterval);
+        console.log('📡 WebSocket desconectado');
+        // Reconectar em 3s
+        reconnectTimeout.current = setTimeout(connect, 3000);
+      };
+
+      ws.current.onerror = (error) => {
+        console.error('WebSocket erro:', error);
+        ws.current?.close();
+      };
+    } catch (err) {
+      console.error('Erro ao conectar WebSocket:', err);
+      reconnectTimeout.current = setTimeout(connect, 3000);
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    clearTimeout(reconnectTimeout.current);
+    clearInterval(ws.current?._pingInterval);
+    ws.current?.close();
+    ws.current = null;
+    setConnected(false);
+  }, []);
+
+  const send = useCallback((data) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify(data));
+    }
+  }, []);
+
+  useEffect(() => {
+    connect();
+    return () => disconnect();
+  }, [connect, disconnect]);
+
+  return { connected, lastMessage, send, connect, disconnect };
+}
+

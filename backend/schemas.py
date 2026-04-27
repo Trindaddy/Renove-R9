@@ -1,0 +1,171 @@
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+from enum import Enum
+
+# Enums
+class Role(str, Enum):
+    aluno = "aluno"
+    professor = "professor"
+    ti = "ti"
+
+class NotebookStatus(str, Enum):
+    disponivel = "Disponível"
+    emprestado = "Emprestado"
+    manutencao = "Manutenção"
+    reservado = "Reservado"
+
+class NotebookCondicao(str, Enum):
+    novo = "Novo"
+    bom = "Bom"
+    regular = "Regular"
+    ruim = "Ruim"
+
+class EmprestimoStatus(str, Enum):
+    ativo = "Ativo"
+    devolvido = "Devolvido"
+    atrasado = "Atrasado"
+    cancelado = "Cancelado"
+
+class TipoMovimentacao(str, Enum):
+    emprestimo = "EMPRESTIMO"
+    devolucao = "DEVOLUCAO"
+    manutencao_entrada = "MANUTENCAO_ENTRADA"
+    manutencao_saida = "MANUTENCAO_SAIDA"
+    reserva = "RESERVA"
+    cancelamento = "CANCELAMENTO"
+    cadastro = "CADASTRO"
+    atualizacao = "ATUALIZACAO"
+    alerta_escassez = "ALERTA_ESCASSEZ"
+
+# Base Models
+class UsuarioBase(BaseModel):
+    matricula: str = Field(..., min_length=3, max_length=20)
+    nome: str = Field(..., min_length=3, max_length=100)
+    email: str = Field(..., pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
+    role: Role
+    curso: Optional[str] = None
+    turma: Optional[str] = None
+    ativo: bool = True
+
+class UsuarioCreate(UsuarioBase):
+    senha: str = Field(..., min_length=6)
+
+class UsuarioResponse(UsuarioBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class NotebookBase(BaseModel):
+    patrimonio: str = Field(..., min_length=3, max_length=30)
+    modelo: str = Field(..., min_length=2, max_length=100)
+    marca: Optional[str] = Field(None, max_length=50)
+    local: Optional[str] = Field("Estoque", max_length=50)
+    status: NotebookStatus = NotebookStatus.disponivel
+    condicao: NotebookCondicao = NotebookCondicao.bom
+    observacoes: Optional[str] = None
+
+class NotebookCreate(NotebookBase):
+    pass
+
+class NotebookUpdate(BaseModel):
+    modelo: Optional[str] = None
+    marca: Optional[str] = None
+    local: Optional[str] = None
+    status: Optional[NotebookStatus] = None
+    condicao: Optional[NotebookCondicao] = None
+    observacoes: Optional[str] = None
+
+class NotebookResponse(NotebookBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class EmprestimoBase(BaseModel):
+    notebook_id: int
+    usuario_id: int
+    responsavel_id: Optional[int] = None
+    motivo: Optional[str] = Field(None, max_length=50)
+    observacao_saida: Optional[str] = None
+
+class EmprestimoCreate(EmprestimoBase):
+    data_prevista_devolucao: Optional[datetime] = None
+
+class EmprestimoDevolucao(BaseModel):
+    observacao_devolucao: Optional[str] = None
+
+class EmprestimoResponse(BaseModel):
+    id: int
+    status: EmprestimoStatus
+    data_emprestimo: Optional[datetime] = None
+    data_prevista_devolucao: Optional[datetime] = None
+    data_devolucao: Optional[datetime] = None
+    observacao_saida: Optional[str] = None
+    observacao_devolucao: Optional[str] = None
+    motivo: Optional[str] = None
+    notebook: Optional[NotebookResponse] = None
+    usuario: Optional[UsuarioResponse] = None
+    responsavel: Optional[UsuarioResponse] = None
+
+    class Config:
+        from_attributes = True
+
+class HistoricoBase(BaseModel):
+    notebook_id: int
+    tipo_movimentacao: TipoMovimentacao
+    status_anterior: Optional[str] = None
+    status_novo: Optional[str] = None
+    descricao: Optional[str] = None
+    metadata: Optional[str] = None
+
+class HistoricoCreate(HistoricoBase):
+    usuario_id: Optional[int] = None
+    responsavel_id: Optional[int] = None
+
+class HistoricoResponse(HistoricoBase):
+    id: int
+    usuario_id: Optional[int] = None
+    responsavel_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class DashboardStats(BaseModel):
+    total: int
+    disponiveis: int
+    emprestados: int
+    manutencao: int
+    reservados: int
+    percentual_disponivel: float
+    emprestimos_ativos: int
+    alerta_escassez: bool
+
+class EmprestimoRapido(BaseModel):
+    notebook_patrimonio: str = Field(..., min_length=3, max_length=30)
+    usuario_matricula: str = Field(..., min_length=3, max_length=20)
+    motivo: Optional[str] = Field(None, max_length=50)
+    horas_previstas: Optional[int] = Field(4, ge=1, le=72)
+
+class AlertaEscassez(BaseModel):
+    ativo: bool
+    percentual_atual: float
+    limite_percentual: float
+    quantidade_disponivel: int
+    quantidade_total: int
+    mensagem: str
+    timestamp: datetime
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class LoginRequest(BaseModel):
+    email: str
+    senha: str
+
