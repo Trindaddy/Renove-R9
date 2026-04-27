@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Input from './Input.jsx';
 import Button from './Button.jsx';
 
 export default function EmprestimoForm({ onSubmit, loading }) {
@@ -33,7 +32,6 @@ export default function EmprestimoForm({ onSubmit, loading }) {
         motivo: form.motivo.trim() || undefined,
         horas_previstas: parseInt(form.horas_previstas) || 4
       });
-      // Limpar formulário após sucesso
       setForm({
         notebook_patrimonio: '',
         usuario_matricula: '',
@@ -46,55 +44,84 @@ export default function EmprestimoForm({ onSubmit, loading }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <h2 className="text-sm font-semibold text-slate-200 mb-1">
-        Empréstimo Rápido
-      </h2>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-alert/30 to-transparent" />
+        <h2 className="text-sm font-bold tracking-[0.15em] text-alert uppercase">
+          Novo Empréstimo Rápido
+        </h2>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-alert/30 to-transparent" />
+      </div>
 
       {erro && (
-        <p className="text-xs text-red-400 bg-red-950/40 border border-red-900 rounded px-3 py-2">
-          {erro}
-        </p>
+        <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2">
+          <p className="text-xs text-red-400">{erro}</p>
+        </div>
       )}
 
-      <Input
-        label="Patrimônio do Notebook"
-        name="notebook_patrimonio"
-        placeholder="Ex: NB-001"
-        value={form.notebook_patrimonio}
-        onChange={handleChange}
-        required
-      />
+      <div className="space-y-3">
+        <div>
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">
+            Patrimônio do Notebook
+          </label>
+          <input
+            type="text"
+            name="notebook_patrimonio"
+            placeholder="Ex: NB-001"
+            value={form.notebook_patrimonio}
+            onChange={handleChange}
+            className="tech-input w-full font-mono"
+            required
+          />
+        </div>
 
-      <Input
-        label="Matrícula do Aluno"
-        name="usuario_matricula"
-        placeholder="Ex: ALU001"
-        value={form.usuario_matricula}
-        onChange={handleChange}
-        required
-      />
+        <div>
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">
+            Matrícula do Aluno/Servidor
+          </label>
+          <input
+            type="text"
+            name="usuario_matricula"
+            placeholder="Ex: ALU001"
+            value={form.usuario_matricula}
+            onChange={handleChange}
+            className="tech-input w-full font-mono"
+            required
+          />
+        </div>
 
-      <Input
-        label="Motivo (opcional)"
-        name="motivo"
-        placeholder="Ex: Aula de Programação"
-        value={form.motivo}
-        onChange={handleChange}
-      />
+        <div>
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">
+            Motivo (opcional)
+          </label>
+          <input
+            type="text"
+            name="motivo"
+            placeholder="Ex: Aula de Programação"
+            value={form.motivo}
+            onChange={handleChange}
+            className="tech-input w-full"
+          />
+        </div>
 
-      <Input
-        label="Horas Previstas"
-        name="horas_previstas"
-        type="number"
-        min={1}
-        max={72}
-        value={form.horas_previstas}
-        onChange={handleChange}
-      />
+        <div>
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">
+            Horas Previstas
+          </label>
+          <input
+            type="number"
+            name="horas_previstas"
+            min={1}
+            max={72}
+            value={form.horas_previstas}
+            onChange={handleChange}
+            className="tech-input w-full font-mono"
+          />
+        </div>
+      </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Processando...' : '✅ Confirmar Empréstimo'}
+      <Button type="submit" className="w-full mt-2 py-3 text-sm tracking-wider" disabled={loading}>
+        {loading ? 'Processando...' : 'Confirmar Retirada'}
       </Button>
     </form>
   );

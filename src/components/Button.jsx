@@ -7,13 +7,17 @@ export default function Button({
   ...props
 }) {
   const base =
-    'inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    'inline-flex items-center justify-center rounded-lg text-sm font-semibold px-5 py-2.5 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]';
 
   const variants = {
-    primary: 'bg-senac-orange text-slate-950 hover:bg-orange-400',
+    primary: 
+      'bg-alert text-navy-900 hover:bg-alert/90 hover:shadow-glow-alert border border-alert/20',
     outline:
-      'border border-slate-700 text-slate-100 hover:border-senac-orange hover:text-senac-orange',
-    ghost: 'text-slate-200 hover:bg-slate-800/60'
+      'border border-navy-500/50 text-slate-100 hover:border-cyan/40 hover:text-cyan hover:shadow-glow-cyan',
+    ghost: 'text-slate-300 hover:bg-navy-600/40 hover:text-cyan',
+    danger: 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20',
+    success: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20',
+    cyan: 'bg-cyan-dim text-cyan border border-cyan/20 hover:bg-cyan/20 hover:shadow-glow-cyan',
   };
 
   return (

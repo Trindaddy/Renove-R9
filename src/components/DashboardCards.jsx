@@ -5,97 +5,117 @@ export default function DashboardCards({ stats, alerta }) {
 
   const cards = [
     {
-      label: 'Total',
+      label: 'Total de Notebooks',
       value: stats.total,
-      color: 'text-slate-200',
-      bg: 'bg-slate-800/50',
-      border: 'border-slate-700'
+      icon: '💻',
+      color: 'text-slate-100',
+      bg: 'bg-navy-700/50',
+      border: 'border-navy-500/30',
+      glow: ''
     },
     {
-      label: 'Disponíveis',
+      label: 'Disponíveis Agora',
       value: stats.disponiveis,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10',
-      border: 'border-emerald-500/30'
-    },
-    {
-      label: 'Emprestados',
-      value: stats.emprestados,
-      color: 'text-senac-orange',
-      bg: 'bg-orange-500/10',
-      border: 'border-orange-500/30'
-    },
-    {
-      label: 'Manutenção',
-      value: stats.manutencao,
-      color: 'text-red-400',
-      bg: 'bg-red-500/10',
-      border: 'border-red-500/30'
-    },
-    {
-      label: 'Reservados',
-      value: stats.reservados,
-      color: 'text-blue-400',
-      bg: 'bg-blue-500/10',
-      border: 'border-blue-500/30'
+      sub: `${stats.percentual_disponivel}% do total`,
+      icon: '●',
+      color: 'text-cyan',
+      bg: 'bg-cyan-dim',
+      border: 'border-cyan/20',
+      glow: 'shadow-glow-cyan'
     },
     {
       label: 'Empréstimos Ativos',
       value: stats.emprestimos_ativos,
-      color: 'text-purple-400',
-      bg: 'bg-purple-500/10',
-      border: 'border-purple-500/30'
+      icon: '🔄',
+      color: 'text-slate-100',
+      bg: 'bg-navy-700/50',
+      border: 'border-navy-500/30',
+      glow: ''
+    },
+    {
+      label: 'Em Manutenção',
+      value: stats.manutencao,
+      icon: '🔧',
+      color: 'text-alert',
+      bg: 'bg-alert-dim',
+      border: 'border-alert/20',
+      glow: 'shadow-glow-alert'
     }
   ];
 
   return (
     <div className="space-y-4">
+      {/* Alerta de Escassez */}
       {alerta?.ativo && (
-        <div className="bg-red-950/50 border border-red-800 rounded-lg p-3 flex items-center gap-3">
-          <span className="text-xl">⚠️</span>
-          <div>
-            <p className="text-sm font-semibold text-red-300">Alerta de Escassez</p>
-            <p className="text-xs text-red-200/80">{alerta.mensagem}</p>
+        <div className="glass-card-alert p-4 flex items-center gap-4 animate-pulse-slow">
+          <div className="h-10 w-10 rounded-full bg-alert/20 flex items-center justify-center text-lg">
+            ⚠️
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-alert tracking-wide uppercase">Alerta de Escassez</p>
+            <p className="text-xs text-alert/80 mt-0.5">{alerta.mensagem}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-black text-alert">{alerta.percentual_atual}%</p>
+            <p className="text-[10px] text-alert/60 uppercase tracking-wider">disponível</p>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => (
           <div
             key={card.label}
-            className={`${card.bg} border ${card.border} rounded-lg p-3 text-center`}
+            className={`${card.bg} border ${card.border} rounded-xl p-4 ${card.glow} transition-all duration-300 hover:border-opacity-50`}
           >
-            <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
-            <p className="text-[11px] text-slate-400 mt-1">{card.label}</p>
+            <div className="flex items-start justify-between mb-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-slate-400">{card.label}</p>
+              <span className="text-lg opacity-50">{card.icon}</span>
+            </div>
+            <p className={`text-3xl font-black ${card.color} ${card.color === 'text-cyan' ? 'glow-text-cyan' : ''}`}>
+              {card.value}
+            </p>
+            {card.sub && (
+              <p className="text-[11px] text-cyan/60 mt-1">{card.sub}</p>
+            )}
           </div>
         ))}
       </div>
 
-      {stats.percentual_disponivel !== undefined && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-400">Disponibilidade</span>
-            <span className={`text-sm font-semibold ${
-              stats.percentual_disponivel < 10 ? 'text-red-400' : 'text-emerald-400'
-            }`}>
-              {stats.percentual_disponivel}%
+      {/* Barra de disponibilidade */}
+      <div className="glass-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${stats.percentual_disponivel < 10 ? 'bg-alert animate-pulse' : 'bg-cyan'}`} />
+            <span className="text-xs text-slate-400 uppercase tracking-wider">
+              Status do Estoque: {stats.percentual_disponivel < 10 ? 'Crítico' : stats.percentual_disponivel < 30 ? 'Atenção' : 'OK'}
             </span>
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-500 ${
-                stats.percentual_disponivel < 10
-                  ? 'bg-red-500'
-                  : stats.percentual_disponivel < 30
-                  ? 'bg-yellow-500'
-                  : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(stats.percentual_disponivel, 100)}%` }}
-            />
+          <span className={`text-sm font-bold ${stats.percentual_disponivel < 10 ? 'text-alert glow-text-alert' : 'text-cyan glow-text-cyan'}`}>
+            {stats.percentual_disponivel}%
+          </span>
+        </div>
+        <div className="w-full bg-navy-900/80 rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
+              stats.percentual_disponivel < 10
+                ? 'bg-gradient-to-r from-alert to-alert/70'
+                : stats.percentual_disponivel < 30
+                ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
+                : 'bg-gradient-to-r from-cyan to-cyan/70'
+            }`}
+            style={{ width: `${Math.min(stats.percentual_disponivel, 100)}%` }}
+          >
+            <div className="absolute inset-0 bg-white/20 animate-pulse" />
           </div>
         </div>
-      )}
+        <div className="flex justify-between mt-2 text-[10px] text-slate-500">
+          <span>0%</span>
+          <span>50%</span>
+          <span>100%</span>
+        </div>
+      </div>
     </div>
   );
 }

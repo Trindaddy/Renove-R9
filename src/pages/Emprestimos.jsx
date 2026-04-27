@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/Button.jsx';
 import EmprestimoForm from '../components/EmprestimoForm.jsx';
 import DashboardCards from '../components/DashboardCards.jsx';
+import IAWidget from '../components/IAWidget.jsx';
 import {
   listarEmprestimos,
   criarEmprestimoRapido,
@@ -31,6 +32,7 @@ export default function Emprestimos() {
   const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       const [s, a, e] = await Promise.all([
         getDashboardStats(),
         getAlertaEscassez(),
@@ -50,7 +52,6 @@ export default function Emprestimos() {
     carregarDados();
   }, [carregarDados]);
 
-  // Escutar atualizações via WebSocket
   useEffect(() => {
     if (lastMessage?.type === 'disponibilidade_update') {
       setStats(lastMessage.data);
@@ -79,6 +80,8 @@ export default function Emprestimos() {
     if (!window.confirm('Confirmar devolução deste notebook?')) return;
     try {
       setLoadingAction(true);
+      setError('');
+      setSuccess('');
       await devolverEmprestimo(id);
       setSuccess('Devolução registrada com sucesso!');
       await carregarDados();
@@ -93,6 +96,8 @@ export default function Emprestimos() {
     if (!window.confirm('Deseja cancelar este empréstimo?')) return;
     try {
       setLoadingAction(true);
+      setError('');
+      setSuccess('');
       await cancelarEmprestimo(id);
       setSuccess('Empréstimo cancelado com sucesso!');
       await carregarDados();
@@ -105,128 +110,167 @@ export default function Emprestimos() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold">Empréstimo de Notebooks</h1>
-        <p className="text-sm text-slate-400">
-          Gerencie empréstimos em tempo real com disponibilidade instantânea.
-        </p>
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-navy-500/20">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="h-px w-8 bg-gradient-to-r from-cyan to-transparent" />
+            <span className="text-[10px] uppercase tracking-[0.3em] text-cyan/60">Módulo de Operações</span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-100 tracking-tight">
+            Empréstimo de <span className="text-cyan glow-text-cyan">Notebooks</span>
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Gerencie empréstimos em tempo real com disponibilidade instantânea via WebSocket.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`h-2 w-2 rounded-full ${stats?.percentual_disponivel < 10 ? 'bg-alert animate-pulse' : 'bg-cyan'}`} />
+          <span className="text-xs text-slate-500 font-mono">
+            WS: {lastMessage ? 'ONLINE' : 'CONNECTING...'}
+          </span>
+        </div>
       </header>
 
+      {/* Dashboard Cards */}
       <DashboardCards stats={stats} alerta={alerta} />
 
+      {/* Alerts */}
       {error && (
-        <p className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded px-3 py-2">
-          {error}
-        </p>
+        <div className="bg-red-950/30 border border-red-800/30 rounded-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-red-400">✕</span>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
 
       {success && (
-        <p className="text-sm text-emerald-300 bg-emerald-950/40 border border-emerald-900 rounded px-3 py-2">
-          {success}
-        </p>
+        <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-emerald-400">✓</span>
+          <p className="text-sm text-emerald-400">{success}</p>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Left Column - Form */}
         {isProfessorOuTi && (
-          <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-4 lg:col-span-1">
-            <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
+          <div className="xl:col-span-3 space-y-4">
+            <div className="glass-card-alert p-5 scan-line">
+              <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
+            </div>
+            <IAWidget stats={stats} />
           </div>
         )}
 
-        <div className={`lg:col-span-${isProfessorOuTi ? '2' : '3'} bg-slate-900/70 border border-slate-800 rounded-lg overflow-hidden`}>
-          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">
-              Empréstimos
-            </h2>
-            <select
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
-            >
-              <option value="">Todos</option>
-              <option value="Ativo">Ativos</option>
-              <option value="Devolvido">Devolvidos</option>
-              <option value="Atrasado">Atrasados</option>
-              <option value="Cancelado">Cancelados</option>
-            </select>
-          </div>
+        {/* Right Column - Table */}
+        <div className={`${isProfessorOuTi ? 'xl:col-span-9' : 'xl:col-span-12'}`}>
+          <div className="glass-card overflow-hidden">
+            {/* Table Header */}
+            <div className="px-5 py-4 border-b border-navy-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-cyan/60" />
+                <h2 className="text-sm font-bold tracking-wider text-slate-200 uppercase">
+                  Movimentações Ativas
+                </h2>
+              </div>
+              <select
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className="tech-select text-xs w-full sm:w-auto"
+              >
+                <option value="">Todos os Status</option>
+                <option value="Ativo">No Prazo</option>
+                <option value="Atrasado">Atrasados</option>
+                <option value="Devolvido">Devolvidos</option>
+                <option value="Cancelado">Cancelados</option>
+              </select>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-900/90 text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="text-left px-3 py-2">ID</th>
-                  <th className="text-left px-3 py-2">Notebook</th>
-                  <th className="text-left px-3 py-2">Usuário</th>
-                  <th className="text-left px-3 py-2">Status</th>
-                  <th className="text-left px-3 py-2">Saída</th>
-                  <th className="text-left px-3 py-2">Previsto</th>
-                  <th className="text-right px-3 py-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="tech-table-header">
                   <tr>
-                    <td colSpan={7} className="px-3 py-4 text-center text-xs text-slate-400">
-                      Carregando...
-                    </td>
+                    <th className="text-left px-5 py-3 font-mono">ID</th>
+                    <th className="text-left px-5 py-3">Notebook</th>
+                    <th className="text-left px-5 py-3">Usuário</th>
+                    <th className="text-left px-5 py-3">Status</th>
+                    <th className="text-left px-5 py-3 font-mono">Retirada</th>
+                    <th className="text-left px-5 py-3 font-mono">Devolução Prevista</th>
+                    <th className="text-right px-5 py-3">Ações</th>
                   </tr>
-                )}
-
-                {!loading && emprestimos.map((emp) => (
-                  <tr key={emp.id} className="border-t border-slate-800/80 hover:bg-slate-800/40">
-                    <td className="px-3 py-2 font-mono text-xs">{emp.id}</td>
-                    <td className="px-3 py-2 text-xs">
-                      <span className="font-mono">{emp.notebook?.patrimonio}</span>
-                      <p className="text-slate-500">{emp.notebook?.modelo}</p>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {emp.usuario?.nome}
-                      <p className="text-slate-500">{emp.usuario?.matricula}</p>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      <StatusBadge status={emp.status} />
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-400">
-                      {formatDate(emp.data_emprestimo)}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-400">
-                      {formatDate(emp.data_prevista_devolucao)}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-right">
-                      {emp.status === 'Ativo' && isProfessorOuTi && (
-                        <div className="inline-flex gap-1">
-                          <Button
-                            variant="ghost"
-                            className="px-2 py-1 text-[11px] text-emerald-400"
-                            onClick={() => handleDevolver(emp.id)}
-                            disabled={loadingAction}
-                          >
-                            Devolver
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="px-2 py-1 text-[11px] text-red-400"
-                            onClick={() => handleCancelar(emp.id)}
-                            disabled={loadingAction}
-                          >
-                            Cancelar
-                          </Button>
+                </thead>
+                <tbody>
+                  {loading && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
+                          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
+                          <span className="text-xs text-slate-500 ml-2">Sincronizando dados...</span>
                         </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  )}
 
-                {!loading && emprestimos.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-4 text-center text-xs text-slate-400">
-                      Nenhum empréstimo encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {!loading && emprestimos.map((emp) => (
+                    <tr key={emp.id} className="tech-table-row">
+                      <td className="px-5 py-3.5 font-mono text-xs text-slate-400">
+                        #{emp.id.toString().padStart(4, '0')}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="font-mono text-xs text-cyan/80">{emp.notebook?.patrimonio}</span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{emp.notebook?.modelo}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <p className="text-xs text-slate-200">{emp.usuario?.nome}</p>
+                        <p className="text-[11px] text-slate-500 font-mono">{emp.usuario?.matricula}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={emp.status} />
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">
+                        {formatDate(emp.data_emprestimo)}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">
+                        {formatDate(emp.data_prevista_devolucao)}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {emp.status === 'Ativo' && isProfessorOuTi && (
+                          <div className="inline-flex gap-1">
+                            <Button
+                              variant="success"
+                              className="px-2.5 py-1 text-[11px]"
+                              onClick={() => handleDevolver(emp.id)}
+                              disabled={loadingAction}
+                            >
+                              Devolver
+                            </Button>
+                            <Button
+                              variant="danger"
+                              className="px-2.5 py-1 text-[11px]"
+                              onClick={() => handleCancelar(emp.id)}
+                              disabled={loadingAction}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {!loading && emprestimos.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-center">
+                        <p className="text-xs text-slate-500">Nenhum empréstimo encontrado para os filtros selecionados.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -236,21 +280,28 @@ export default function Emprestimos() {
 
 function StatusBadge({ status }) {
   const styles = {
-    'Ativo': 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40',
-    'Devolvido': 'bg-blue-500/10 text-blue-300 border border-blue-500/40',
-    'Atrasado': 'bg-red-500/10 text-red-300 border border-red-500/40',
-    'Cancelado': 'bg-slate-500/10 text-slate-300 border border-slate-500/40'
+    'Ativo': 'bg-cyan-dim text-cyan border-cyan/20',
+    'Devolvido': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'Atrasado': 'bg-alert-dim text-alert border-alert/20 glow-text-alert',
+    'Cancelado': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+  };
+
+  const labels = {
+    'Ativo': 'No Prazo',
+    'Devolvido': 'Devolvido',
+    'Atrasado': 'Atrasado',
+    'Cancelado': 'Cancelado'
   };
 
   return (
-    <span className={`px-2 py-1 rounded-full text-[11px] ${styles[status] || styles['Cancelado']}`}>
-      {status}
+    <span className={`status-badge border ${styles[status] || styles['Cancelado']}`}>
+      {labels[status] || status}
     </span>
   );
 }
 
 function formatDate(dateString) {
-  if (!dateString) return '-';
+  if (!dateString) return '--/-- --:--';
   const d = new Date(dateString);
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit',

@@ -2,7 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+
 body {
-  @apply bg-slate-900 text-slate-100;
+  @apply bg-navy-900 text-slate-100 font-sans;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(100,255,218,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255,159,67,0.03) 0%, transparent 50%);
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-navy-700/60 backdrop-blur-md border border-navy-500/30 rounded-xl;
+    box-shadow: 0 10px 30px -10px rgba(2,12,27,0.7);
+  }
+  
+  .glass-card-alert {
+    @apply bg-navy-700/60 backdrop-blur-md border border-alert/30 rounded-xl;
+    box-shadow: 0 10px 30px -10px rgba(255,159,67,0.1);
+  }
+  
+  .glass-card-cyan {
+    @apply bg-navy-700/60 backdrop-blur-md border border-cyan/30 rounded-xl;
+    box-shadow: 0 10px 30px -10px rgba(100,255,218,0.1);
+  }
+  
+  .tech-input {
+    @apply bg-navy-900/80 border border-navy-500/50 rounded-lg px-4 py-2.5 text-sm 
+           text-slate-100 placeholder-slate-500
+           focus:outline-none focus:border-cyan/50 focus:shadow-glow-cyan
+           transition-all duration-300;
+  }
+  
+  .tech-select {
+    @apply bg-navy-900/80 border border-navy-500/50 rounded-lg px-3 py-2 text-sm 
+           text-slate-100 focus:outline-none focus:border-cyan/50 focus:shadow-glow-cyan
+           transition-all duration-300;
+  }
+  
+  .tech-table-header {
+    @apply bg-navy-800/90 text-[11px] uppercase tracking-wider text-cyan/70 font-medium;
+  }
+  
+  .tech-table-row {
+    @apply border-t border-navy-500/20 hover:bg-navy-600/30 transition-colors;
+  }
+  
+  .status-badge {
+    @apply px-2.5 py-0.5 rounded-full text-[11px] font-medium tracking-wide;
+  }
+  
+  .glow-text-cyan {
+    text-shadow: 0 0 10px rgba(100,255,218,0.3);
+  }
+  
+  .glow-text-alert {
+    text-shadow: 0 0 10px rgba(255,159,67,0.3);
+  }
+  
+  .scan-line {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .scan-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(100,255,218,0.3), transparent);
+    animation: scan 4s linear infinite;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a192f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #172a45;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1d3557;
 }
 
