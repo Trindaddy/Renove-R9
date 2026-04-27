@@ -70,7 +70,7 @@ class Historico(Base):
     status_anterior = Column(String(20))
     status_novo = Column(String(20))
     descricao = Column(Text)
-    metadata = Column(Text)
+    informacoes_adicionais = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
