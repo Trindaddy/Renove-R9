@@ -1,5 +1,5 @@
 from fastapi import WebSocket, WebSocketDisconnect
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 import asyncio
 from datetime import datetime

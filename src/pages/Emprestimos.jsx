@@ -109,13 +109,13 @@ export default function Emprestimos() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-navy-500/20">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="h-px w-8 bg-gradient-to-r from-cyan to-transparent" />
-            <span className="text-[10px] uppercase tracking-[0.3em] text-cyan/60">Módulo de Operações</span>
+            <span className="text-[10px] uppercase tracking-[0.3em] text-cyan/60 font-medium">Módulo de Operações</span>
           </div>
           <h1 className="text-2xl font-black text-slate-100 tracking-tight">
             Empréstimo de <span className="text-cyan glow-text-cyan">Notebooks</span>
@@ -124,11 +124,19 @@ export default function Emprestimos() {
             Gerencie empréstimos em tempo real com disponibilidade instantânea via WebSocket.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${stats?.percentual_disponivel < 10 ? 'bg-alert animate-pulse' : 'bg-cyan'}`} />
-          <span className="text-xs text-slate-500 font-mono">
-            WS: {lastMessage ? 'ONLINE' : 'CONNECTING...'}
-          </span>
+        <div className="flex items-center gap-3">
+          {alerta?.alerta_ativo && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-alert/10 border border-alert/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-alert animate-pulse" />
+              <span className="text-[10px] font-bold text-alert uppercase tracking-wider">Alerta Ativo</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-navy-800/50 border border-navy-500/20">
+            <span className={`h-1.5 w-1.5 rounded-full ${lastMessage ? 'bg-cyan animate-pulse' : 'bg-slate-600'}`} />
+            <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
+              {lastMessage ? 'Live' : 'Syncing'}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -137,15 +145,19 @@ export default function Emprestimos() {
 
       {/* Alerts */}
       {error && (
-        <div className="bg-red-950/30 border border-red-800/30 rounded-lg px-4 py-3 flex items-center gap-3">
-          <span className="text-red-400">✕</span>
+        <div className="bg-red-950/30 border border-red-800/30 rounded-lg px-4 py-3 flex items-center gap-3 animate-[slideIn_0.3s_ease-out]">
+          <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
           <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg px-4 py-3 flex items-center gap-3">
-          <span className="text-emerald-400">✓</span>
+        <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg px-4 py-3 flex items-center gap-3 animate-[slideIn_0.3s_ease-out]">
+          <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
           <p className="text-sm text-emerald-400">{success}</p>
         </div>
       )}
@@ -155,7 +167,7 @@ export default function Emprestimos() {
         {/* Left Column - Form */}
         {isProfessorOuTi && (
           <div className="xl:col-span-3 space-y-4">
-            <div className="glass-card-alert p-5 scan-line">
+            <div className="glass-card-alert p-5 scan-line sticky top-24">
               <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
             </div>
             <IAWidget stats={stats} />
@@ -167,11 +179,16 @@ export default function Emprestimos() {
           <div className="glass-card overflow-hidden">
             {/* Table Header */}
             <div className="px-5 py-4 border-b border-navy-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-cyan/60" />
-                <h2 className="text-sm font-bold tracking-wider text-slate-200 uppercase">
-                  Movimentações Ativas
-                </h2>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-cyan/10 border border-cyan/20 flex items-center justify-center">
+                  <span className="text-cyan text-xs">◈</span>
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold tracking-wider text-slate-200 uppercase">
+                    Movimentações Ativas
+                  </h2>
+                  <p className="text-[10px] text-slate-500">{emprestimos.length} registro(s) encontrado(s)</p>
+                </div>
               </div>
               <select
                 value={filtroStatus}
@@ -215,9 +232,9 @@ export default function Emprestimos() {
                   )}
 
                   {!loading && emprestimos.map((emp) => (
-                    <tr key={emp.id} className="tech-table-row">
+                    <tr key={emp.id} className="tech-table-row group">
                       <td className="px-5 py-3.5 font-mono text-xs text-slate-400">
-                        #{emp.id.toString().padStart(4, '0')}
+                        #{emp.id?.toString().padStart(4, '0')}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="font-mono text-xs text-cyan/80">{emp.notebook?.patrimonio}</span>
@@ -238,7 +255,7 @@ export default function Emprestimos() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         {emp.status === 'Ativo' && isProfessorOuTi && (
-                          <div className="inline-flex gap-1">
+                          <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="success"
                               className="px-2.5 py-1 text-[11px]"
@@ -263,8 +280,11 @@ export default function Emprestimos() {
 
                   {!loading && emprestimos.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-5 py-8 text-center">
-                        <p className="text-xs text-slate-500">Nenhum empréstimo encontrado para os filtros selecionados.</p>
+                      <td colSpan={7} className="px-5 py-10 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="text-2xl opacity-20">◈</span>
+                          <p className="text-xs text-slate-500">Nenhum empréstimo encontrado para os filtros selecionados.</p>
+                        </div>
                       </td>
                     </tr>
                   )}

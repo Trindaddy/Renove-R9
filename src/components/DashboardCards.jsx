@@ -1,119 +1,111 @@
 import React from 'react';
 
 export default function DashboardCards({ stats, alerta }) {
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="glass-card p-5 h-28 shimmer" />
+        ))}
+      </div>
+    );
+  }
 
   const cards = [
     {
       label: 'Total de Notebooks',
-      value: stats.total,
-      icon: '💻',
+      value: stats.total || 0,
+      icon: '▣',
       color: 'text-slate-100',
-      bg: 'bg-navy-700/50',
-      border: 'border-navy-500/30',
-      glow: ''
+      accent: 'border-cyan/20',
+      bg: 'bg-cyan/5',
+      desc: 'Unidades cadastradas'
     },
     {
-      label: 'Disponíveis Agora',
-      value: stats.disponiveis,
-      sub: `${stats.percentual_disponivel}% do total`,
-      icon: '●',
+      label: 'Disponíveis',
+      value: stats.disponiveis || 0,
+      icon: '◉',
       color: 'text-cyan',
-      bg: 'bg-cyan-dim',
-      border: 'border-cyan/20',
-      glow: 'shadow-glow-cyan'
+      accent: 'border-cyan/30',
+      bg: 'bg-cyan/10',
+      desc: 'Prontos para uso',
+      glow: true
     },
     {
-      label: 'Empréstimos Ativos',
-      value: stats.emprestimos_ativos,
-      icon: '🔄',
-      color: 'text-slate-100',
-      bg: 'bg-navy-700/50',
-      border: 'border-navy-500/30',
-      glow: ''
-    },
-    {
-      label: 'Em Manutenção',
-      value: stats.manutencao,
-      icon: '🔧',
+      label: 'Em Uso',
+      value: stats.emprestados || 0,
+      icon: '◈',
       color: 'text-alert',
-      bg: 'bg-alert-dim',
-      border: 'border-alert/20',
-      glow: 'shadow-glow-alert'
+      accent: 'border-alert/30',
+      bg: 'bg-alert/10',
+      desc: 'Empréstimos ativos'
+    },
+    {
+      label: 'Manutenção',
+      value: stats.manutencao || 0,
+      icon: '◐',
+      color: 'text-slate-400',
+      accent: 'border-slate-500/30',
+      bg: 'bg-slate-500/10',
+      desc: 'Indisponíveis'
     }
   ];
 
+  const percentual = stats.percentual_disponivel || 0;
+  const barColor = percentual < 10 ? 'bg-alert' : percentual < 30 ? 'bg-yellow-400' : 'bg-cyan';
+  const barGlow = percentual < 10 ? 'shadow-glow-alert' : 'shadow-glow-cyan';
+
   return (
     <div className="space-y-4">
-      {/* Alerta de Escassez */}
-      {alerta?.ativo && (
-        <div className="glass-card-alert p-4 flex items-center gap-4 animate-pulse-slow">
-          <div className="h-10 w-10 rounded-full bg-alert/20 flex items-center justify-center text-lg">
-            ⚠️
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-alert tracking-wide uppercase">Alerta de Escassez</p>
-            <p className="text-xs text-alert/80 mt-0.5">{alerta.mensagem}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-black text-alert">{alerta.percentual_atual}%</p>
-            <p className="text-[10px] text-alert/60 uppercase tracking-wider">disponível</p>
-          </div>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => (
           <div
             key={card.label}
-            className={`${card.bg} border ${card.border} rounded-xl p-4 ${card.glow} transition-all duration-300 hover:border-opacity-50`}
+            className={`glass-card p-5 relative overflow-hidden group hover:border-opacity-40 transition-all duration-500 ${card.accent}`}
           >
-            <div className="flex items-start justify-between mb-2">
-              <p className="text-[10px] uppercase tracking-[0.15em] text-slate-400">{card.label}</p>
-              <span className="text-lg opacity-50">{card.icon}</span>
+            {/* Background Glow */}
+            <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full ${card.bg} blur-2xl opacity-50 group-hover:opacity-80 transition-opacity`} />
+
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <span className={`text-lg ${card.color} ${card.glow ? 'glow-text-cyan' : ''}`}>{card.icon}</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">{card.desc}</span>
+              </div>
+              <p className={`text-3xl font-black tracking-tight ${card.color} ${card.glow ? 'glow-text-cyan' : ''}`}>
+                {card.value}
+              </p>
+              <p className="text-xs text-slate-400 mt-1 font-medium">{card.label}</p>
             </div>
-            <p className={`text-3xl font-black ${card.color} ${card.color === 'text-cyan' ? 'glow-text-cyan' : ''}`}>
-              {card.value}
-            </p>
-            {card.sub && (
-              <p className="text-[11px] text-cyan/60 mt-1">{card.sub}</p>
-            )}
           </div>
         ))}
       </div>
 
-      {/* Barra de disponibilidade */}
+      {/* Availability Bar */}
       <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${stats.percentual_disponivel < 10 ? 'bg-alert animate-pulse' : 'bg-cyan'}`} />
-            <span className="text-xs text-slate-400 uppercase tracking-wider">
-              Status do Estoque: {stats.percentual_disponivel < 10 ? 'Crítico' : stats.percentual_disponivel < 30 ? 'Atenção' : 'OK'}
-            </span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-medium">Disponibilidade do Parque</span>
+            {alerta?.alerta_ativo && (
+              <span className="px-2 py-0.5 rounded-full bg-alert/10 border border-alert/30 text-alert text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                Alerta de Escassez
+              </span>
+            )}
           </div>
-          <span className={`text-sm font-bold ${stats.percentual_disponivel < 10 ? 'text-alert glow-text-alert' : 'text-cyan glow-text-cyan'}`}>
-            {stats.percentual_disponivel}%
+          <span className={`text-sm font-black font-mono ${percentual < 10 ? 'text-alert glow-text-alert' : 'text-cyan'}`}>
+            {percentual.toFixed(1)}%
           </span>
         </div>
-        <div className="w-full bg-navy-900/80 rounded-full h-2 overflow-hidden">
+        <div className="h-2 bg-navy-900/80 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
-              stats.percentual_disponivel < 10
-                ? 'bg-gradient-to-r from-alert to-alert/70'
-                : stats.percentual_disponivel < 30
-                ? 'bg-gradient-to-r from-yellow-500 to-yellow-400'
-                : 'bg-gradient-to-r from-cyan to-cyan/70'
-            }`}
-            style={{ width: `${Math.min(stats.percentual_disponivel, 100)}%` }}
-          >
-            <div className="absolute inset-0 bg-white/20 animate-pulse" />
-          </div>
+            className={`h-full rounded-full transition-all duration-1000 ease-out ${barColor} ${barGlow}`}
+            style={{ width: `${Math.max(percentual, 3)}%` }}
+          />
         </div>
-        <div className="flex justify-between mt-2 text-[10px] text-slate-500">
-          <span>0%</span>
-          <span>50%</span>
-          <span>100%</span>
+        <div className="flex justify-between mt-1.5">
+          <span className="text-[10px] text-slate-600">0%</span>
+          <span className="text-[10px] text-slate-600">50%</span>
+          <span className="text-[10px] text-slate-600">100%</span>
         </div>
       </div>
     </div>
