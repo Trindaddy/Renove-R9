@@ -2,14 +2,20 @@
 R9 - Seed de dados para teste
 Execute: python seed.py
 """
+from passlib.context import CryptContext
 import sys
 import os
+import logging
+# Isso silencia o aviso de erro de versão que não impede o funcionamento
+logging.getLogger("passlib").setLevel(logging.ERROR) 
+
+# Certifique-se de que o pwd_context está assim:
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import SessionLocal, engine
 from models import Base, Usuario, Notebook, Configuracao
-from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def seed():
     Base.metadata.create_all(bind=engine)

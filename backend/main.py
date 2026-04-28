@@ -30,18 +30,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+# CORS — permitir todas as origens para desenvolvimento local
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"], # Endereço do Live Server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Configurações de segurança
-SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-secreta-super-segura")
+SECRET_KEY = os.getenv("SECRET_KEY", "SNC@1234")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
