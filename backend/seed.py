@@ -83,34 +83,44 @@ def seed():
         db.commit()
         print(f"✅ {len(usuarios)} usuários criados")
         
-        # Notebooks de teste
-        notebooks = [
-            Notebook(patrimonio="NB-001", modelo="Dell Latitude 3420", marca="Dell", local="Lab 1", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-002", modelo="Dell Latitude 3420", marca="Dell", local="Lab 1", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-003", modelo="Dell Latitude 3420", marca="Dell", local="Lab 1", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-004", modelo="Dell Latitude 3420", marca="Dell", local="Lab 1", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-005", modelo="Dell Latitude 3420", marca="Dell", local="Lab 1", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-006", modelo="Dell Latitude 3420", marca="Dell", local="Lab 2", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-007", modelo="Dell Latitude 3420", marca="Dell", local="Lab 2", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-008", modelo="Dell Latitude 3420", marca="Dell", local="Lab 2", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-009", modelo="Dell Latitude 3420", marca="Dell", local="Lab 2", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-010", modelo="Dell Latitude 3420", marca="Dell", local="Lab 2", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-011", modelo="Lenovo ThinkPad E14", marca="Lenovo", local="Estoque", status="Disponível", condicao="Novo"),
-            Notebook(patrimonio="NB-012", modelo="Lenovo ThinkPad E14", marca="Lenovo", local="Estoque", status="Disponível", condicao="Novo"),
-            Notebook(patrimonio="NB-013", modelo="Lenovo ThinkPad E14", marca="Lenovo", local="Estoque", status="Disponível", condicao="Novo"),
-            Notebook(patrimonio="NB-014", modelo="Lenovo ThinkPad E14", marca="Lenovo", local="Estoque", status="Disponível", condicao="Novo"),
-            Notebook(patrimonio="NB-015", modelo="Lenovo ThinkPad E14", marca="Lenovo", local="Estoque", status="Disponível", condicao="Novo"),
-            Notebook(patrimonio="NB-016", modelo="HP ProBook 440", marca="HP", local="Manutenção", status="Manutenção", condicao="Regular", observacoes="Troca de teclado"),
-            Notebook(patrimonio="NB-017", modelo="HP ProBook 440", marca="HP", local="Manutenção", status="Manutenção", condicao="Ruim", observacoes="Problema na placa mãe"),
-            Notebook(patrimonio="NB-018", modelo="HP ProBook 440", marca="HP", local="Lab 3", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-019", modelo="HP ProBook 440", marca="HP", local="Lab 3", status="Disponível", condicao="Bom"),
-            Notebook(patrimonio="NB-020", modelo="HP ProBook 440", marca="HP", local="Lab 3", status="Disponível", condicao="Bom"),
-        ]
-        
-        for n in notebooks:
-            db.add(n)
+        # Notebooks de teste (sequência exata de patrimônio: 37568 a 37608)
+        # Requisitos: loop limpo + commit.
+        notebooks = []
+
+        for patrimonio in range(37568, 37609):
+            # Modelos/locais simples para variar visualmente os dados
+            if patrimonio % 5 == 0:
+                local = "Manutenção"
+                status = "Manutenção"
+                condicao = "Regular"
+                observacoes = "Setup de manutenção (seed)"
+            elif patrimonio % 7 == 0:
+                local = "Estoque"
+                status = "Disponível"
+                condicao = "Novo"
+                observacoes = None
+            else:
+                local = "Lab 1" if patrimonio % 2 == 0 else "Lab 2"
+                status = "Disponível"
+                condicao = "Bom"
+                observacoes = None
+
+            notebooks.append(
+                Notebook(
+                    patrimonio=str(patrimonio),
+                    modelo="Dell Latitude 3420" if patrimonio % 3 != 0 else "Lenovo ThinkPad E14",
+                    marca="Dell" if patrimonio % 3 != 0 else "Lenovo",
+                    local=local,
+                    status=status,
+                    condicao=condicao,
+                    observacoes=observacoes,
+                )
+            )
+
+        db.add_all(notebooks)
         db.commit()
-        print(f"✅ {len(notebooks)} notebooks criados")
+        print(f"✅ {len(notebooks)} notebooks criados (37568..37608)")
+
         
         # Configurações
         configs = [
