@@ -26,9 +26,12 @@ export default function Equipamentos() {
     load();
   }, []);
 
-  const filtrados = equipamentos.filter((eq) =>
-    eq.id?.toLowerCase().includes(busca.toLowerCase())
-  );
+  const filtrados = equipamentos.filter((eq) => {
+    const idStr = (eq?.id ?? '').toString().toLowerCase();
+    const q = (busca ?? '').toLowerCase();
+    return idStr.includes(q);
+  });
+
 
   return (
     <div className="space-y-4">

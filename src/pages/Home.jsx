@@ -34,7 +34,15 @@ export default function Home() {
     load();
   }, [user]);
 
-  if (!user) return null;
+  if (!user) {
+    // Evita “tela em branco” caso AuthProvider ainda esteja inicializando ou token falhou.
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-sm text-slate-400">Carregando usuário...</div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">

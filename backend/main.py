@@ -30,10 +30,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS — permitir todas as origens para desenvolvimento local
+# CORS — permitir origem do frontend em produção
+# Defina CORS_ORIGINS no formato: "https://dominio.com,http://localhost:5173"
+_default_origins = os.getenv("CORS_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500")
+allow_list = [o.strip() for o in _default_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"], # Endereço do Live Server
+    allow_origins=allow_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

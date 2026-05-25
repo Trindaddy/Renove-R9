@@ -1,7 +1,9 @@
 import api from './api';
 
 export async function listarEquipamentos() {
-  const response = await api.get('/equipamentos');
+  // Backend usa /notebooks para inventário de computadores.
+  const response = await api.get('/notebooks');
   return response.data;
 }
+
 
