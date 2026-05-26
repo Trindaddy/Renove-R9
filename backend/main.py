@@ -3,7 +3,7 @@ R9 - Renove: Sistema de Gestão de Notebooks
 Backend FastAPI - Módulo de Empréstimo
 """
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from passlib.context import CryptContext
 import os
 
 from database import engine, SessionLocal, get_db
+import models
 from models import Base
 import crud
 import schemas
@@ -49,7 +50,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "SNC@1234")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ==================== UTILITÁRIOS DE AUTENTICAÇÃO ====================
@@ -192,7 +193,7 @@ def create_notebook(
     return crud.create_notebook(db, notebook)
 
 @app.patch("/notebooks/{notebook_id}", response_model=schemas.NotebookResponse)
-def update_notebook(
+async def update_notebook(
     notebook_id: int,
     notebook_update: schemas.NotebookUpdate,
     db: Session = Depends(get_db),
@@ -203,7 +204,13 @@ def update_notebook(
     nb = crud.update_notebook(db, notebook_id, notebook_update)
     if not nb:
         raise HTTPException(status_code=404, detail="Notebook não encontrado")
+        
+    stats = crud.get_dashboard_stats(db)
+    import asyncio
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
     return nb
+
 
 # ==================== ROTAS DE EMPRÉSTIMOS ====================
 
@@ -234,7 +241,7 @@ def get_emprestimo(
     return emp
 
 @app.post("/emprestimos", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
-def create_emprestimo(
+async def create_emprestimo(
     emprestimo: schemas.EmprestimoCreate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
@@ -247,6 +254,10 @@ def create_emprestimo(
     try:
         result = crud.criar_emprestimo(db, emprestimo, responsavel_id=current_user.id)
         
+        # Eagerly load fields to prevent DetachedInstanceError in background task
+        patrimonio = result.notebook.patrimonio if result.notebook else ""
+        usuario_nome = result.usuario.nome if result.usuario else ""
+        
         # Broadcast via WebSocket
         stats = crud.get_dashboard_stats(db)
         await_any = broadcast_disponibilidade(stats.__dict__)
@@ -254,8 +265,8 @@ def create_emprestimo(
         asyncio.create_task(await_any)
         asyncio.create_task(broadcast_emprestimo_realizado({
             "id": result.id,
-            "notebook_patrimonio": result.notebook.patrimonio,
-            "usuario_nome": result.usuario.nome,
+            "notebook_patrimonio": patrimonio,
+            "usuario_nome": usuario_nome,
             "status": result.status
         }))
         
@@ -263,8 +274,11 @@ def create_emprestimo(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+
+
 @app.post("/emprestimos/rapido", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
-def create_emprestimo_rapido(
+async def create_emprestimo_rapido(
     dados: schemas.EmprestimoRapido,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
@@ -276,13 +290,17 @@ def create_emprestimo_rapido(
     try:
         result = crud.criar_emprestimo_rapido(db, dados, responsavel_id=current_user.id)
         
+        # Eagerly load fields to prevent DetachedInstanceError in background task
+        patrimonio = result.notebook.patrimonio if result.notebook else ""
+        usuario_nome = result.usuario.nome if result.usuario else ""
+        
         stats = crud.get_dashboard_stats(db)
         import asyncio
         asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
         asyncio.create_task(broadcast_emprestimo_realizado({
             "id": result.id,
-            "notebook_patrimonio": result.notebook.patrimonio,
-            "usuario_nome": result.usuario.nome,
+            "notebook_patrimonio": patrimonio,
+            "usuario_nome": usuario_nome,
             "status": result.status
         }))
         
@@ -291,7 +309,7 @@ def create_emprestimo_rapido(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/emprestimos/{emprestimo_id}/devolver")
-def devolver_emprestimo(
+async def devolver_emprestimo(
     emprestimo_id: int,
     dados: schemas.EmprestimoDevolucao,
     db: Session = Depends(get_db),
@@ -302,13 +320,17 @@ def devolver_emprestimo(
     try:
         result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id)
         
+        # Eagerly load fields to prevent DetachedInstanceError in background task
+        patrimonio = result.notebook.patrimonio if result.notebook else ""
+        usuario_nome = result.usuario.nome if result.usuario else ""
+        
         stats = crud.get_dashboard_stats(db)
         import asyncio
         asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
         asyncio.create_task(broadcast_devolucao_realizada({
             "id": result.id,
-            "notebook_patrimonio": result.notebook.patrimonio,
-            "usuario_nome": result.usuario.nome
+            "notebook_patrimonio": patrimonio,
+            "usuario_nome": usuario_nome
         }))
         
         return {"message": "Devolução registrada com sucesso", "emprestimo": result}
@@ -316,7 +338,7 @@ def devolver_emprestimo(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/emprestimos/{emprestimo_id}/cancelar")
-def cancelar_emprestimo(
+async def cancelar_emprestimo(
     emprestimo_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
@@ -355,6 +377,140 @@ def get_historico_notebook(
 ):
     require_role(["ti", "professor"])(current_user)
     return crud.get_historico(db, notebook_id=notebook_id)
+
+# ==================== ROTAS DE TURMAS E RESERVAS ====================
+
+@app.get("/turmas", response_model=List[schemas.TurmaResponse])
+def list_turmas(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    db_turmas = db.query(models.Turma).all()
+    return [
+        schemas.TurmaResponse(
+            id=t.codigo_turma,
+            curso=t.nome_curso,
+            instrutor=t.instrutor,
+            carga_horaria=t.carga_horaria,
+            turno=t.turno,
+            regime_dias=t.regime_dias
+        )
+        for t in db_turmas
+    ]
+
+@app.get("/reservas", response_model=List[schemas.ReservaResponse])
+def list_reservas(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    db_reservas = db.query(models.Reserva).all()
+    return [
+        schemas.ReservaResponse(
+            id=r.id,
+            turma=r.turma_id,
+            data=r.data,
+            turno=r.turno,
+            quantidade=r.quantidade,
+            status=r.status,
+            usuario=r.usuario
+        )
+        for r in db_reservas
+    ]
+
+@app.post("/reservas", response_model=schemas.ReservaResponse, status_code=status.HTTP_201_CREATED)
+def create_reserva(
+    reserva: schemas.ReservaCreate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == reserva.turmaId).first()
+    if not turma_exists:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    db_reserva = models.Reserva(
+        turma_id=reserva.turmaId,
+        data=reserva.data,
+        turno=reserva.turno,
+        quantidade=reserva.quantidade,
+        status="Pendente",
+        usuario_id=current_user.id
+    )
+    db.add(db_reserva)
+    db.commit()
+    db.refresh(db_reserva)
+    
+    return schemas.ReservaResponse(
+        id=db_reserva.id,
+        turma=db_reserva.turma_id,
+        data=db_reserva.data,
+        turno=db_reserva.turno,
+        quantidade=db_reserva.quantidade,
+        status=db_reserva.status,
+        usuario=db_reserva.usuario
+    )
+
+@app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
+def update_reserva(
+    reserva_id: int,
+    reserva_update: schemas.ReservaUpdate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    db_reserva = db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
+    if not db_reserva:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada")
+        
+    update_data = reserva_update.model_dump(exclude_unset=True)
+    if "turmaId" in update_data:
+        turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == update_data["turmaId"]).first()
+        if not turma_exists:
+            raise HTTPException(status_code=404, detail="Turma não encontrada")
+        db_reserva.turma_id = update_data["turmaId"]
+        
+    if "data" in update_data:
+        db_reserva.data = update_data["data"]
+    if "turno" in update_data:
+        db_reserva.turno = update_data["turno"]
+    if "quantidade" in update_data:
+        db_reserva.quantidade = update_data["quantidade"]
+    if "status" in update_data:
+        db_reserva.status = update_data["status"]
+        
+    db.commit()
+    db.refresh(db_reserva)
+    
+    return schemas.ReservaResponse(
+        id=db_reserva.id,
+        turma=db_reserva.turma_id,
+        data=db_reserva.data,
+        turno=db_reserva.turno,
+        quantidade=db_reserva.quantidade,
+        status=db_reserva.status,
+        usuario=db_reserva.usuario
+    )
+
+@app.delete("/reservas/{reserva_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    db_reserva = db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
+    if not db_reserva:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada")
+        
+    db.delete(db_reserva)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 # ==================== ROTAS DE DASHBOARD ====================
 

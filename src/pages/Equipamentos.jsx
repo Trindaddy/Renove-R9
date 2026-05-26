@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Input from '../components/Input.jsx';
-import { listarEquipamentos } from '../services/equipamentosService';
+import { listarEquipamentos, atualizarEquipamento } from '../services/equipamentosService';
 import { EquipmentStatus, EquipmentStatusLabel } from '../enums/EquipmentStatus';
 
 export default function Equipamentos() {
@@ -9,29 +9,42 @@ export default function Equipamentos() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError('');
-        const data = await listarEquipamentos();
-        setEquipamentos(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError('Não foi possível carregar os equipamentos. Verifique a API.');
-      } finally {
-        setLoading(false);
-      }
+  async function load() {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await listarEquipamentos();
+      setEquipamentos(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError('Não foi possível carregar os equipamentos. Verifique a API.');
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     load();
   }, []);
 
+  async function handleToggleManutencao(id, novoStatus) {
+    try {
+      setLoading(true);
+      setError('');
+      await atualizarEquipamento(id, { status: novoStatus });
+      await load();
+    } catch (err) {
+      setError('Não foi possível alterar o status do equipamento.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const filtrados = equipamentos.filter((eq) => {
     const idStr = (eq?.id ?? '').toString().toLowerCase();
+    const patrimonioStr = (eq?.patrimonio ?? '').toString().toLowerCase();
     const q = (busca ?? '').toLowerCase();
-    return idStr.includes(q);
+    return idStr.includes(q) || patrimonioStr.includes(q);
   });
-
 
   return (
     <div className="space-y-4">
@@ -44,7 +57,7 @@ export default function Equipamentos() {
         </div>
         <div className="w-60">
           <Input
-            label="Buscar por ID"
+            label="Buscar por ID/Patrimônio"
             placeholder="Ex: NB-001"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -63,16 +76,18 @@ export default function Equipamentos() {
           <thead className="bg-slate-900/90 text-xs uppercase text-slate-400">
             <tr>
               <th className="text-left px-3 py-2">ID</th>
+              <th className="text-left px-3 py-2">Patrimônio</th>
               <th className="text-left px-3 py-2">Modelo</th>
               <th className="text-left px-3 py-2">Local</th>
               <th className="text-left px-3 py-2">Status</th>
+              <th className="text-right px-3 py-2">Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={6}
                   className="px-3 py-4 text-center text-xs text-slate-400"
                 >
                   Carregando equipamentos...
@@ -81,35 +96,60 @@ export default function Equipamentos() {
             )}
 
             {!loading &&
-              filtrados.map((eq) => (
-              <tr
-                key={eq.id}
-                className="border-t border-slate-800/80 hover:bg-slate-800/40"
-              >
-                <td className="px-3 py-2 font-mono text-xs">{eq.id}</td>
-                <td className="px-3 py-2">{eq.modelo}</td>
-                <td className="px-3 py-2 text-xs text-slate-300">{eq.local}</td>
-                <td className="px-3 py-2 text-xs">
-                  <span
-                    className={`px-2 py-1 rounded-full text-[11px] ${
-                      eq.status === 'Disponível'
-                        ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
-                        : eq.status === 'Em uso'
-                        ? 'bg-senac-orange/10 text-senac-orange border border-senac-orange/40'
-                        : eq.status === 'Manutenção'
-                        ? 'bg-red-500/10 text-red-300 border border-red-500/40'
-                        : 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/40'
-                    }`}
+              filtrados.map((eq) => {
+                const isEmprestadoOuUso = eq.status === 'Emprestado' || eq.status === 'Em uso';
+                return (
+                  <tr
+                    key={eq.id}
+                    className="border-t border-slate-800/80 hover:bg-slate-800/40"
                   >
-                    {eq.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
+                    <td className="px-3 py-2 font-mono text-xs">{eq.id}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{eq.patrimonio}</td>
+                    <td className="px-3 py-2">{eq.modelo}</td>
+                    <td className="px-3 py-2 text-xs text-slate-300">{eq.local}</td>
+                    <td className="px-3 py-2 text-xs">
+                      <span
+                        className={`px-2 py-1 rounded-full text-[11px] ${
+                          eq.status === 'Disponível'
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+                            : isEmprestadoOuUso
+                            ? 'bg-senac-orange/10 text-senac-orange border border-senac-orange/40'
+                            : eq.status === 'Manutenção'
+                            ? 'bg-red-500/10 text-red-300 border border-red-500/40'
+                            : 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/40'
+                        }`}
+                      >
+                        {eq.status === 'Emprestado' ? 'Em uso' : eq.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {eq.status === 'Disponível' && (
+                        <button
+                          onClick={() => handleToggleManutencao(eq.id, 'Manutenção')}
+                          className="px-2.5 py-1 text-[11px] rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-semibold"
+                        >
+                          Enviar para Manutenção
+                        </button>
+                      )}
+                      {eq.status === 'Manutenção' && (
+                        <button
+                          onClick={() => handleToggleManutencao(eq.id, 'Disponível')}
+                          className="px-2.5 py-1 text-[11px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all font-semibold"
+                        >
+                          Concluir Manutenção
+                        </button>
+                      )}
+                      {isEmprestadoOuUso && (
+                        <span className="text-[11px] text-slate-500 italic">Em uso ativo</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             {!loading && filtrados.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={6}
                   className="px-3 py-4 text-center text-xs text-slate-400"
                 >
                   Nenhum equipamento encontrado para o filtro informado.
@@ -122,4 +162,5 @@ export default function Equipamentos() {
     </div>
   );
 }
+
 

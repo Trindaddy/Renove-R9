@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from database import Base
 
 class Usuario(Base):
@@ -48,6 +49,10 @@ class Emprestimo(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
     status = Column(String(20), nullable=False, default='Ativo')
+
+    notebook = relationship("Notebook")
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+    responsavel = relationship("Usuario", foreign_keys=[responsavel_id])
     data_emprestimo = Column(DateTime(timezone=True), server_default=func.now())
     data_prevista_devolucao = Column(DateTime(timezone=True))
     data_devolucao = Column(DateTime(timezone=True))
@@ -66,6 +71,10 @@ class Historico(Base):
     notebook_id = Column(Integer, ForeignKey("notebooks.id"), nullable=False)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
+
+    notebook = relationship("Notebook")
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+    responsavel = relationship("Usuario", foreign_keys=[responsavel_id])
     tipo_movimentacao = Column(String(30), nullable=False)
     status_anterior = Column(String(20))
     status_novo = Column(String(20))
@@ -89,4 +98,31 @@ class Configuracao(Base):
     valor = Column(Text, nullable=False)
     descricao = Column(Text)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Turma(Base):
+    __tablename__ = "turmas"
+
+    codigo_turma = Column(String(50), primary_key=True, index=True)
+    nome_curso = Column(String(100), nullable=False)
+    instrutor = Column(String(100), nullable=False)
+    carga_horaria = Column(Integer, nullable=False)
+    turno = Column(String(50), nullable=False)
+    regime_dias = Column(String(100), nullable=False)
+
+
+class Reserva(Base):
+    __tablename__ = "reservas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    turma_id = Column(String(50), ForeignKey("turmas.codigo_turma"), nullable=False)
+    data = Column(String(50), nullable=False)
+    turno = Column(String(50), nullable=False)
+    quantidade = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False, default="Pendente")
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+    usuario = relationship("Usuario")
+
+
 

@@ -58,28 +58,28 @@ export default function Login() {
               <p className="text-base font-bold tracking-widest text-slate-100 uppercase">Renove <span className="text-cyan">R9</span></p>
               <p className="text-[10px] text-slate-500 tracking-[0.2em] uppercase">Sistema de Gestao de Ativos</p>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">E-mail Institucional</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu.email@senac.br" className="tech-input w-full" required />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">Senha</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="tech-input w-full" required />
-              </div>
-              {error && (
-                <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 flex items-center gap-2">
-                  <span className="text-red-400 text-xs">✕</span>
-                  <p className="text-xs text-red-400">{error}</p>
-                </div>
-              )}
-              <Button type="submit" className="w-full py-3 text-sm tracking-wider" disabled={loading}>
-                {loading ? 'Autenticando...' : 'Entrar no Sistema'}
-              </Button>
-            </form>
-            <div className="mt-6 pt-4 border-t border-navy-500/20">
-              <p className="text-[10px] text-center text-slate-600 tracking-wider">SENAC • Ambiente de Gestao de Notebooks</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">E-mail Institucional</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu.email@senac.br" className="tech-input w-full" required />
             </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">Senha</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="tech-input w-full" required />
+            </div>
+            {error && (
+              <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                <span className="text-red-400 text-xs">✕</span>
+                <p className="text-xs text-red-400">{error}</p>
+              </div>
+            )}
+            <Button type="submit" className="w-full py-3 text-sm tracking-wider" disabled={loading}>
+              {loading ? 'Autenticando...' : 'Entrar no Sistema'}
+            </Button>
+          </form>
+          <div className="mt-6 pt-4 border-t border-navy-500/20">
+            <p className="text-[10px] text-center text-slate-600 tracking-wider">SENAC • Ambiente de Gestao de Notebooks</p>
           </div>
         </div>
       </div>

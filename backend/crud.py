@@ -196,7 +196,7 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
         status_anterior="Disponível",
         status_novo="Emprestado",
         descricao=f"Empréstimo para {usuario.nome} ({usuario.matricula})",
-        metadata=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
+        informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
     ))
     
     verificar_e_notificar_escassez(db)
@@ -253,7 +253,7 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
         status_anterior="Emprestado",
         status_novo="Disponível",
         descricao=f"Devolução do notebook {notebook.patrimonio}",
-        metadata=json.dumps({"emprestimo_id": emprestimo.id})
+        informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id})
     ))
     
     return emprestimo
@@ -335,7 +335,7 @@ def verificar_e_notificar_escassez(db: Session):
                 notebook_id=notebook.id,
                 tipo_movimentacao=schemas.TipoMovimentacao.alerta_escassez,
                 descricao=alerta["mensagem"],
-                metadata=json.dumps({
+                informacoes_adicionais=json.dumps({
                     "percentual_atual": alerta["percentual_atual"],
                     "limite": alerta["limite_percentual"]
                 })

@@ -1,97 +1,18 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>R9 - Gestão de Notebooks</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root {
-            --senac-blue: #00264d;
-            --senac-orange: #ff8c00;
-        }
-        body { background-color: var(--senac-blue); color: white; }
-        .card-orange { border-top: 4px solid var(--senac-orange); }
-        .btn-orange { background-color: var(--senac-orange); transition: 0.3s; }
-        .btn-orange:hover { background-color: #e67e00; transform: scale(1.05); }
-    </style>
-</head>
-<body class="p-8">
-    <header class="flex justify-between items-center mb-10 border-b border-gray-700 pb-5">
-        <h1 class="text-3xl font-bold text-orange-500">RENOVE <span class="text-white text-sm font-light">R9</span></h1>
-        <div id="user-info" class="text-right text-sm">
-            <p>Acesso: <span class="font-bold">TI Senac</span></p>
-            <p class="text-gray-400">Logado em: 28/04/2026</p>
-        </div>
-    </header>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div class="bg-slate-800 p-6 rounded-lg card-orange">
-            <h3 class="text-gray-400 text-sm uppercase">Total de Notebooks</h3>
-            <p id="total-count" class="text-4xl font-bold">--</p>
-        </div>
-        <div class="bg-slate-800 p-6 rounded-lg card-orange">
-            <h3 class="text-gray-400 text-sm uppercase">Disponíveis</h3>
-            <p id="available-count" class="text-4xl font-bold text-green-400">--</p>
-        </div>
-        <div class="bg-slate-800 p-6 rounded-lg card-orange">
-            <h3 class="text-gray-400 text-sm uppercase">Em Manutenção</h3>
-            <p id="maintenance-count" class="text-4xl font-bold text-red-400">--</p>
-        </div>
-    </div>
-
-    <div class="bg-slate-800 rounded-lg overflow-hidden shadow-xl">
-        <table class="w-full text-left">
-            <thead class="bg-slate-900 text-orange-500 uppercase text-xs">
-                <tr>
-                    <th class="p-4">Patrimônio</th>
-                    <th class="p-4">Modelo</th>
-                    <th class="p-4">Local</th>
-                    <th class="p-4">Status</th>
-                    <th class="p-4">Ação</th>
-                </tr>
-            </thead>
-            <tbody id="notebooks-list" class="divide-y divide-gray-700">
-                </tbody>
-        </table>
-    </div>
-
-    <script>
-        async function fetchNotebooks() {
-            try {
-                const response = await fetch('http://127.0.0.1:8000/notebooks');
-                const notebooks = await response.json();
-                
-                const list = document.getElementById('notebooks-list');
-                list.innerHTML = '';
-
-                // Atualiza contadores
-                document.getElementById('total-count').innerText = notebooks.length;
-                document.getElementById('available-count').innerText = notebooks.filter(n => n.status === 'Disponível').length;
-                document.getElementById('maintenance-count').innerText = notebooks.filter(n => n.status === 'Manutenção').length;
-
-                notebooks.forEach(nb => {
-                    const row = `
-                        <tr class="hover:bg-slate-700 transition">
-                            <td class="p-4 font-mono font-bold">${nb.patrimonio}</td>
-                            <td class="p-4">${nb.modelo}</td>
-                            <td class="p-4 text-gray-400">${nb.local}</td>
-                            <td class="p-4">
-                                <span class="px-2 py-1 rounded text-xs ${nb.status === 'Disponível' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}">
-                                    ${nb.status}
-                                </span>
-                            </td>
-                            <td class="p-4">
-                                <button class="btn-orange px-4 py-1 rounded text-sm font-bold">Ver Detalhes</button>
-                            </td>
-                        </tr>
-                    `;
-                    list.innerHTML += row;
-                });
-            } catch (err) {
-                console.error("Erro ao buscar notebooks:", err);
-            }
-        }
-        fetchNotebooks();
-    </script>
-</body>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>R9 — Gestão de Notebooks | SENAC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sistema de gestão de empréstimo de notebooks do SENAC" />
+    <meta name="theme-color" content="#004a8d" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-aTGmr-AH.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-L-9vvfU7.css">
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+  </body>
 </html>

@@ -5,21 +5,32 @@ export default {
     extend: {
       colors: {
         navy: {
-          900: '#020c1b',
-          800: '#0a192f',
-          700: '#112240',
-          600: '#172a45',
-          500: '#1d3557',
+          900: '#f8fafc', // Fundo principal da página (claro)
+          800: '#f1f5f9', // Seções, tabelas e cabeçalhos secundários
+          700: '#ffffff', // Fundo de cartões, modais e containers (branco puro)
+          600: '#e2e8f0', // Hover de tabelas / divisores suaves
+          500: '#cbd5e1', // Divisores e bordas gerais
         },
         cyan: {
-          DEFAULT: '#64ffda',
-          dim: 'rgba(100,255,218,0.1)',
-          glow: 'rgba(100,255,218,0.3)',
+          DEFAULT: '#004a8d', // Azul Senac
+          dim: 'rgba(0, 74, 141, 0.08)',
+          glow: 'rgba(0, 74, 141, 0.15)',
         },
         alert: {
-          DEFAULT: '#ff9f43',
-          dim: 'rgba(255,159,67,0.1)',
-          glow: 'rgba(255,159,67,0.3)',
+          DEFAULT: '#f58220', // Laranja Senac
+          dim: 'rgba(245, 130, 32, 0.08)',
+          glow: 'rgba(245, 130, 32, 0.15)',
+        },
+        slate: {
+          100: '#0f172a', // Texto principal (escuro no fundo claro)
+          200: '#1e293b',
+          300: '#334155', // Texto secundário
+          400: '#475569',
+          500: '#64748b', // Texto desativado / placeholder
+          600: '#94a3b8',
+          700: '#cbd5e1',
+          800: '#e2e8f0',
+          900: '#f1f5f9',
         },
         senac: {
           blue: '#004a8d',

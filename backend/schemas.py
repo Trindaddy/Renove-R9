@@ -121,7 +121,7 @@ class HistoricoBase(BaseModel):
     status_anterior: Optional[str] = None
     status_novo: Optional[str] = None
     descricao: Optional[str] = None
-    metadata: Optional[str] = None
+    informacoes_adicionais: Optional[str] = None
 
 class HistoricoCreate(HistoricoBase):
     usuario_id: Optional[int] = None
@@ -168,4 +168,52 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     senha: str
+
+
+class TurmaResponse(BaseModel):
+    id: str
+    curso: str
+    instrutor: str
+    carga_horaria: int
+    turno: str
+    regime_dias: str
+
+    class Config:
+        from_attributes = True
+
+
+class ReservaCreate(BaseModel):
+    turmaId: str = Field(..., alias="turmaId")
+    data: str
+    turno: str
+    quantidade: int
+
+    class Config:
+        populate_by_name = True
+
+
+class ReservaResponse(BaseModel):
+    id: int
+    turma: str
+    data: str
+    turno: str
+    quantidade: int
+    status: str
+    usuario: Optional[UsuarioResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ReservaUpdate(BaseModel):
+    turmaId: Optional[str] = Field(None, alias="turmaId")
+    data: Optional[str] = None
+    turno: Optional[str] = None
+    quantidade: Optional[int] = None
+    status: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
 

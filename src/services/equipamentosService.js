@@ -6,4 +6,10 @@ export async function listarEquipamentos() {
   return response.data;
 }
 
+export async function atualizarEquipamento(id, payload) {
+  const response = await api.patch(`/notebooks/${id}`, payload);
+  return response.data;
+}
+
+
 

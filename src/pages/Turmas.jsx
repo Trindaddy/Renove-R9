@@ -42,8 +42,9 @@ export default function Turmas() {
         <table className="w-full text-sm">
           <thead className="bg-slate-900/90 text-xs uppercase text-slate-400">
             <tr>
-              <th className="text-left px-3 py-2">ID</th>
+              <th className="text-left px-3 py-2">ID (Turma)</th>
               <th className="text-left px-3 py-2">Curso</th>
+              <th className="text-left px-3 py-2">Instrutor</th>
               <th className="text-left px-3 py-2">Turno</th>
             </tr>
           </thead>
@@ -51,7 +52,7 @@ export default function Turmas() {
             {loading && (
               <tr>
                 <td
-                  colSpan={3}
+                  colSpan={4}
                   className="px-3 py-4 text-center text-xs text-slate-400"
                 >
                   Carregando turmas...
@@ -67,6 +68,7 @@ export default function Turmas() {
                 >
                   <td className="px-3 py-2 font-mono text-xs">{turma.id}</td>
                   <td className="px-3 py-2">{turma.curso}</td>
+                  <td className="px-3 py-2 text-xs text-slate-300 font-semibold text-alert">{turma.instrutor}</td>
                   <td className="px-3 py-2 text-xs text-slate-300">{turma.turno}</td>
                 </tr>
               ))}
@@ -74,7 +76,7 @@ export default function Turmas() {
             {!loading && turmas.length === 0 && !error && (
               <tr>
                 <td
-                  colSpan={3}
+                  colSpan={4}
                   className="px-3 py-4 text-center text-xs text-slate-400"
                 >
                   Nenhuma turma encontrada.
@@ -87,4 +89,5 @@ export default function Turmas() {
     </div>
   );
 }
+
 

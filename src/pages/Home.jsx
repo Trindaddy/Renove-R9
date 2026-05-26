@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
@@ -6,6 +6,7 @@ import {
   getDashboardProfessor,
   getDashboardTi
 } from '../services/dashboardService';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function Home() {
   const { user } = useAuth();
@@ -13,26 +14,39 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const { lastMessage } = useWebSocket();
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      setError('');
+
+      if (user.role === 'ti') setData(await getDashboardTi());
+      else if (user.role === 'aluno') setData(await getDashboardAluno());
+      else if (user.role === 'professor') setData(await getDashboardProfessor());
+    } catch {
+      setError('Não foi possível carregar o dashboard. Verifique a API.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   useEffect(() => {
     if (!user) return;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setError('');
-
-        if (user.role === 'ti') setData(await getDashboardTi());
-        else if (user.role === 'aluno') setData(await getDashboardAluno());
-        else if (user.role === 'professor') setData(await getDashboardProfessor());
-      } catch {
-        setError('Não foi possível carregar o dashboard. Verifique a API.');
-      } finally {
-        setLoading(false);
-      }
+    if (
+      lastMessage?.type === 'disponibilidade_update' ||
+      lastMessage?.type === 'emprestimo_realizado' ||
+      lastMessage?.type === 'devolucao_realizada'
+    ) {
+      load();
     }
+  }, [lastMessage, user, load]);
 
-    load();
-  }, [user]);
 
   if (!user) {
     // Evita “tela em branco” caso AuthProvider ainda esteja inicializando ou token falhou.

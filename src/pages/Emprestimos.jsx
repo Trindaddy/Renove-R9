@@ -26,6 +26,10 @@ export default function Emprestimos() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Ativo');
+  
+  // Custom styled dialog states
+  const [confirmDevolucaoId, setConfirmDevolucaoId] = useState(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const { lastMessage } = useWebSocket();
 
@@ -76,14 +80,15 @@ export default function Emprestimos() {
     }
   }
 
-  async function handleDevolver(id) {
-    if (!window.confirm('Confirmar devolução deste notebook?')) return;
+  async function executeDevolucao() {
+    const id = confirmDevolucaoId;
+    setConfirmDevolucaoId(null);
     try {
       setLoadingAction(true);
       setError('');
       setSuccess('');
       await devolverEmprestimo(id);
-      setSuccess('Devolução registrada com sucesso!');
+      setShowSuccessToast(true);
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao registrar devolução');
@@ -109,7 +114,7 @@ export default function Emprestimos() {
   }
 
   return (
-    <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+    <div className="space-y-6 animate-[fadeIn_0.5s_ease-out] relative">
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-navy-500/20">
         <div>
@@ -125,7 +130,7 @@ export default function Emprestimos() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {alerta?.alerta_ativo && (
+          {alerta?.ativo && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-alert/10 border border-alert/20">
               <span className="h-1.5 w-1.5 rounded-full bg-alert animate-pulse" />
               <span className="text-[10px] font-bold text-alert uppercase tracking-wider">Alerta Ativo</span>
@@ -259,7 +264,7 @@ export default function Emprestimos() {
                             <Button
                               variant="success"
                               className="px-2.5 py-1 text-[11px]"
-                              onClick={() => handleDevolver(emp.id)}
+                              onClick={() => setConfirmDevolucaoId(emp.id)}
                               disabled={loadingAction}
                             >
                               Devolver
@@ -294,6 +299,63 @@ export default function Emprestimos() {
           </div>
         </div>
       </div>
+
+      {/* Styled confirm modal for notebook return */}
+      {confirmDevolucaoId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-cyan/15 border border-cyan/30 flex items-center justify-center mx-auto mb-4 text-cyan text-xl">
+              ◈
+            </div>
+            <h3 className="text-base font-bold text-slate-100 mb-2">
+              Confirmar Devolução
+            </h3>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              Confirmar devolução deste notebook ao inventário do Senac?
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                onClick={() => setConfirmDevolucaoId(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="success"
+                className="flex-1 text-xs py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500"
+                onClick={executeDevolucao}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Styled success modal for return completion */}
+      {showSuccessToast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-slate-900 border border-emerald-800/40 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 text-emerald-400 text-xl font-bold">
+              ✓
+            </div>
+            <h3 className="text-base font-bold text-emerald-400 mb-2">
+              Devolução Registrada!
+            </h3>
+            <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+              Sucesso! A devolução do notebook foi registrada. Obrigado por colaborar com a organização do inventário!
+            </p>
+            <Button
+              variant="cyan"
+              className="w-full text-xs py-2"
+              onClick={() => setShowSuccessToast(false)}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -330,4 +392,3 @@ function formatDate(dateString) {
     minute: '2-digit'
   });
 }
-

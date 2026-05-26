@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import SessionLocal
-from models import Usuario, Configuracao
+from models import Usuario, Configuracao, Turma
 
 # Usar contexto idêntico ao do main.py
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -55,6 +55,35 @@ def seed_prod():
                 db.add(nova_config)
                 db.commit()
                 print(f"[SUCCESS] Configuracao '{chave}' criada com valor inicial '{valor}'.")
+
+        # 3. Turmas de produção (se não existirem)
+        exists_turma = db.query(Turma).first()
+        if not exists_turma:
+            turmas = [
+                Turma(codigo_turma="2025.09.53", nome_curso="Técnico em Administração", instrutor="André Alonso", carga_horaria=800, turno="Vespertino", regime_dias="3ª e 5ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2025.09.56", nome_curso="Técnico em Administração", instrutor="Marileia", carga_horaria=800, turno="Vespertino", regime_dias="3ª e 5ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2025.09.75", nome_curso="Técnico em Administração", instrutor="Marileia", carga_horaria=800, turno="Vespertino", regime_dias="3ª e 5ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2025.09.83", nome_curso="Técnico em Contabilidade", instrutor="José de Assis", carga_horaria=800, turno="Vespertino", regime_dias="3ª e 5ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2026.09.34", nome_curso="Técnico em Administração", instrutor="José Chaves", carga_horaria=800, turno="Noturno", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.55", nome_curso="Técnico em Desenvolvimento de Sistemas", instrutor="Lucas Dionisio", carga_horaria=1200, turno="Vespertino", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.56", nome_curso="Técnico em Marketing", instrutor="Carlos Eduardo", carga_horaria=800, turno="Noturno", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.58", nome_curso="Técnico em Desenvolvimento de Sistemas", instrutor="Ricardo Serra", carga_horaria=1200, turno="Vespertino", regime_dias="2ª e 4ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.59", nome_curso="Técnico em Desenvolvimento de Sistemas", instrutor="Diego Lohan", carga_horaria=1200, turno="Matutino", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.65", nome_curso="Técnico em Marketing", instrutor="Lucas Augusto", carga_horaria=800, turno="Vespertino", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.69", nome_curso="Técnico em Administração", instrutor="Marileia", carga_horaria=800, turno="Matutino", regime_dias="3ª e 5ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2026.09.77", nome_curso="Técnico em Administração", instrutor="José de Assis", carga_horaria=800, turno="Vespertino", regime_dias="2ª e 4ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2026.09.78", nome_curso="Técnico em Administração", instrutor="Shirllany", carga_horaria=800, turno="Vespertino", regime_dias="2ª e 4ª Presencial (sabado remoto)"),
+                Turma(codigo_turma="2026.09.79", nome_curso="Técnico em Desenvolvimento de Sistemas", instrutor="Wellerson", carga_horaria=1200, turno="Vespertino", regime_dias="3ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2025.09.119", nome_curso="Técnico em Desenvolvimento de Sistemas", instrutor="Guilherme", carga_horaria=1200, turno="Matutino", regime_dias="2ª e 5ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2025.09.121", nome_curso="Técnico em Marketing", instrutor="Lucas Augusto", carga_horaria=800, turno="Matutino", regime_dias="2ª e 4ª Presencial (sexta remoto)"),
+                Turma(codigo_turma="2026.09.67", nome_curso="Técnico em Programação de Jogos Digitais", instrutor="Nicole Candido", carga_horaria=1000, turno="Matutino", regime_dias="3ª e 5ª Presencial (sexta remoto)")
+            ]
+            for t in turmas:
+                db.add(t)
+            db.commit()
+            print("[SUCCESS] Turmas de producao criadas com sucesso!")
+        else:
+            print("[INFO] Turmas de producao ja existem.")
 
         print("[SUCCESS] Seed de producao concluido.")
 
