@@ -6,7 +6,7 @@ import json
 
 import models
 import schemas
-from alertas import verificar_alerta_escassez, notificar_alerta_escassez
+from alertas import verificar_alerta_escassez_sync, notificar_alerta_escassez
 
 def get_usuario(db: Session, usuario_id: int):
     return db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
@@ -115,7 +115,38 @@ def listar_emprestimos(
     return query.order_by(models.Emprestimo.data_emprestimo.desc()).offset(skip).limit(limit).all()
 
 def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None):
-    notebook = get_notebook(db, emprestimo.notebook_id)
+    # Obter lock pessimista na configuração de alta demanda para serializar as verificações sob concorrência
+    config_alta_demanda = db.query(models.Configuracao).filter(
+        models.Configuracao.chave == "dia_alta_demanda"
+    ).with_for_update().first()
+    
+    dia_alta_demanda = config_alta_demanda.valor.lower() == "true" if config_alta_demanda else False
+    
+    # Se dia de alta demanda, verificar limite de distribuição
+    if dia_alta_demanda:
+        total_notebooks = db.query(models.Notebook).count()
+        notebooks_distribuidos = db.query(models.Notebook).filter(
+            models.Notebook.status.in_(["Emprestado", "Reservado"])
+        ).count()
+        
+        config_limite = db.query(models.Configuracao).filter(
+            models.Configuracao.chave == "limite_distribuicao_alta_demanda_percentual"
+        ).first()
+        limite_percentual = float(config_limite.valor) if config_limite else 50.0
+        
+        # O novo empréstimo aumentaria a distribuição em 1 unidade
+        futura_distribuicao_percentual = ((notebooks_distribuidos + 1) / total_notebooks * 100) if total_notebooks > 0 else 0
+        if futura_distribuicao_percentual > limite_percentual:
+            raise ValueError(
+                f"Limite de distribuição em dias de alta demanda atingido ({limite_percentual}%). "
+                f"Notebooks atualmente distribuídos: {notebooks_distribuidos}/{total_notebooks}."
+            )
+
+    # Obter lock pessimista no notebook selecionado para garantir exclusão mútua
+    notebook = db.query(models.Notebook).filter(
+        models.Notebook.id == emprestimo.notebook_id
+    ).with_for_update().first()
+
     if not notebook or notebook.status != "Disponível":
         raise ValueError("Notebook não está disponível para empréstimo")
     
@@ -280,7 +311,7 @@ def get_dashboard_stats(db: Session):
     
     percentual = round((disponiveis / total * 100), 2) if total > 0 else 0
     
-    alerta = verificar_alerta_escassez(db)
+    alerta = verificar_alerta_escassez_sync(db)
     
     return schemas.DashboardStats(
         total=total,
@@ -294,7 +325,7 @@ def get_dashboard_stats(db: Session):
     )
 
 def verificar_e_notificar_escassez(db: Session):
-    alerta = verificar_alerta_escassez(db)
+    alerta = verificar_alerta_escassez_sync(db)
     if alerta["ativo"]:
         notificar_alerta_escassez(alerta)
         # Registrar no histórico

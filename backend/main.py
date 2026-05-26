@@ -21,8 +21,9 @@ import schemas
 from websocket import websocket_endpoint, manager, broadcast_disponibilidade, broadcast_emprestimo_realizado, broadcast_devolucao_realizada
 from alertas import verificar_alerta_escassez_sync
 
-# Criar tabelas
-Base.metadata.create_all(bind=engine)
+# Criar tabelas (apenas se configurado para evitar conflito com Alembic em produção)
+if os.getenv("CREATE_TABLES_ON_STARTUP", "true").lower() == "true":
+    Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="R9 - Gestão de Notebooks",
@@ -32,7 +33,7 @@ app = FastAPI(
 
 # CORS — permitir origem do frontend em produção
 # Defina CORS_ORIGINS no formato: "https://dominio.com,http://localhost:5173"
-_default_origins = os.getenv("CORS_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500")
+_default_origins = os.getenv("CORS_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500,http://localhost:5173,http://localhost:3000")
 allow_list = [o.strip() for o in _default_origins.split(",") if o.strip()]
 
 app.add_middleware(

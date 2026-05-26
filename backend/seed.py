@@ -24,7 +24,7 @@ def seed():
     try:
         # Verificar se já tem dados
         if db.query(Usuario).first():
-            print("⚠️  Banco já possui dados. Seed ignorado.")
+            print("[INFO] Banco ja possui dados. Seed ignorado.")
             return
         
         # Usuários de teste
@@ -81,7 +81,7 @@ def seed():
         for u in usuarios:
             db.add(u)
         db.commit()
-        print(f"✅ {len(usuarios)} usuários criados")
+        print(f"[SUCCESS] {len(usuarios)} usuarios criados")
         
         # Notebooks de teste (sequência exata de patrimônio: 37568 a 37608)
         # Requisitos: loop limpo + commit.
@@ -119,7 +119,7 @@ def seed():
 
         db.add_all(notebooks)
         db.commit()
-        print(f"✅ {len(notebooks)} notebooks criados (37568..37608)")
+        print(f"[SUCCESS] {len(notebooks)} notebooks criados (37568..37608)")
 
         
         # Configurações
@@ -127,14 +127,16 @@ def seed():
             Configuracao(chave="alerta_escassez_percentual", valor="10", descricao="Percentual mínimo de notebooks disponíveis para disparar alerta"),
             Configuracao(chave="tempo_maximo_emprestimo_horas", valor="4", descricao="Tempo máximo padrão de empréstimo em horas"),
             Configuracao(chave="quantidade_total_notebooks", valor=str(len(notebooks)), descricao="Quantidade total de notebooks no sistema"),
+            Configuracao(chave="dia_alta_demanda", valor="False", descricao="Indica se hoje é um dia de alta demanda e restrições de inventário"),
+            Configuracao(chave="limite_distribuicao_alta_demanda_percentual", valor="50", descricao="Percentual máximo de notebooks que podem ser emprestados em dias de alta demanda"),
         ]
         
         for c in configs:
             db.add(c)
         db.commit()
-        print(f"✅ {len(configs)} configurações criadas")
+        print(f"[SUCCESS] {len(configs)} configuracoes criadas")
         
-        print("\n🎉 Seed concluído com sucesso!")
+        print("\n[SUCCESS] Seed concluido com sucesso!")
         print("\nCredenciais de teste:")
         print("  TI:       ti@senac.br / senha123")
         print("  Professor: professor@senac.br / senha123")
@@ -142,7 +144,7 @@ def seed():
         
     except Exception as e:
         db.rollback()
-        print(f"❌ Erro no seed: {e}")
+        print(f"[ERROR] Erro no seed: {e}")
     finally:
         db.close()
 
