@@ -6,7 +6,7 @@ Backend FastAPI - Módulo de Empréstimo
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -14,7 +14,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 
-from database import engine, SessionLocal, get_db
+from database import engine, SessionLocal, get_db, get_brasilia_time
 import models
 from models import Base
 import crud
@@ -50,7 +50,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "SNC@1234")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-pwd_context = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ==================== UTILITÁRIOS DE AUTENTICAÇÃO ====================
@@ -125,6 +125,22 @@ def create_usuario(
 ):
     require_role(["ti", "professor"])(current_user)
     
+    email = usuario.email.strip().lower()
+    role = usuario.role
+    
+    if role in ["ti", "professor"]:
+        if not email.endswith("@df.senac.br"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuários com perfil de TI ou Professor devem utilizar um e-mail do domínio @df.senac.br"
+            )
+    elif role == "aluno":
+        if not email.endswith("@edu.df.senac.br"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br"
+            )
+            
     if crud.get_usuario_by_email(db, usuario.email):
         raise HTTPException(status_code=400, detail="Email já cadastrado")
     if crud.get_usuario_by_matricula(db, usuario.matricula):
@@ -190,7 +206,7 @@ def create_notebook(
     if crud.get_notebook_by_patrimonio(db, notebook.patrimonio):
         raise HTTPException(status_code=400, detail="Patrimônio já cadastrado")
     
-    return crud.create_notebook(db, notebook)
+    return crud.create_notebook(db, notebook, responsavel_id=current_user.id)
 
 @app.patch("/notebooks/{notebook_id}", response_model=schemas.NotebookResponse)
 async def update_notebook(
@@ -200,6 +216,12 @@ async def update_notebook(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti"])(current_user)
+    
+    if notebook_update.status == "Manutenção" and (not notebook_update.observacoes or not notebook_update.observacoes.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O motivo da manutenção é obrigatório no campo observações."
+        )
     
     nb = crud.update_notebook(db, notebook_id, notebook_update)
     if not nb:
@@ -223,8 +245,44 @@ def list_emprestimos(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    if current_user.role == "aluno" and current_user.id != usuario_id:
-        usuario_id = current_user.id
+    if current_user.role == "aluno":
+        return crud.listar_emprestimos(db, status=status, usuario_id=current_user.id, skip=skip, limit=limit)
+        
+    elif current_user.role == "professor":
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_map = {t.codigo_turma: t.regime_dias for t in prof_turmas}
+        
+        query = db.query(models.Emprestimo).join(models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id).options(
+            joinedload(models.Emprestimo.notebook),
+            joinedload(models.Emprestimo.usuario),
+            joinedload(models.Emprestimo.responsavel)
+        ).filter(models.Usuario.turma.in_(list(turma_map.keys())))
+        
+        if status:
+            query = query.filter(models.Emprestimo.status == status)
+            
+        loans = query.order_by(models.Emprestimo.data_emprestimo.desc()).all()
+        
+        def date_matches_regime(dt: datetime, regime_dias: str) -> bool:
+            regime = regime_dias.lower()
+            wd = dt.weekday()
+            if wd == 0 and "2ª" in regime: return True
+            if wd == 1 and "3ª" in regime: return True
+            if wd == 2 and "4ª" in regime: return True
+            if wd == 3 and "5ª" in regime: return True
+            if wd == 4 and ("6ª" in regime or "sexta" in regime): return True
+            if wd == 5 and ("sabado" in regime or "sábado" in regime): return True
+            if wd == 6 and "domingo" in regime: return True
+            return False
+            
+        filtered = []
+        for emp in loans:
+            regime = turma_map.get(emp.usuario.turma)
+            if regime and date_matches_regime(emp.data_emprestimo, regime):
+                filtered.append(emp)
+                
+        return filtered[skip : skip + limit]
+        
     return crud.listar_emprestimos(db, status=status, usuario_id=usuario_id, skip=skip, limit=limit)
 
 @app.get("/emprestimos/{emprestimo_id}", response_model=schemas.EmprestimoResponse)
@@ -283,8 +341,15 @@ async def create_emprestimo_rapido(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti", "professor", "aluno"])(current_user)
     
+    if current_user.role == "aluno":
+        if dados.usuario_matricula != current_user.matricula:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Alunos só podem realizar empréstimo para si mesmos"
+            )
+            
     crud.verificar_atrasos(db)
     
     try:
@@ -315,7 +380,7 @@ async def devolver_emprestimo(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     try:
         result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id)
@@ -343,7 +408,7 @@ async def cancelar_emprestimo(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     try:
         result = crud.cancelar_emprestimo(db, emprestimo_id, responsavel_id=current_user.id)
@@ -366,7 +431,46 @@ def list_historico(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti", "professor", "aluno"])(current_user)
+    
+    if current_user.role == "aluno":
+        return crud.get_historico(db, notebook_id=notebook_id, usuario_id=current_user.id, skip=skip, limit=limit)
+        
+    elif current_user.role == "professor":
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_map = {t.codigo_turma: t.regime_dias for t in prof_turmas}
+        
+        query = db.query(models.Historico).join(models.Usuario, models.Historico.usuario_id == models.Usuario.id).options(
+            joinedload(models.Historico.notebook),
+            joinedload(models.Historico.usuario),
+            joinedload(models.Historico.responsavel)
+        ).filter(models.Usuario.turma.in_(list(turma_map.keys())))
+        
+        if notebook_id:
+            query = query.filter(models.Historico.notebook_id == notebook_id)
+            
+        records = query.order_by(models.Historico.created_at.desc()).all()
+        
+        def date_matches_regime(dt: datetime, regime_dias: str) -> bool:
+            regime = regime_dias.lower()
+            wd = dt.weekday()
+            if wd == 0 and "2ª" in regime: return True
+            if wd == 1 and "3ª" in regime: return True
+            if wd == 2 and "4ª" in regime: return True
+            if wd == 3 and "5ª" in regime: return True
+            if wd == 4 and ("6ª" in regime or "sexta" in regime): return True
+            if wd == 5 and ("sabado" in regime or "sábado" in regime): return True
+            if wd == 6 and "domingo" in regime: return True
+            return False
+            
+        filtered = []
+        for h in records:
+            regime = turma_map.get(h.usuario.turma)
+            if regime and date_matches_regime(h.created_at, regime):
+                filtered.append(h)
+                
+        return filtered[skip : skip + limit]
+        
     return crud.get_historico(db, notebook_id=notebook_id, skip=skip, limit=limit)
 
 @app.get("/historico/notebook/{notebook_id}", response_model=List[schemas.HistoricoResponse])
@@ -533,6 +637,125 @@ def get_emprestimos_atrasados(
     atrasados = crud.listar_emprestimos(db, status="Atrasado")
     return {"count": len(atrasados), "emprestimos": atrasados}
 
+@app.get("/dashboard/ti")
+def get_dashboard_ti_route(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    crud.verificar_atrasos(db)
+    stats = crud.get_dashboard_stats(db)
+    
+    return {
+        "notebooksTotais": stats.total,
+        "notebooksDisponiveis": stats.disponiveis,
+        "notebooksEmUso": stats.emprestados,
+        "notebooksManutencao": stats.manutencao,
+        "reservasHoje": stats.reservados,
+        "solicitacoesPendentes": stats.emprestimos_ativos,
+        "percentualDisponivel": stats.percentual_disponivel,
+        "alerta_escassez": stats.alerta_escassez
+    }
+
+@app.get("/dashboard/aluno")
+def get_dashboard_aluno_route(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["aluno", "ti"])(current_user)
+    
+    emp = db.query(models.Emprestimo).options(
+        joinedload(models.Emprestimo.notebook)
+    ).filter(
+        models.Emprestimo.usuario_id == current_user.id,
+        models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+    ).first()
+    
+    reserva_atual = None
+    if emp:
+        reserva_atual = {
+            "id": emp.id,
+            "equipamento": f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})",
+            "horario": f"Retirado em {emp.data_emprestimo.strftime('%d/%m/%Y %H:%M')}",
+            "status": "Em uso" if emp.status == "Ativo" else "Atrasado"
+        }
+        
+    db_turmas = db.query(models.Turma).filter(models.Turma.codigo_turma == current_user.turma).all()
+    proximas_aulas = []
+    for t in db_turmas:
+        proximas_aulas.append({
+            "id": t.codigo_turma,
+            "curso": t.nome_curso,
+            "data": t.regime_dias,
+            "turno": t.turno
+        })
+        
+    return {
+        "reservaAtual": reserva_atual,
+        "proximasAulas": proximas_aulas
+    }
+
+@app.get("/dashboard/professor")
+def get_dashboard_professor_route(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["professor", "ti"])(current_user)
+    
+    prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+    turma_ids = [t.codigo_turma for t in prof_turmas]
+    
+    today_str = get_brasilia_time().strftime("%Y-%m-%d")
+    
+    def date_matches_regime(dt: datetime, regime_dias: str) -> bool:
+        regime = regime_dias.lower()
+        wd = dt.weekday()
+        if wd == 0 and "2ª" in regime: return True
+        if wd == 1 and "3ª" in regime: return True
+        if wd == 2 and "4ª" in regime: return True
+        if wd == 3 and "5ª" in regime: return True
+        if wd == 4 and ("6ª" in regime or "sexta" in regime): return True
+        if wd == 5 and ("sabado" in regime or "sábado" in regime): return True
+        if wd == 6 and "domingo" in regime: return True
+        return False
+        
+    now_dt = get_brasilia_time()
+    turmas_hoje = sum(1 for t in prof_turmas if date_matches_regime(now_dt, t.regime_dias))
+    
+    reservas_hoje = db.query(models.Reserva).filter(
+        models.Reserva.turma_id.in_(turma_ids),
+        models.Reserva.data == today_str
+    ).all()
+    reservas_ativas = sum(r.quantidade for r in reservas_hoje)
+    
+    active_loans_count = db.query(models.Emprestimo).join(
+        models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id
+    ).filter(
+        models.Usuario.turma.in_(turma_ids),
+        models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+    ).count()
+    
+    alunos_aguardando = max(0, reservas_ativas - active_loans_count)
+    
+    db_reservas = db.query(models.Reserva).filter(models.Reserva.turma_id.in_(turma_ids)).all()
+    lotes = []
+    for r in db_reservas:
+        lotes.append({
+            "id": r.id,
+            "turma": r.turma_id,
+            "data": r.data,
+            "turno": r.turno,
+            "quantidade": r.quantidade,
+            "status": r.status
+        })
+        
+    return {
+        "turmasHoje": turmas_hoje,
+        "reservasAtivas": reservas_ativas,
+        "alunosAguardandoNotebook": alunos_aguardando,
+        "lotes": lotes
+    }
+
 # ==================== ROTAS DE WEBSOCKET ====================
 
 @app.websocket("/ws")
@@ -542,6 +765,82 @@ async def websocket_route(websocket: WebSocket):
 @app.websocket("/ws/{user_id}")
 async def websocket_user_route(websocket: WebSocket, user_id: int):
     await websocket_endpoint(websocket, user_id=user_id)
+
+@app.get("/alocacoes/diarias")
+def get_alocacoes_diarias(
+    data: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    if not data:
+        data = get_brasilia_time().strftime("%Y-%m-%d")
+        
+    # Buscar todas as reservas para essa data
+    reservas = db.query(models.Reserva).options(
+        joinedload(models.Reserva.usuario)
+    ).filter(models.Reserva.data == data).all()
+    
+    # Buscar todos os empréstimos realizados nessa data
+    start_date = datetime.strptime(data, "%Y-%m-%d")
+    end_date = start_date + timedelta(days=1)
+    
+    emprestimos = db.query(models.Emprestimo).options(
+        joinedload(models.Emprestimo.notebook),
+        joinedload(models.Emprestimo.usuario)
+    ).filter(
+        models.Emprestimo.data_emprestimo >= start_date,
+        models.Emprestimo.data_emprestimo < end_date,
+        models.Emprestimo.status.in_(["Ativo", "Devolvido", "Atrasado"])
+    ).all()
+    
+    # Mapear turmas de empréstimos e reservas
+    alocacoes_map = {}
+    
+    # Processar reservas
+    for r in reservas:
+        key = (r.turma_id, r.turno)
+        alocacoes_map[key] = {
+            "turma": r.turma_id,
+            "solicitante": r.usuario.nome if r.usuario else "Sistema",
+            "turno": r.turno,
+            "quantidade_solicitada": r.quantidade,
+            "quantidade_retirada": 0,
+            "patrimonios": []
+        }
+        
+    # Processar empréstimos
+    for emp in emprestimos:
+        turma_id = emp.usuario.turma if emp.usuario else "Sem Turma"
+        # Determinar turno do empréstimo a partir da hora
+        hour = emp.data_emprestimo.hour
+        if hour < 12:
+            turno = "Manhã"
+        elif hour < 18:
+            turno = "Tarde"
+        else:
+            turno = "Noite"
+            
+        key = (turma_id, turno)
+        if key not in alocacoes_map:
+            # Buscar instrutor da turma para ser o solicitante
+            turma_info = db.query(models.Turma).filter(models.Turma.codigo_turma == turma_id).first()
+            solicitante = turma_info.instrutor if turma_info else "Desconhecido"
+            alocacoes_map[key] = {
+                "turma": turma_id,
+                "solicitante": solicitante,
+                "turno": turno,
+                "quantidade_solicitada": 0,
+                "quantidade_retirada": 0,
+                "patrimonios": []
+            }
+            
+        alocacoes_map[key]["quantidade_retirada"] += 1
+        if emp.notebook and emp.notebook.patrimonio not in alocacoes_map[key]["patrimonios"]:
+            alocacoes_map[key]["patrimonios"].append(emp.notebook.patrimonio)
+            
+    return list(alocacoes_map.values())
 
 # ==================== ROTAS DE SAÚDE ====================
 

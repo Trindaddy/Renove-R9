@@ -56,13 +56,13 @@ export default function Login() {
         <div className="glass-card-primary p-8">
           <div className="flex items-center gap-4 mb-8">
             <div className="relative">
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 border border-senac-orange/30 flex items-center justify-center shadow-[0_0_15px_rgba(244,121,32,0.3)]">
-                <span className="text-2xl font-black text-white uppercase">S</span>
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-center shadow-[0_0_15px_rgba(5,17,242,0.3)]">
+                <ShieldCheck weight="duotone" className="text-3xl text-primary" />
               </div>
             </div>
             <div>
-              <p className="text-xl font-black tracking-widest text-slate-100 uppercase">Senac</p>
-              <p className="text-[10px] text-senac-orange tracking-[0.2em] uppercase mt-1 font-semibold">Sistema Renove</p>
+              <p className="text-xl font-black tracking-widest text-slate-100 uppercase">Renove <span className="text-primary glow-text-primary">R9</span></p>
+              <p className="text-[10px] text-slate-500 tracking-[0.2em] uppercase mt-1">Gestão de Ativos Senac</p>
             </div>
           </div>
           

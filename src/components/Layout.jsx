@@ -9,7 +9,9 @@ import {
   ClockCounterClockwise, 
   Users, 
   CalendarCheck,
-  SignOut
+  SignOut,
+  ChartBar,
+  UsersThree
 } from '@phosphor-icons/react';
 
 export default function Layout({ children }) {
@@ -38,7 +40,9 @@ export default function Layout({ children }) {
       { to: '/equipamentos', label: 'Inventário', icon: <Archive weight="duotone" /> },
       { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> },
       { to: '/turmas', label: 'Turmas', icon: <Users weight="duotone" /> },
-      { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }
+      { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> },
+      { to: '/alocacoes', label: 'Alocações', icon: <ChartBar weight="duotone" /> },
+      { to: '/usuarios', label: 'Usuários', icon: <UsersThree weight="duotone" /> }
     );
   } else if (user?.role === 'professor') {
     navItems.push(
@@ -50,7 +54,8 @@ export default function Layout({ children }) {
   } else {
     navItems.push(
       { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
-      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> }
+      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> },
+      { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> }
     );
   }
 
@@ -67,16 +72,16 @@ export default function Layout({ children }) {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
-              <div className="h-9 px-3 rounded-lg bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <span className="text-sm font-black text-white tracking-widest uppercase">Senac</span>
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/20 to-transparent border border-primary/30 flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                <span className="text-sm font-black text-primary font-mono tracking-tighter">R9</span>
               </div>
-              <div className="absolute -inset-1 rounded-lg bg-senac-orange/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -inset-1 rounded-lg bg-primary/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="hidden sm:flex flex-col justify-center">
-              <p className="text-sm font-bold tracking-widest text-slate-100 uppercase leading-none mt-0.5">
+            <div className="hidden sm:block">
+              <p className="text-sm font-bold tracking-widest text-slate-100 uppercase leading-none">
                 Renove
               </p>
-              <p className="text-[9px] text-senac-blue tracking-[0.25em] uppercase mt-1 font-semibold">
+              <p className="text-[9px] text-slate-500 tracking-[0.25em] uppercase mt-0.5">
                 Gestão de Ativos
               </p>
             </div>
@@ -169,7 +174,7 @@ export default function Layout({ children }) {
       <footer className="border-t border-dark-600/50 py-4 px-6 mt-auto">
         <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-[10px] text-slate-500 tracking-wider uppercase">
-            SENAC • Sistema Integrado Renove
+            SENAC • Sistema Renove R9
           </p>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-pulse" />

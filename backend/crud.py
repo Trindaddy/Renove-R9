@@ -7,6 +7,7 @@ import json
 import models
 import schemas
 from alertas import verificar_alerta_escassez_sync, notificar_alerta_escassez
+from database import get_brasilia_time
 
 def get_usuario(db: Session, usuario_id: int):
     return db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
@@ -19,7 +20,7 @@ def get_usuario_by_matricula(db: Session, matricula: str):
 
 def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
     from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
     
     db_usuario = models.Usuario(
         matricula=usuario.matricula,
@@ -48,7 +49,7 @@ def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, l
         query = query.filter(models.Notebook.status == status)
     return query.offset(skip).limit(limit).all()
 
-def create_notebook(db: Session, notebook: schemas.NotebookCreate):
+def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_id: Optional[int] = None):
     db_notebook = models.Notebook(**notebook.model_dump())
     db.add(db_notebook)
     db.commit()
@@ -57,8 +58,9 @@ def create_notebook(db: Session, notebook: schemas.NotebookCreate):
     registrar_historico(db, schemas.HistoricoCreate(
         notebook_id=db_notebook.id,
         tipo_movimentacao=schemas.TipoMovimentacao.cadastro,
+        responsavel_id=responsavel_id,
         status_novo=db_notebook.status,
-        descricao=f"Notebook {db_notebook.patrimonio} cadastrado no sistema"
+        descricao=f"Notebook {db_notebook.patrimonio} ({db_notebook.modelo}) cadastrado no sistema"
     ))
     
     return db_notebook
@@ -168,7 +170,7 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
     if not data_prevista:
         config_horas = db.query(models.Configuracao).filter(models.Configuracao.chave == "tempo_maximo_emprestimo_horas").first()
         horas = int(config_horas.valor) if config_horas else 4
-        data_prevista = datetime.now() + timedelta(hours=horas)
+        data_prevista = get_brasilia_time() + timedelta(hours=horas)
     
     db_emprestimo = models.Emprestimo(
         notebook_id=emprestimo.notebook_id,
@@ -212,7 +214,7 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
     if not usuario:
         raise ValueError(f"Usuário com matrícula {dados.usuario_matricula} não encontrado")
     
-    data_prevista = datetime.now() + timedelta(hours=dados.horas_previstas or 4)
+    data_prevista = get_brasilia_time() + timedelta(hours=dados.horas_previstas or 4)
     
     emprestimo = schemas.EmprestimoCreate(
         notebook_id=notebook.id,
@@ -233,7 +235,7 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
     
     # Atualizar empréstimo
     emprestimo.status = "Devolvido"
-    emprestimo.data_devolucao = datetime.now()
+    emprestimo.data_devolucao = get_brasilia_time()
     emprestimo.observacao_devolucao = dados.observacao_devolucao
     if responsavel_id:
         emprestimo.responsavel_id = responsavel_id
@@ -285,13 +287,16 @@ def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optiona
     
     return emprestimo
 
-def get_historico(db: Session, notebook_id: Optional[int] = None, skip: int = 0, limit: int = 100):
+def get_historico(db: Session, notebook_id: Optional[int] = None, usuario_id: Optional[int] = None, skip: int = 0, limit: int = 100):
     query = db.query(models.Historico).options(
         joinedload(models.Historico.notebook),
-        joinedload(models.Historico.usuario)
+        joinedload(models.Historico.usuario),
+        joinedload(models.Historico.responsavel)
     )
     if notebook_id:
         query = query.filter(models.Historico.notebook_id == notebook_id)
+    if usuario_id:
+        query = query.filter(models.Historico.usuario_id == usuario_id)
     return query.order_by(models.Historico.created_at.desc()).offset(skip).limit(limit).all()
 
 def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
@@ -346,7 +351,7 @@ def verificar_atrasos(db: Session):
     """Verifica empréstimos atrasados e atualiza status"""
     atrasados = db.query(models.Emprestimo).filter(
         models.Emprestimo.status == "Ativo",
-        models.Emprestimo.data_prevista_devolucao < datetime.now()
+        models.Emprestimo.data_prevista_devolucao < get_brasilia_time()
     ).all()
     
     for emp in atrasados:

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from database import Base
+from database import Base, get_brasilia_time
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -15,8 +15,8 @@ class Usuario(Base):
     curso = Column(String(100))
     turma = Column(String(20))
     ativo = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
+    updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
 
     __table_args__ = (
         CheckConstraint("role IN ('aluno', 'professor', 'ti')", name="check_usuario_role"),
@@ -33,8 +33,8 @@ class Notebook(Base):
     status = Column(String(20), nullable=False, default='Disponível')
     condicao = Column(String(20), default='Bom')
     observacoes = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
+    updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
 
     __table_args__ = (
         CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado')", name="check_notebook_status"),
@@ -53,7 +53,7 @@ class Emprestimo(Base):
     notebook = relationship("Notebook")
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
     responsavel = relationship("Usuario", foreign_keys=[responsavel_id])
-    data_emprestimo = Column(DateTime(timezone=True), server_default=func.now())
+    data_emprestimo = Column(DateTime(timezone=True), default=get_brasilia_time)
     data_prevista_devolucao = Column(DateTime(timezone=True))
     data_devolucao = Column(DateTime(timezone=True))
     observacao_saida = Column(Text)
@@ -80,7 +80,7 @@ class Historico(Base):
     status_novo = Column(String(20))
     descricao = Column(Text)
     informacoes_adicionais = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
 
     __table_args__ = (
         CheckConstraint(
@@ -97,7 +97,7 @@ class Configuracao(Base):
     chave = Column(String(50), unique=True, nullable=False)
     valor = Column(Text, nullable=False)
     descricao = Column(Text)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
 
 
 class Turma(Base):

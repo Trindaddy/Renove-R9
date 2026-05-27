@@ -3,6 +3,7 @@ from typing import Dict
 from datetime import datetime
 import asyncio
 from models import Notebook, Configuracao
+from database import get_brasilia_time
 
 async def verificar_alerta_escassez(db: Session) -> Dict:
     """
@@ -34,7 +35,7 @@ async def verificar_alerta_escassez(db: Session) -> Dict:
         "quantidade_disponivel": disponiveis,
         "quantidade_total": total,
         "mensagem": mensagem,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": get_brasilia_time().isoformat()
     }
 
 def verificar_alerta_escassez_sync(db: Session) -> Dict:
@@ -62,7 +63,7 @@ def verificar_alerta_escassez_sync(db: Session) -> Dict:
         "quantidade_disponivel": disponiveis,
         "quantidade_total": total,
         "mensagem": mensagem,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": get_brasilia_time().isoformat()
     }
 
 def notificar_alerta_escassez(alerta: Dict):
