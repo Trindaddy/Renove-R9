@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/Button.jsx';
+import Input from '../components/Input.jsx';
+import { motion, AnimatePresence } from 'framer-motion';
+import { WarningCircle, ShieldCheck } from '@phosphor-icons/react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -38,51 +41,83 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-navy-900 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: `linear-gradient(rgba(100,255,218,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(100,255,218,0.3) 1px, transparent 1px)`,
-        backgroundSize: '50px 50px'
-      }} />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-alert/5 rounded-full blur-3xl" />
-      <div className="relative w-full max-w-md px-6">
-        <div className="glass-card p-8">
-          <div className="flex items-center gap-3 mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-dark-900 relative overflow-hidden">
+      {/* Dynamic Backgrounds */}
+      <div className="absolute inset-0 opacity-20 grid-bg" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] animate-[float_8s_ease-in-out_infinite]" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-[100px] animate-[float_10s_ease-in-out_infinite_reverse]" />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative w-full max-w-md px-6 z-10"
+      >
+        <div className="glass-card-primary p-8">
+          <div className="flex items-center gap-4 mb-8">
             <div className="relative">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan/20 to-cyan/5 border border-cyan/30 flex items-center justify-center">
-                <span className="text-lg font-black text-cyan font-mono">R9</span>
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-center shadow-[0_0_15px_rgba(5,17,242,0.3)]">
+                <ShieldCheck weight="duotone" className="text-3xl text-primary" />
               </div>
-              <div className="absolute -inset-1 rounded-xl bg-cyan/10 blur-lg" />
             </div>
             <div>
-              <p className="text-base font-bold tracking-widest text-slate-100 uppercase">Renove <span className="text-cyan">R9</span></p>
-              <p className="text-[10px] text-slate-500 tracking-[0.2em] uppercase">Sistema de Gestao de Ativos</p>
+              <p className="text-xl font-black tracking-widest text-slate-100 uppercase">Renove <span className="text-primary glow-text-primary">R9</span></p>
+              <p className="text-[10px] text-slate-500 tracking-[0.2em] uppercase mt-1">Gestão de Ativos Senac</p>
             </div>
           </div>
+          
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">E-mail Institucional</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu.email@senac.br" className="tech-input w-full" required />
+            <Input 
+              label="E-mail Institucional" 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              placeholder="seu.email@senac.br" 
+              required 
+            />
+            <Input 
+              label="Senha de Acesso" 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="••••••••" 
+              required 
+            />
+            
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0, y: -10 }} 
+                  animate={{ opacity: 1, height: 'auto', y: 0 }} 
+                  exit={{ opacity: 0, height: 0, y: -10 }}
+                  className="bg-red-950/40 border border-red-800/50 rounded-lg overflow-hidden"
+                >
+                  <div className="px-3 py-2.5 flex items-start gap-2">
+                    <WarningCircle weight="fill" className="text-red-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-red-400 font-medium leading-relaxed">{error}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="pt-2">
+              <Button type="submit" variant="primary" className="w-full py-3.5 text-sm tracking-wider uppercase font-bold" disabled={loading}>
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
+                    Autenticando...
+                  </span>
+                ) : 'Entrar no Sistema'}
+              </Button>
             </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">Senha</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="tech-input w-full" required />
-            </div>
-            {error && (
-              <div className="bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 flex items-center gap-2">
-                <span className="text-red-400 text-xs">✕</span>
-                <p className="text-xs text-red-400">{error}</p>
-              </div>
-            )}
-            <Button type="submit" className="w-full py-3 text-sm tracking-wider" disabled={loading}>
-              {loading ? 'Autenticando...' : 'Entrar no Sistema'}
-            </Button>
           </form>
-          <div className="mt-6 pt-4 border-t border-navy-500/20">
-            <p className="text-[10px] text-center text-slate-600 tracking-wider">SENAC • Ambiente de Gestao de Notebooks</p>
+
+          <div className="mt-8 pt-5 border-t border-dark-600/50 flex flex-col items-center gap-2">
+            <p className="text-[10px] text-center text-slate-500 tracking-wider">SECURE CONNECTION • V2.0.0</p>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
+
