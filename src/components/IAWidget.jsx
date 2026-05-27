@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, TrendingUp, Warning, Users, Package, CheckCircle, ArrowsClockwise } from '@phosphor-icons/react';
+import { Brain, TrendUp, Warning, Users, Package, CheckCircle, ArrowsClockwise } from '@phosphor-icons/react';
 
 const PRIORITY_CONFIG = {
   critica: { color: 'text-red-400', bg: 'bg-red-950/30 border-red-800/30', dot: 'bg-red-500', label: 'Crítico' },
@@ -11,7 +11,7 @@ const PRIORITY_CONFIG = {
 };
 
 const ICON_MAP = {
-  'trending-up': TrendingUp,
+  'trending-up': TrendUp,
   'users': Users,
   'warning': Warning,
   'package': Package,
