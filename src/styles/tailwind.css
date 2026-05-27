@@ -41,26 +41,29 @@ body {
 @layer components {
   /* Glass Cards */
   .glass-card {
-    @apply border border-dark-600 rounded-2xl backdrop-blur-md;
+    @apply border rounded-2xl backdrop-blur-md;
     background-color: color-mix(in srgb, var(--color-bg-800) 80%, transparent);
+    border-color: color-mix(in srgb, var(--color-bg-600) 100%, transparent);
     box-shadow:
       0 10px 30px -10px var(--glass-shadow),
       inset 0 1px 0 0 var(--glass-glow);
   }
 
   .glass-card-alert {
-    @apply border border-accent/30 rounded-2xl backdrop-blur-md;
+    @apply border rounded-2xl backdrop-blur-md;
     background-color: color-mix(in srgb, var(--color-bg-800) 80%, transparent);
+    border-color: rgba(0, 74, 141, 0.30);
     box-shadow:
       0 10px 30px -10px rgba(242, 127, 27, 0.1),
       inset 0 1px 0 0 rgba(255,255,255,0.05);
   }
 
   .glass-card-primary {
-    @apply border border-primary/30 rounded-2xl backdrop-blur-md;
+    @apply border rounded-2xl backdrop-blur-md;
     background-color: color-mix(in srgb, var(--color-bg-800) 80%, transparent);
+    border-color: rgba(244, 121, 32, 0.30);
     box-shadow:
-      0 10px 30px -10px rgba(5, 17, 242, 0.1),
+      0 10px 30px -10px rgba(244, 121, 32, 0.1),
       inset 0 1px 0 0 rgba(255,255,255,0.05);
   }
 
@@ -84,7 +87,11 @@ body {
   }
 
   .tech-table-row {
-    @apply border-t border-dark-600/50 hover:bg-dark-700/50 transition-all duration-200;
+    @apply border-t transition-all duration-200;
+    border-color: color-mix(in srgb, var(--color-bg-600) 50%, transparent);
+  }
+  .tech-table-row:hover {
+    background-color: color-mix(in srgb, var(--color-bg-700) 50%, transparent);
   }
 
   /* Status Badges */
@@ -149,4 +156,3 @@ body {
   background: theme('colors.primary.dim');
   color: theme('colors.slate.100');
 }
-
