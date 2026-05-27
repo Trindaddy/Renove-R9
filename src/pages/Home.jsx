@@ -76,18 +76,20 @@ export default function Home() {
           variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
         >
           {/* Main Layout Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start mb-5">
-            <div className="lg:col-span-7">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <DashboardCTAEmprestimo />
-                <DashboardCTATurma />
+          {user.role !== 'aluno' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start mb-5">
+              <div className="lg:col-span-7">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <DashboardCTAEmprestimo />
+                  <DashboardCTATurma />
+                </div>
+              </div>
+
+              <div className="lg:col-span-5">
+                <SelectedNotebooksTray />
               </div>
             </div>
-
-            <div className="lg:col-span-5">
-              <SelectedNotebooksTray />
-            </div>
-          </div>
+          )}
 
           {/* Role specific areas */}
           <div className="pt-2">
@@ -473,28 +475,6 @@ function DashboardProfessor({ data }) {
           <Stat label="Alunos Aguardando" value={data.alunosAguardandoNotebook} accent="text-accent" />
           <div />
         </div>
-      </Card>
-
-      <Card title="Lotes de Notebooks">
-        <ul className="space-y-2">
-          {Array.isArray(data.lotes) &&
-            data.lotes.map((lote) => (
-              <li
-                key={lote.id}
-                className="rounded-xl border border-dark-600 bg-dark-700/30 px-3 py-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-slate-200 font-semibold">{lote.turma}</p>
-                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                      {lote.data} • {lote.turno} • {lote.quantidade} notebooks
-                    </p>
-                  </div>
-                  <span className="status-badge bg-primary/10 text-primary border border-primary/20">{lote.status}</span>
-                </div>
-              </li>
-            ))}
-        </ul>
       </Card>
 
       <Card title="Ações Rápidas">

@@ -8,6 +8,11 @@ import {
   atualizarReserva,
   deletarReserva
 } from '../services/reservasService';
+import { getDashboardStats } from '../services/emprestimosService';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { Laptop, WarningCircle, Trash } from '@phosphor-icons/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Reservas() {
   const [form, setForm] = useState({
@@ -25,11 +30,27 @@ export default function Reservas() {
   const [success, setSuccess] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [selectedReserva, setSelectedReserva] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const { user } = useAuth();
+  const { lastMessage } = useWebSocket();
+
+  useEffect(() => {
+    if (lastMessage) {
+      // Atualiza automaticamente qualquer mudança de disponibilidade, reservas ou empréstimos
+      loadReservas();
+    }
+  }, [lastMessage]);
 
   async function loadTurmas() {
     try {
       const data = await listarTurmas();
-      setTurmas(Array.isArray(data) ? data : []);
+      let list = Array.isArray(data) ? data : [];
+      if (user?.role === 'professor') {
+        list = list.filter(t => t.instrutor === user.nome);
+      }
+      setTurmas(list);
     } catch (err) {
       setError('Não foi possível carregar as turmas. Verifique a API.');
     }
@@ -40,8 +61,10 @@ export default function Reservas() {
       setLoadingReservas(true);
       const data = await listarReservas();
       setReservas(Array.isArray(data) ? data : []);
+      const s = await getDashboardStats();
+      setStats(s);
     } catch (err) {
-      setError('Não foi possível carregar as reservas. Verifique a API.');
+      setError('Não foi possível carregar as reservas ou estatísticas. Verifique a API.');
     } finally {
       setLoadingReservas(false);
     }
@@ -59,6 +82,13 @@ export default function Reservas() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const restantes = stats ? stats.total - stats.reservados : 0;
+    
+    if (form.quantidade > restantes && !editingId) {
+      setError(`Quantidade indisponível. Restam apenas ${restantes} notebooks para novas reservas.`);
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -106,8 +136,14 @@ export default function Reservas() {
     setEditingId(null);
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Deseja realmente excluir esta reserva?')) return;
+  async function confirmDelete(id) {
+    setConfirmDeleteId(id);
+  }
+
+  async function executeDelete() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     try {
       setLoading(true);
       setError('');
@@ -142,6 +178,32 @@ export default function Reservas() {
         <p className="text-sm text-emerald-300 bg-emerald-950/40 border border-emerald-900 rounded px-3 py-2">
           {success}
         </p>
+      )}
+
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total no Sistema</p>
+              <p className="text-2xl font-black text-slate-200">{stats.total}</p>
+            </div>
+            <Laptop className="text-3xl text-slate-600" weight="duotone" />
+          </div>
+          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Notebooks Reservados</p>
+              <p className="text-2xl font-black text-senac-blue">{stats.reservados}</p>
+            </div>
+            <WarningCircle className="text-3xl text-senac-blue/50" weight="duotone" />
+          </div>
+          <div className="bg-senac-orange/10 border border-senac-orange/30 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-senac-orange uppercase tracking-wider font-semibold">Disponíveis p/ Reserva</p>
+              <p className="text-2xl font-black text-senac-orange">{Math.max(0, stats.total - stats.reservados)}</p>
+            </div>
+            <Laptop className="text-3xl text-senac-orange" weight="fill" />
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -303,7 +365,7 @@ export default function Reservas() {
                             Editar
                           </button>
                           <button
-                            onClick={() => handleDelete(reserva.id)}
+                            onClick={() => confirmDelete(reserva.id)}
                             className="px-2.5 py-1 text-[11px] rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-semibold"
                           >
                             Excluir
@@ -383,7 +445,7 @@ export default function Reservas() {
                 <Button
                   variant="danger"
                   className="w-full text-xs py-2"
-                  onClick={() => handleDelete(selectedReserva.id)}
+                  onClick={() => confirmDelete(selectedReserva.id)}
                 >
                   Excluir Empréstimo
                 </Button>
@@ -400,6 +462,47 @@ export default function Reservas() {
           </div>
         </div>
       )}
+
+      {/* Styled confirm modal for reservation deletion */}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-400 text-2xl">
+                <Trash weight="duotone" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Excluir Reserva
+              </h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita e os notebooks retornarão para o estoque disponível.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white border border-red-500"
+                  onClick={executeDelete}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
