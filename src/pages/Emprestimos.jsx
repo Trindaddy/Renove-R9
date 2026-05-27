@@ -46,13 +46,21 @@ export default function Emprestimos() {
       ]);
       setStats(s);
       setAlerta(a);
-      setEmprestimos(Array.isArray(e) ? e : []);
+      
+      let list = Array.isArray(e) ? e : [];
+      if (user?.role === 'professor') {
+        const { listarTurmas } = await import('../services/turmasService');
+        const turmas = await listarTurmas();
+        const ids = turmas.filter(t => t.instrutor === user.nome).map(t => t.id || t.codigo_turma);
+        list = list.filter(emp => ids.includes(emp.usuario?.turma));
+      }
+      setEmprestimos(list);
     } catch (err) {
       setError('Erro ao carregar dados do dashboard');
     } finally {
       setLoading(false);
     }
-  }, [filtroStatus]);
+  }, [filtroStatus, user]);
 
   useEffect(() => {
     carregarDados();
@@ -270,7 +278,7 @@ export default function Emprestimos() {
                         {formatDate(emp.data_prevista_devolucao)}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {emp.status === 'Ativo' && user?.role === 'ti' && (
+                        {emp.status === 'Ativo' && isProfessorOuTi && (
                           <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="success"

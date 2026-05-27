@@ -11,10 +11,5 @@ export async function atualizarEquipamento(id, payload) {
   return response.data;
 }
 
-export async function cadastrarEquipamento(payload) {
-  const response = await api.post('/notebooks', payload);
-  return response.data;
-}
-
 
 

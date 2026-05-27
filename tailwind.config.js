@@ -10,22 +10,24 @@ export default {
           700: 'var(--color-bg-700)',
           600: 'var(--color-bg-600)',
         },
+        'senac-orange': '#f47920',
+        'senac-blue': '#004a8d',
         primary: {
-          DEFAULT: '#0511F2', // Azul vibrante
-          dim: 'rgba(5, 17, 242, 0.1)',
-          glow: 'rgba(5, 17, 242, 0.3)',
+          DEFAULT: '#f47920', // Laranja do Senac
+          dim: 'rgba(244, 121, 32, 0.1)',
+          glow: 'rgba(244, 121, 32, 0.3)',
         },
         secondary: {
-          DEFAULT: '#03588C', // Azul médio
-          dim: 'rgba(3, 88, 140, 0.1)',
+          DEFAULT: '#004a8d', // Azul do Senac
+          dim: 'rgba(0, 74, 141, 0.1)',
         },
         accent: {
-          DEFAULT: '#F27F1B', // Laranja vibrante
-          dim: 'rgba(242, 127, 27, 0.1)',
-          glow: 'rgba(242, 127, 27, 0.3)',
+          DEFAULT: '#004a8d', // Azul como accent
+          dim: 'rgba(0, 74, 141, 0.1)',
+          glow: 'rgba(0, 74, 141, 0.3)',
         },
         peach: {
-          DEFAULT: '#F2B988', // Pêssego claro
+          DEFAULT: '#F2B988', // Pêssego claro (mantido como highlight)
         },
         slate: {
           100: 'var(--color-text-100)',
@@ -40,8 +42,8 @@ export default {
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       boxShadow: {
-        'glow-primary': '0 0 20px rgba(5, 17, 242, 0.25)',
-        'glow-accent': '0 0 20px rgba(242, 127, 27, 0.25)',
+        'glow-primary': '0 0 20px rgba(244, 121, 32, 0.25)',
+        'glow-accent': '0 0 20px rgba(0, 74, 141, 0.25)',
         'glass': '0 4px 30px rgba(0, 0, 0, 0.5)',
       },
       animation: {

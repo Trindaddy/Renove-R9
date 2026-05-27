@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --color-bg-900: #0D0D0D;
-  --color-bg-800: #141414;
-  --color-bg-700: #1A1A1A;
-  --color-bg-600: #2A2A2A;
+  --color-bg-900: #111111;
+  --color-bg-800: #1A1A1A;
+  --color-bg-700: #222222;
+  --color-bg-600: #333333;
   --color-text-100: #FFFFFF;
   --color-text-200: #F1F5F9;
   --color-text-300: #CBD5E1;

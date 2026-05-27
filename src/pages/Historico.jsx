@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getHistorico, listarNotebooks } from '../services/emprestimosService';
 
 export default function Historico() {
@@ -7,11 +7,6 @@ export default function Historico() {
   const [notebookSelecionado, setNotebookSelecionado] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Pagination states
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const limit = 20;
 
   useEffect(() => {
     async function loadNotebooks() {
@@ -25,36 +20,25 @@ export default function Historico() {
     loadNotebooks();
   }, []);
 
-  const loadHistorico = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const id = notebookSelecionado ? parseInt(notebookSelecionado) : undefined;
-      const skip = (page - 1) * limit;
-      const data = await getHistorico(id, skip, limit);
-      
-      const records = Array.isArray(data) ? data : [];
-      setHistorico(records);
-      setHasMore(records.length === limit);
-    } catch (err) {
-      setError('Erro ao carregar histórico');
-    } finally {
-      setLoading(false);
-    }
-  }, [notebookSelecionado, page]);
-
   useEffect(() => {
+    async function loadHistorico() {
+      try {
+        setLoading(true);
+        setError('');
+        const id = notebookSelecionado ? parseInt(notebookSelecionado) : undefined;
+        const data = await getHistorico(id);
+        setHistorico(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError('Erro ao carregar histórico');
+      } finally {
+        setLoading(false);
+      }
+    }
     loadHistorico();
-  }, [loadHistorico]);
-
-  // Reset page when notebook selection changes
-  const handleNotebookChange = (e) => {
-    setNotebookSelecionado(e.target.value);
-    setPage(1);
-  };
+  }, [notebookSelecionado]);
 
   return (
-    <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+    <div className="space-y-6">
       {/* Header */}
       <header className="pb-4 border-b border-navy-500/20">
         <div className="flex items-center gap-2 mb-1">
@@ -65,29 +49,29 @@ export default function Historico() {
           Histórico de <span className="text-cyan glow-text-cyan">Movimentações</span>
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Log completo de todas as operações realizadas no sistema (imutável e auditado).
+          Log completo de todas as operações realizadas no sistema.
         </p>
       </header>
 
       {/* Filter */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Filtrar Equipamento</span>
-          <select
-            value={notebookSelecionado}
-            onChange={handleNotebookChange}
-            className="tech-select text-xs w-full sm:w-80"
-          >
-            <option value="">Todos os notebooks</option>
-            {notebooks.map((nb) => (
-              <option key={nb.id} value={nb.id}>
-                {nb.patrimonio} — {nb.modelo}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Filtrar por Equipamento</span>
         </div>
-        <span className="text-[10px] text-slate-500 font-mono self-end sm:self-auto">
-          Visualizando página {page}
+        <select
+          value={notebookSelecionado}
+          onChange={(e) => setNotebookSelecionado(e.target.value)}
+          className="tech-select text-sm w-full sm:w-80"
+        >
+          <option value="">Todos os notebooks</option>
+          {notebooks.map((nb) => (
+            <option key={nb.id} value={nb.id}>
+              {nb.patrimonio} — {nb.modelo}
+            </option>
+          ))}
+        </select>
+        <span className="text-[10px] text-slate-600 font-mono ml-auto">
+          {historico.length} registro(s)
         </span>
       </div>
 
@@ -122,7 +106,7 @@ export default function Historico() {
                       <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
                       <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
                       <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
-                      <span className="text-xs text-slate-500 ml-2 font-mono">Carregando registros...</span>
+                      <span className="text-xs text-slate-500 ml-2">Carregando registros...</span>
                     </div>
                   </td>
                 </tr>
@@ -140,7 +124,7 @@ export default function Historico() {
                     })}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="font-mono text-xs text-cyan/85">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
+                    <span className="font-mono text-xs text-cyan/80">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
                   </td>
                   <td className="px-5 py-3.5">
                     <TipoBadge tipo={h.tipo_movimentacao} />
@@ -151,16 +135,14 @@ export default function Historico() {
                       <svg className="w-3 h-3 text-cyan/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-cyan/85">{h.status_novo || '—'}</span>
+                      <span className="text-cyan/80">{h.status_novo || '—'}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-350 max-w-xs truncate" title={h.descricao}>
+                  <td className="px-5 py-3.5 text-xs text-slate-300 max-w-xs truncate" title={h.descricao}>
                     {h.descricao || '—'}
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">
-                    {h.responsavel 
-                      ? `${h.responsavel.nome} (${h.responsavel.role.toUpperCase()})` 
-                      : (h.usuario?.nome ? `${h.usuario.nome} (ALUNO)` : 'Sistema')}
+                  <td className="px-5 py-3.5 text-xs text-slate-400">
+                    {h.usuario?.nome || 'Sistema'}
                   </td>
                 </tr>
               ))}
@@ -170,36 +152,13 @@ export default function Historico() {
                   <td colSpan={6} className="px-5 py-10 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-2xl opacity-20">◉</span>
-                      <p className="text-xs text-slate-500 font-mono">Nenhum registro encontrado no histórico.</p>
+                      <p className="text-xs text-slate-500">Nenhum registro encontrado no histórico.</p>
                     </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Pagination Controls */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-navy-500/20 bg-navy-950/20">
-          <span className="text-[10px] text-slate-500 font-mono">
-            Página {page}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1 || loading}
-              className="px-3.5 py-1.5 rounded-lg bg-navy-800 border border-navy-500/20 hover:bg-navy-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-semibold"
-            >
-              Anterior
-            </button>
-            <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={!hasMore || loading}
-              className="px-3.5 py-1.5 rounded-lg bg-cyan/10 text-cyan border border-cyan/20 hover:bg-cyan/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-semibold"
-            >
-              Próxima
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -214,8 +173,8 @@ function TipoBadge({ tipo }) {
     'MANUTENCAO_SAIDA': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
     'RESERVA': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     'CANCELAMENTO': 'bg-red-500/10 text-red-400 border-red-500/20',
-    'CADASTRO': 'bg-slate-500/10 text-slate-450 border-slate-500/20',
-    'ATUALIZACAO': 'bg-slate-500/10 text-slate-450 border-slate-500/20',
+    'CADASTRO': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+    'ATUALIZACAO': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
     'ALERTA_ESCASSEZ': 'bg-alert-dim text-alert border-alert/20 glow-text-alert'
   };
 
@@ -237,3 +196,4 @@ function TipoBadge({ tipo }) {
     </span>
   );
 }
+
