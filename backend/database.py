@@ -2,9 +2,13 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def get_brasilia_time():
+    return datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./r9_notebooks.db")
 

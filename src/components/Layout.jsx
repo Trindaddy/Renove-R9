@@ -28,20 +28,22 @@ export default function Layout({ children }) {
       { to: '/equipamentos', label: 'Inventário', icon: '▣' },
       { to: '/historico', label: 'Histórico', icon: '◉' },
       { to: '/turmas', label: 'Turmas', icon: '▤' },
-      { to: '/reservas', label: 'Reservas', icon: '▦' }
+      { to: '/reservas', label: 'Reservas', icon: '▦' },
+      { to: '/alocacoes', label: 'Alocações', icon: '📊' },
+      { to: '/usuarios', label: 'Usuários', icon: '👥' }
     );
   } else if (user?.role === 'professor') {
     navItems.push(
       { to: '/', label: 'Dashboard', icon: '◆' },
       { to: '/emprestimos', label: 'Empréstimos', icon: '◈' },
       { to: '/historico', label: 'Histórico', icon: '◉' },
-      { to: '/turmas', label: 'Turmas', icon: '▤' },
       { to: '/reservas', label: 'Reservas', icon: '▦' }
     );
   } else {
     navItems.push(
       { to: '/', label: 'Dashboard', icon: '◆' },
-      { to: '/emprestimos', label: 'Empréstimos', icon: '◈' }
+      { to: '/emprestimos', label: 'Empréstimos', icon: '◈' },
+      { to: '/historico', label: 'Histórico', icon: '◉' }
     );
   }
 

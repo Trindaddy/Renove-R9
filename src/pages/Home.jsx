@@ -7,6 +7,8 @@ import {
   getDashboardTi
 } from '../services/dashboardService';
 import { useWebSocket } from '../hooks/useWebSocket';
+import Input from '../components/Input.jsx';
+import Button from '../components/Button.jsx';
 
 export default function Home() {
   const { user } = useAuth();
@@ -89,7 +91,7 @@ export default function Home() {
           {/* Mantém seções por role abaixo (apenas para compatibilidade com seus endpoints atuais) */}
           <div className="pt-2">
             {user.role === 'ti' && <DashboardTI data={data} />}
-            {user.role === 'aluno' && <DashboardAluno data={data} />}
+            {user.role === 'aluno' && <DashboardAluno data={data} user={user} onRefresh={load} />}
             {user.role === 'professor' && <DashboardProfessor data={data} />}
           </div>
         </>
@@ -403,34 +405,86 @@ function DashboardTI({ data }) {
   );
 }
 
-function DashboardAluno({ data }) {
+function DashboardAluno({ data, user, onRefresh }) {
+  const [patrimonio, setPatrimonio] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
   if (!data) {
     return (
       <div className="glass-card p-6 text-center">
-        <p className="text-sm text-slate-400">Configure o endpoint de dashboard do aluno para visualizar as solicitações.</p>
+        <p className="text-sm text-slate-400">Carregando dados do aluno...</p>
       </div>
     );
   }
 
+  async function handleQuickLoan(e) {
+    e.preventDefault();
+    if (!patrimonio || !patrimonio.trim()) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const { criarEmprestimoRapido } = await import('../services/emprestimosService');
+      await criarEmprestimoRapido({
+        notebook_patrimonio: patrimonio.trim(),
+        usuario_matricula: user.matricula,
+        motivo: 'Retirada Individual Aluno',
+        horas_previstas: 4
+      });
+      setSuccess('Empréstimo rápido registrado com sucesso!');
+      setPatrimonio('');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao realizar empréstimo. Verifique o patrimônio.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <Card title="Retirada Rápida de Notebook">
+        <form onSubmit={handleQuickLoan} className="space-y-3">
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Digite o patrimônio do notebook que você está retirando para validar e registrar imediatamente.
+          </p>
+          <Input
+            placeholder="Ex: 21491"
+            value={patrimonio}
+            onChange={(e) => setPatrimonio(e.target.value)}
+            disabled={loading}
+            required
+          />
+          {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
+          {success && <p className="text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
+          <Button type="submit" variant="cyan" className="w-full text-xs" disabled={loading}>
+            {loading ? 'Validando...' : 'Confirmar Retirada'}
+          </Button>
+        </form>
+      </Card>
+
       <Card title="Minha Solicitação">
         {data.reservaAtual ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-navy-500/20 bg-navy-800/30 px-3 py-2.5">
-              <p className="text-sm text-slate-200 font-semibold">{data.reservaAtual.equipamento}</p>
+            <div className="rounded-xl border border-cyan/20 bg-navy-800/30 px-3 py-2.5">
+              <p className="text-sm text-cyan font-bold">{data.reservaAtual.equipamento}</p>
               <p className="text-xs text-slate-400 font-mono mt-1">{data.reservaAtual.horario}</p>
             </div>
-
             <div className="flex items-center">
-              <span className="status-badge bg-slate-100/5 text-slate-200 border border-slate-500/20">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                data.reservaAtual.status === 'Atrasado'
+                  ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse'
+                  : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+              }`}>
                 {data.reservaAtual.status}
               </span>
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-navy-500/20 bg-navy-800/20 px-3 py-4">
-            <p className="text-sm text-slate-400">Você ainda não possui solicitações ativas.</p>
+          <div className="rounded-xl border border-navy-500/20 bg-navy-800/20 px-3 py-6 text-center">
+            <p className="text-sm text-slate-500">Você não possui nenhum notebook ativo no momento.</p>
           </div>
         )}
       </Card>
@@ -447,13 +501,16 @@ function DashboardAluno({ data }) {
                   <div>
                     <p className="text-sm text-slate-200 font-semibold">{aula.curso}</p>
                     <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                      {aula.data} • {aula.turno}
+                      Turma: {aula.id} • {aula.data} • {aula.turno}
                     </p>
                   </div>
                   <div className="text-slate-500 group-hover:text-cyan transition-colors">◈</div>
                 </div>
               </li>
             ))}
+          {(!Array.isArray(data.proximasAulas) || data.proximasAulas.length === 0) && (
+            <div className="py-6 text-center text-slate-500 text-xs">Nenhuma aula agendada para sua turma.</div>
+          )}
         </ul>
       </Card>
     </div>
