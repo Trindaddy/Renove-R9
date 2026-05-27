@@ -186,6 +186,46 @@ def get_usuario_by_matricula(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return user
 
+@app.patch("/usuarios/{usuario_id}/senha", status_code=status.HTTP_200_OK)
+def reset_senha_usuario(
+    usuario_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    """Redefine a senha de um usuário. Exclusivo para TI."""
+    require_role(["ti"])(current_user)
+    
+    nova_senha = body.get("nova_senha", "")
+    if not nova_senha or len(nova_senha) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A nova senha deve ter pelo menos 6 caracteres"
+        )
+    
+    user = crud.get_usuario(db, usuario_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+    user.senha_hash = pwd_context.hash(nova_senha)
+    db.commit()
+    
+    # Obter um notebook ID válido para evitar erro de FK no histórico
+    first_nb = db.query(models.Notebook).first()
+    nb_id = first_nb.id if first_nb else 1
+    
+    # Registrar no histórico
+    crud.registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=nb_id,
+        tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
+        responsavel_id=current_user.id,
+        descricao=f"Senha redefinida pela TI para o usuário {user.nome} ({user.email})"
+    ))
+    
+    return {"detail": f"Senha de {user.nome} redefinida com sucesso"}
+
 # ==================== ROTAS DE NOTEBOOKS ====================
 
 @app.get("/notebooks", response_model=List[schemas.NotebookResponse])
@@ -759,6 +799,15 @@ def get_dashboard_ti_route(
         models.Historico.created_at >= today_start
     ).count()
     
+    # Count of unique classes with reservations today
+    today_str = get_brasilia_time().strftime("%Y-%m-%d")
+    alocacoes_hoje = db.query(models.Reserva.turma_id).filter(
+        models.Reserva.data == today_str
+    ).distinct().count()
+    
+    # Total users in the system
+    total_usuarios = db.query(models.Usuario).filter(models.Usuario.ativo == True).count()
+    
     return {
         "notebooksTotais": stats.total,
         "notebooksDisponiveis": stats.disponiveis,
@@ -769,7 +818,9 @@ def get_dashboard_ti_route(
         "percentualDisponivel": stats.percentual_disponivel,
         "alerta_escassez": stats.alerta_escassez,
         "atrasadosCount": atrasados_count,
-        "manutencaoHojeCount": manutencao_hoje_count
+        "manutencaoHojeCount": manutencao_hoje_count,
+        "alocacoesHoje": alocacoes_hoje,
+        "totalUsuarios": total_usuarios,
     }
 
 @app.get("/dashboard/aluno")
@@ -869,6 +920,154 @@ def get_dashboard_professor_route(
         "reservasAtivas": reservas_ativas,
         "alunosAguardandoNotebook": alunos_aguardando,
         "lotes": lotes
+    }
+
+# ==================== ROTAS DE IA PREDITIVA ====================
+
+@app.get("/ia/insights")
+def get_ia_insights(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    from collections import Counter, defaultdict
+    from datetime import timedelta
+    
+    hoje = get_brasilia_time()
+    insights = []
+    
+    # === 1. Previsão de alta demanda por dia da semana ===
+    # Analisa empréstimos dos últimos 60 dias por dia da semana
+    data_limite = hoje - timedelta(days=60)
+    emprestimos_recentes = db.query(models.Emprestimo).filter(
+        models.Emprestimo.data_emprestimo >= data_limite
+    ).all()
+    
+    dias_semana_nomes = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+    contagem_por_dia = Counter()
+    for emp in emprestimos_recentes:
+        if emp.data_emprestimo:
+            dia = emp.data_emprestimo.weekday()
+            contagem_por_dia[dia] += 1
+    
+    if contagem_por_dia:
+        dia_pico = contagem_por_dia.most_common(1)[0][0]
+        total_pico = contagem_por_dia[dia_pico]
+        insights.append({
+            "tipo": "previsao_demanda",
+            "icone": "trending-up",
+            "titulo": f"Alta Demanda Prevista: {dias_semana_nomes[dia_pico]}s",
+            "descricao": f"Com base nos últimos 60 dias, {dias_semana_nomes[dia_pico]}s concentram o maior volume de empréstimos ({total_pico} retiradas). Prepare o estoque para esse dia.",
+            "prioridade": "alta" if total_pico > 5 else "media"
+        })
+    
+    # === 2. Turmas com maior consumo de notebooks ===
+    turma_consumo = defaultdict(int)
+    for emp in emprestimos_recentes:
+        if emp.usuario and emp.usuario.turma:
+            turma_consumo[emp.usuario.turma] += 1
+    
+    if turma_consumo:
+        top_turma = max(turma_consumo, key=turma_consumo.get)
+        top_count = turma_consumo[top_turma]
+        turma_info = db.query(models.Turma).filter(models.Turma.codigo_turma == top_turma).first()
+        nome_turma = f"{top_turma} - {turma_info.nome_curso}" if turma_info else top_turma
+        insights.append({
+            "tipo": "turma_alta_demanda",
+            "icone": "users",
+            "titulo": f"Turma com Maior Consumo: {top_turma}",
+            "descricao": f"{nome_turma} realizou {top_count} empréstimos nos últimos 60 dias. Considere reservar notebooks dedicados para esta turma.",
+            "prioridade": "media"
+        })
+    
+    # === 3. Taxa de avaria elevada por modelo ===
+    notebooks_manutencao = db.query(models.Notebook).filter(
+        models.Notebook.status == "Manutenção"
+    ).all()
+    
+    avaria_por_modelo = Counter(nb.modelo for nb in notebooks_manutencao)
+    total_por_modelo = Counter()
+    for nb in db.query(models.Notebook).all():
+        total_por_modelo[nb.modelo] += 1
+    
+    for modelo, qtd_avaria in avaria_por_modelo.most_common(3):
+        total = total_por_modelo.get(modelo, 1)
+        taxa = (qtd_avaria / total) * 100
+        if taxa >= 20:  # Alerta se 20%+ do modelo em manutenção
+            insights.append({
+                "tipo": "alerta_avaria",
+                "icone": "warning",
+                "titulo": f"Taxa de Avaria Elevada: {modelo}",
+                "descricao": f"{qtd_avaria} de {total} notebooks {modelo} estão em manutenção ({taxa:.0f}%). Avalie contato com fornecedor ou substituição do modelo.",
+                "prioridade": "critica" if taxa >= 40 else "alta"
+            })
+    
+    # === 4. Notebooks ociosos (disponíveis há mais de 30 dias sem uso) ===
+    data_30_dias = hoje - timedelta(days=30)
+    notebooks_disponiveis = db.query(models.Notebook).filter(
+        models.Notebook.status == "Disponível"
+    ).all()
+    
+    notebooks_ids_disponiveis = [nb.id for nb in notebooks_disponiveis]
+    notebooks_usados_recentemente = db.query(models.Historico.notebook_id).filter(
+        models.Historico.notebook_id.in_(notebooks_ids_disponiveis),
+        models.Historico.tipo_movimentacao.in_(["EMPRESTIMO", "DEVOLUCAO"]),
+        models.Historico.created_at >= data_30_dias
+    ).distinct().all()
+    ids_usados = {r[0] for r in notebooks_usados_recentemente}
+    ociosos = [nb for nb in notebooks_disponiveis if nb.id not in ids_usados]
+    
+    if len(ociosos) > 5:
+        insights.append({
+            "tipo": "notebooks_ociosos",
+            "icone": "package",
+            "titulo": f"{len(ociosos)} Notebooks Sem Uso Recente",
+            "descricao": f"{len(ociosos)} notebooks disponíveis não foram emprestados nos últimos 30 dias. Verifique se estão em bom estado ou se podem ser redistribuídos entre unidades.",
+            "prioridade": "baixa"
+        })
+    
+    # === 5. Remanejamento sugerido ===
+    total_disponiveis = db.query(models.Notebook).filter(
+        models.Notebook.status == "Disponível"
+    ).count()
+    total_reservas_pendentes = db.query(models.Reserva).filter(
+        models.Reserva.status == "Pendente",
+        models.Reserva.data >= hoje.strftime("%Y-%m-%d")
+    ).count()
+    
+    if total_reservas_pendentes > 0 and total_disponiveis < total_reservas_pendentes:
+        deficit = total_reservas_pendentes - total_disponiveis
+        insights.append({
+            "tipo": "deficit_estoque",
+            "icone": "alert-circle",
+            "titulo": f"Déficit de Estoque Previsto",
+            "descricao": f"Há {total_reservas_pendentes} reservas pendentes mas apenas {total_disponiveis} notebooks disponíveis. Déficit de {deficit} unidade(s). Ação imediata necessária.",
+            "prioridade": "critica"
+        })
+    
+    # Se não houver insights críticos, adicionar mensagem positiva
+    if not insights:
+        insights.append({
+            "tipo": "sistema_ok",
+            "icone": "check-circle",
+            "titulo": "Sistema Operando Normalmente",
+            "descricao": "Nenhum padrão crítico detectado no período analisado. Continue monitorando os indicadores.",
+            "prioridade": "baixa"
+        })
+    
+    # Resumo estatístico
+    total_emprestimos_periodo = len(emprestimos_recentes)
+    taxa_devolucao = 0
+    if total_emprestimos_periodo > 0:
+        devolvidos = sum(1 for e in emprestimos_recentes if e.status == "Devolvido")
+        taxa_devolucao = round((devolvidos / total_emprestimos_periodo) * 100, 1)
+    
+    return {
+        "insights": insights,
+        "periodo_analise_dias": 60,
+        "total_emprestimos_analisados": total_emprestimos_periodo,
+        "taxa_devolucao_percentual": taxa_devolucao,
+        "gerado_em": hoje.isoformat()
     }
 
 # ==================== ROTAS DE WEBSOCKET ====================

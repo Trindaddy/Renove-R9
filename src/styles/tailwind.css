@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  --bg-900: 17 17 17;
+  --bg-800: 26 26 26;
+  --bg-700: 34 34 34;
+  --bg-600: 51 51 51;
   --color-bg-900: #111111;
   --color-bg-800: #1A1A1A;
   --color-bg-700: #222222;
@@ -17,17 +21,57 @@
 }
 
 .light {
-  --color-bg-900: #F8FAFC;
+  --bg-900: 240 244 248;
+  --bg-800: 255 255 255;
+  --bg-700: 232 238 245;
+  --bg-600: 203 213 225;
+  --color-bg-900: #F0F4F8;
   --color-bg-800: #FFFFFF;
-  --color-bg-700: #F1F5F9;
-  --color-bg-600: #E2E8F0;
+  --color-bg-700: #E8EEF5;
+  --color-bg-600: #CBD5E1;
   --color-text-100: #0F172A;
   --color-text-200: #1E293B;
   --color-text-300: #334155;
-  --color-text-400: #64748B;
-  --color-text-500: #94A3B8;
-  --glass-shadow: rgba(148, 163, 184, 0.1);
-  --glass-glow: rgba(148, 163, 184, 0.05);
+  --color-text-400: #475569;
+  --color-text-500: #64748B;
+  --glass-shadow: rgba(100, 116, 139, 0.15);
+  --glass-glow: rgba(255, 255, 255, 0.8);
+}
+
+/* Overrides específicos para modo claro */
+.light body {
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(244, 121, 32, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(0, 74, 141, 0.04) 0%, transparent 40%);
+}
+
+.light .glass-card {
+  box-shadow:
+    0 2px 20px -4px rgba(100, 116, 139, 0.12),
+    0 0 0 1px rgba(203, 213, 225, 0.8);
+}
+
+.light .tech-table-header {
+  background-color: #F1F5F9;
+  color: #334155;
+}
+
+.light .tech-input,
+.light .tech-select {
+  background-color: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+.light .tech-input::placeholder,
+.light .tech-select::placeholder {
+  color: #94A3B8;
+}
+
+.light .tech-input:focus,
+.light .tech-select:focus {
+  border-color: #f47920;
+  box-shadow: 0 0 0 3px rgba(244, 121, 32, 0.12);
 }
 
 body {

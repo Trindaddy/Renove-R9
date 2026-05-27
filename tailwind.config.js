@@ -5,10 +5,10 @@ export default {
     extend: {
       colors: {
         dark: {
-          900: '#111111',
-          800: '#1A1A1A',
-          700: '#222222',
-          600: '#333333',
+          900: 'rgb(var(--bg-900) / <alpha-value>)',
+          800: 'rgb(var(--bg-800) / <alpha-value>)',
+          700: 'rgb(var(--bg-700) / <alpha-value>)',
+          600: 'rgb(var(--bg-600) / <alpha-value>)',
         },
         'senac-orange': '#f47920',
         'senac-blue': '#004a8d',

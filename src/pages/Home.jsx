@@ -9,6 +9,7 @@ import {
 import { useWebSocket } from '../hooks/useWebSocket';
 import Input from '../components/Input.jsx';
 import Button from '../components/Button.jsx';
+import IAWidget from '../components/IAWidget.jsx';
 import { motion } from 'framer-motion';
 import { ArrowRight, Laptop, Users, Warning, CheckCircle, Clock } from '@phosphor-icons/react';
 
@@ -372,15 +373,21 @@ function AlertsAndShortcutsTray({ user, data }) {
         <div className="grid grid-cols-2 gap-2">
           <Link
             to="/alocacoes"
-            className="px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center text-xs text-slate-200 font-medium transition-all"
+            className="flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center transition-all group"
           >
-            Alocações Hoje
+            <span className="text-lg font-black text-primary group-hover:scale-110 transition-transform">
+              {data?.alocacoesHoje ?? '—'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Alocações Hoje</span>
           </Link>
           <Link
             to="/usuarios"
-            className="px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center text-xs text-slate-200 font-medium transition-all"
+            className="flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center transition-all group"
           >
-            Contas de Usuários
+            <span className="text-lg font-black text-slate-100 group-hover:scale-110 transition-transform">
+              {data?.totalUsuarios ?? '—'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Contas de Usuários</span>
           </Link>
         </div>
       </div>
@@ -398,32 +405,39 @@ function DashboardTI({ data }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      <Card title="Inventário de Notebooks">
-        <div className="grid grid-cols-2 gap-4">
-          <Stat label="Total" value={data.notebooksTotais} />
-          <Stat label="Disponíveis" value={data.notebooksDisponiveis} accent="text-primary glow-text-primary" />
-          <Stat label="Em uso" value={data.notebooksEmUso} accent="text-accent glow-text-accent" />
-          <Stat label="Manutenção" value={data.notebooksManutencao} accent="text-red-400" />
-        </div>
-      </Card>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card title="Inventário de Notebooks">
+          <div className="grid grid-cols-2 gap-4">
+            <Stat label="Total" value={data.notebooksTotais} />
+            <Stat label="Disponíveis" value={data.notebooksDisponiveis} accent="text-primary glow-text-primary" />
+            <Stat label="Em uso" value={data.notebooksEmUso} accent="text-accent glow-text-accent" />
+            <Stat label="Manutenção" value={data.notebooksManutencao} accent="text-red-400" />
+          </div>
+        </Card>
 
-      <Card title="Operação de Hoje">
-        <div className="flex flex-col gap-4">
-          <Stat label="Reservas de Lote" value={data.reservasHoje} />
-          <Stat label="Solicitações Pendentes" value={data.solicitacoesPendentes} accent="text-accent" />
-        </div>
-      </Card>
+        <Card title="Operação de Hoje">
+          <div className="flex flex-col gap-4">
+            <Stat label="Reservas de Lote" value={data.reservasHoje} />
+            <Stat label="Solicitações Pendentes" value={data.solicitacoesPendentes} accent="text-accent" />
+          </div>
+        </Card>
 
-      <Card title="Acesso Rápido">
-        <div className="space-y-2">
-          <QuickLink to="/emprestimos" label="Empréstimos" desc="Retiradas e devoluções" />
-          <QuickLink to="/solicitacoes" label="Solicitações" desc="Fila de pedidos" />
-          <QuickLink to="/equipamentos" label="Inventário" desc="Controle de notebooks" />
-          <QuickLink to="/historico" label="Histórico" desc="Log de movimentações" />
-        </div>
-      </Card>
-    </div>
+        <Card title="Acesso Rápido">
+          <div className="space-y-2">
+            <QuickLink to="/emprestimos" label="Empréstimos" desc="Retiradas e devoluções" />
+            <QuickLink to="/solicitacoes" label="Solicitações" desc="Fila de pedidos" />
+            <QuickLink to="/equipamentos" label="Inventário" desc="Controle de notebooks" />
+            <QuickLink to="/historico" label="Histórico" desc="Log de movimentações" />
+          </div>
+        </Card>
+      </div>
+
+      {/* IA Preditiva */}
+      <div className="mt-5">
+        <IAWidget />
+      </div>
+    </>
   );
 }
 

@@ -11,6 +11,8 @@ import Reservas from '../pages/Reservas.jsx';
 import Solicitacoes from '../pages/Solicitacoes.jsx';
 import Emprestimos from '../pages/Emprestimos.jsx';
 import Historico from '../pages/Historico.jsx';
+import Alocacoes from '../pages/Alocacoes.jsx';
+import Usuarios from '../pages/Usuarios.jsx';
 
 function PrivateRoute({ allowedRoles }) {
   const { user, loading, isAuthenticated } = useAuth();
@@ -56,6 +58,8 @@ export default function AppRoutes() {
 
       <Route element={<PrivateRoute allowedRoles={['ti']} />}>
         <Route path="/equipamentos" element={<Equipamentos />} />
+        <Route path="/alocacoes" element={<Alocacoes />} />
+        <Route path="/usuarios" element={<Usuarios />} />
       </Route>
 
       <Route element={<PrivateRoute allowedRoles={['professor', 'ti']} />}>
