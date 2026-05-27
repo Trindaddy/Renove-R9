@@ -1,6 +1,16 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { motion } from 'framer-motion';
+import { 
+  SquaresFour, 
+  Laptop, 
+  Archive, 
+  ClockCounterClockwise, 
+  Users, 
+  CalendarCheck,
+  SignOut
+} from '@phosphor-icons/react';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -14,34 +24,34 @@ export default function Layout({ children }) {
   };
 
   const roleColor = {
-    ti: 'text-cyan',
-    professor: 'text-alert',
-    aluno: 'text-blue-400'
+    ti: 'text-primary',
+    professor: 'text-accent',
+    aluno: 'text-secondary'
   };
 
   const navItems = [];
 
   if (user?.role === 'ti') {
     navItems.push(
-      { to: '/', label: 'Dashboard', icon: '◆' },
-      { to: '/emprestimos', label: 'Empréstimos', icon: '◈' },
-      { to: '/equipamentos', label: 'Inventário', icon: '▣' },
-      { to: '/historico', label: 'Histórico', icon: '◉' },
-      { to: '/turmas', label: 'Turmas', icon: '▤' },
-      { to: '/reservas', label: 'Reservas', icon: '▦' }
+      { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
+      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> },
+      { to: '/equipamentos', label: 'Inventário', icon: <Archive weight="duotone" /> },
+      { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> },
+      { to: '/turmas', label: 'Turmas', icon: <Users weight="duotone" /> },
+      { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }
     );
   } else if (user?.role === 'professor') {
     navItems.push(
-      { to: '/', label: 'Dashboard', icon: '◆' },
-      { to: '/emprestimos', label: 'Empréstimos', icon: '◈' },
-      { to: '/historico', label: 'Histórico', icon: '◉' },
-      { to: '/turmas', label: 'Turmas', icon: '▤' },
-      { to: '/reservas', label: 'Reservas', icon: '▦' }
+      { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
+      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> },
+      { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> },
+      { to: '/turmas', label: 'Turmas', icon: <Users weight="duotone" /> },
+      { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }
     );
   } else {
     navItems.push(
-      { to: '/', label: 'Dashboard', icon: '◆' },
-      { to: '/emprestimos', label: 'Empréstimos', icon: '◈' }
+      { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
+      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> }
     );
   }
 
@@ -53,15 +63,15 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top Header */}
-      <header className="sticky top-0 z-50 glass-card border-b border-navy-500/20 rounded-none">
+      <header className="sticky top-0 z-50 glass-card border-b border-dark-600 rounded-none bg-dark-900/60">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-cyan/20 to-transparent border border-cyan/30 flex items-center justify-center group-hover:border-cyan/50 transition-colors">
-                <span className="text-sm font-black text-cyan font-mono tracking-tighter">R9</span>
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/20 to-transparent border border-primary/30 flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                <span className="text-sm font-black text-primary font-mono tracking-tighter">R9</span>
               </div>
-              <div className="absolute -inset-1 rounded-lg bg-cyan/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -inset-1 rounded-lg bg-primary/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-bold tracking-widest text-slate-100 uppercase leading-none">
@@ -81,17 +91,23 @@ export default function Layout({ children }) {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`relative px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all duration-300 ${
+                  className={`relative px-4 py-2 rounded-lg text-xs font-medium tracking-wide transition-colors ${
                     active
-                      ? 'text-cyan bg-cyan/10'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-navy-600/30'
+                      ? 'text-primary'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-dark-700/50'
                   }`}
                 >
                   {active && (
-                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-px bg-cyan/60 rounded-full" />
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 bg-primary/10 border border-primary/20 rounded-lg"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
                   )}
-                  <span className="mr-1.5 opacity-50 font-mono text-[10px]">{item.icon}</span>
-                  {item.label}
+                  <div className="relative flex items-center gap-2 z-10">
+                    <span className="text-lg opacity-80">{item.icon}</span>
+                    {item.label}
+                  </div>
                 </Link>
               );
             })}
@@ -110,16 +126,14 @@ export default function Layout({ children }) {
               className="group relative p-2 rounded-lg hover:bg-red-500/10 transition-colors"
               title="Sair"
             >
-              <svg className="w-4 h-4 text-slate-400 group-hover:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <SignOut className="w-5 h-5 text-slate-400 group-hover:text-red-400 transition-colors" weight="duotone" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden glass-card border-b border-navy-500/20 rounded-none overflow-x-auto">
+      <nav className="md:hidden glass-card border-b border-dark-600 rounded-none overflow-x-auto bg-dark-900/60">
         <div className="flex gap-1 px-4 py-2 min-w-max">
           {navItems.map((item) => {
             const active = location.pathname === item.to;
@@ -127,10 +141,11 @@ export default function Layout({ children }) {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                  active ? 'text-cyan bg-cyan/10' : 'text-slate-400'
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+                  active ? 'text-primary bg-primary/10 border border-primary/20' : 'text-slate-400'
                 }`}
               >
+                <span className="text-sm opacity-80">{item.icon}</span>
                 {item.label}
               </Link>
             );
@@ -140,18 +155,26 @@ export default function Layout({ children }) {
 
       {/* Main Content */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6">
-        {children}
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="h-full"
+        >
+          {children}
+        </motion.div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-navy-500/20 py-4 px-6">
+      <footer className="border-t border-dark-600/50 py-4 px-6 mt-auto">
         <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-[10px] text-slate-600 tracking-wider uppercase">
+          <p className="text-[10px] text-slate-500 tracking-wider uppercase">
             SENAC • Sistema Renove R9
           </p>
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan/60 animate-pulse" />
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.0</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/60 animate-pulse" />
+            <span className="text-[10px] text-slate-500 font-mono">v2.0.0</span>
           </div>
         </div>
       </footer>
