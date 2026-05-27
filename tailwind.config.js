@@ -5,10 +5,10 @@ export default {
     extend: {
       colors: {
         dark: {
-          900: 'var(--color-bg-900)',
-          800: 'var(--color-bg-800)',
-          700: 'var(--color-bg-700)',
-          600: 'var(--color-bg-600)',
+          900: '#111111',
+          800: '#1A1A1A',
+          700: '#222222',
+          600: '#333333',
         },
         'senac-orange': '#f47920',
         'senac-blue': '#004a8d',
