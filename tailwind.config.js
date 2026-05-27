@@ -5,10 +5,10 @@ export default {
     extend: {
       colors: {
         dark: {
-          900: '#0D0D0D', // Fundo principal
-          800: '#141414', // Fundo de seções / cards
-          700: '#1A1A1A', // Hover
-          600: '#2A2A2A', // Bordas
+          900: 'var(--color-bg-900)',
+          800: 'var(--color-bg-800)',
+          700: 'var(--color-bg-700)',
+          600: 'var(--color-bg-600)',
         },
         primary: {
           DEFAULT: '#0511F2', // Azul vibrante
@@ -28,11 +28,11 @@ export default {
           DEFAULT: '#F2B988', // Pêssego claro
         },
         slate: {
-          100: '#FFFFFF', // Texto primário
-          200: '#F1F5F9',
-          300: '#CBD5E1', // Texto secundário
-          400: '#94A3B8', // Labels
-          500: '#64748B', // Desativado
+          100: 'var(--color-text-100)',
+          200: 'var(--color-text-200)',
+          300: 'var(--color-text-300)',
+          400: 'var(--color-text-400)',
+          500: 'var(--color-text-500)',
         }
       },
       fontFamily: {

@@ -6,7 +6,7 @@ import json
 
 import models
 import schemas
-from alertas import verificar_alerta_escassez_sync, notificar_alerta_escassez
+from alertas import verificar_alerta_escassez_sync, notificar_alerta_escassez, obter_disponiveis_reais
 from database import get_brasilia_time
 
 def get_usuario(db: Session, usuario_id: int):
@@ -43,7 +43,7 @@ def get_notebook(db: Session, notebook_id: int):
 def get_notebook_by_patrimonio(db: Session, patrimonio: str):
     return db.query(models.Notebook).filter(models.Notebook.patrimonio == patrimonio).first()
 
-def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, limit: int = 100):
+def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, limit: int = 1000):
     query = db.query(models.Notebook)
     if status:
         query = query.filter(models.Notebook.status == status)
@@ -308,7 +308,7 @@ def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
 
 def get_dashboard_stats(db: Session):
     total = db.query(models.Notebook).count()
-    disponiveis = db.query(models.Notebook).filter(models.Notebook.status == "Disponível").count()
+    disponiveis = obter_disponiveis_reais(db)
     emprestados = db.query(models.Notebook).filter(models.Notebook.status == "Emprestado").count()
     manutencao = db.query(models.Notebook).filter(models.Notebook.status == "Manutenção").count()
     reservados = db.query(models.Notebook).filter(models.Notebook.status == "Reservado").count()
@@ -359,4 +359,10 @@ def verificar_atrasos(db: Session):
     
     db.commit()
     return len(atrasados)
+
+def listar_usuarios(db: Session, role: Optional[str] = None):
+    query = db.query(models.Usuario)
+    if role:
+        query = query.filter(models.Usuario.role == role)
+    return query.all()
 

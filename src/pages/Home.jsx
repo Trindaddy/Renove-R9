@@ -87,7 +87,7 @@ export default function Home() {
             </div>
 
             <div className="lg:col-span-5">
-              <SelectedNotebooksTray />
+              <AlertsAndShortcutsTray user={user} data={data} />
             </div>
           </div>
 
@@ -297,77 +297,92 @@ function DashboardCTATurma() {
   );
 }
 
-function SelectedNotebooksTray() {
-  const [selected, setSelected] = useState([]);
-  const [pulse, setPulse] = useState(false);
+function AlertsAndShortcutsTray({ user, data }) {
+  if (user?.role !== 'ti') {
+    return (
+      <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0 } }} className="glass-card p-5 h-full">
+        <h3 className="text-sm font-bold text-slate-100 mb-3">Atalhos Rápidos</h3>
+        <div className="grid grid-cols-1 gap-2">
+          <QuickLink to="/emprestimos" label="Registros de Empréstimo" desc="Acompanhe as retiradas ativas" />
+          <QuickLink to="/historico" label="Histórico Geral" desc="Consulte movimentações passadas" />
+        </div>
+      </motion.div>
+    );
+  }
+
+  // TI Role
+  const alerts = [];
+  if (data?.atrasadosCount > 0) {
+    alerts.push({
+      type: 'danger',
+      message: `Atenção: ${data.atrasadosCount} notebook(s) em atraso de devolução!`,
+      link: '/emprestimos'
+    });
+  }
+  if (data?.manutencaoHojeCount > 0) {
+    alerts.push({
+      type: 'warning',
+      message: `Manutenção: ${data.manutencaoHojeCount} notebook(s) enviado(s) para manutenção hoje.`,
+      link: '/equipamentos'
+    });
+  }
+  if (data?.alerta_escassez) {
+    alerts.push({
+      type: 'danger',
+      message: `Escassez Crítica: Estoque de notebooks disponíveis está abaixo de 20%!`,
+      link: '/equipamentos'
+    });
+  }
 
   return (
-    <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0 } }} className="glass-card p-5 h-full">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold">Área de transferência</div>
-          <h3 className="mt-2 text-lg font-black text-slate-100">Fila de Seleção</h3>
-          <p className="mt-1 text-sm text-slate-400">Notebooks selecionados para empréstimo.</p>
-        </div>
-        <div className="text-right">
-          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${selected.length ? 'border-primary/30 bg-primary/10 text-primary' : 'border-dark-600 bg-dark-700/50 text-slate-300'} transition-all`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${selected.length ? 'bg-primary animate-pulse' : 'bg-slate-500/80'}`} />
-            <span className="text-xs font-bold">{selected.length} itens</span>
-          </div>
+    <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0 } }} className="glass-card p-5 h-full flex flex-col justify-between">
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-semibold mb-2">Painel Operacional</div>
+        <h3 className="text-lg font-black text-slate-100">Alertas & Atalhos</h3>
+        
+        {/* Alertas Críticos */}
+        <div className="mt-3 space-y-2">
+          {alerts.length === 0 ? (
+            <div className="p-3 rounded-xl border border-dark-600 bg-emerald-950/10 text-emerald-400 text-xs flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Nenhum alerta crítico ativo. Sistema operando normalmente!
+            </div>
+          ) : (
+            alerts.map((al, idx) => (
+              <Link
+                key={idx}
+                to={al.link}
+                className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs font-semibold transition-all hover:scale-[1.01] duration-200 ${
+                  al.type === 'danger'
+                    ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/30'
+                    : 'bg-amber-950/20 border-amber-900/40 text-amber-400 hover:bg-amber-950/30'
+                }`}
+              >
+                <span className="mt-0.5">⚠️</span>
+                <span>{al.message}</span>
+              </Link>
+            ))
+          )}
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-dark-600 bg-dark-800/30 p-3 h-[180px] overflow-y-auto">
-        {selected.length === 0 ? (
-          <div className="py-6 text-center flex flex-col items-center justify-center h-full">
-            <div className={`text-4xl opacity-20 text-slate-500 mb-2 ${pulse ? 'animate-pulse' : ''}`}><Laptop weight="duotone" /></div>
-            <p className="text-sm text-slate-500">Selecione notebooks em “Empréstimos”</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {selected.slice(0, 6).map((nb) => (
-              <div key={nb.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-dark-700/40 border border-dark-600">
-                <div>
-                  <div className="text-sm font-semibold text-slate-100">{nb.patrimonio}</div>
-                  <div className="text-[10px] text-slate-500 font-mono">{nb.modelo}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelected((prev) => prev.filter((x) => x.id !== nb.id))}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/15 transition-all text-red-400 font-semibold"
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 flex flex-col sm:flex-row gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            const fake = [
-              { id: 1, patrimonio: '37600', modelo: 'Dell Latitude 3420' },
-              { id: 2, patrimonio: '37601', modelo: 'Dell Latitude 3420' },
-              { id: 3, patrimonio: '37602', modelo: 'Lenovo ThinkPad E14' },
-            ];
-            setSelected(fake);
-            setPulse(true);
-            setTimeout(() => setPulse(false), 650);
-          }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 hover:border-primary/50 hover:bg-primary/15 transition-all duration-300 text-sm font-semibold text-primary"
-        >
-          Preencher demo
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelected([])}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-dark-700/40 border border-dark-500/30 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300 text-sm font-semibold text-slate-100"
-        >
-          Limpar
-        </button>
+      {/* Atalhos Rápidos */}
+      <div className="mt-4 pt-4 border-t border-dark-600/50 space-y-2">
+        <div className="text-[9px] uppercase tracking-wider text-slate-500 font-bold mb-1">Acesso Direto TI</div>
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            to="/alocacoes"
+            className="px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center text-xs text-slate-200 font-medium transition-all"
+          >
+            Alocações Hoje
+          </Link>
+          <Link
+            to="/usuarios"
+            className="px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-center text-xs text-slate-200 font-medium transition-all"
+          >
+            Contas de Usuários
+          </Link>
+        </div>
       </div>
     </motion.div>
   );

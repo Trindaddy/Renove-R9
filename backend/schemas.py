@@ -170,6 +170,21 @@ class LoginRequest(BaseModel):
     senha: str
 
 
+class TurmaCreate(BaseModel):
+    codigo_turma: str = Field(..., min_length=2, max_length=50)
+    nome_curso: str = Field(..., min_length=2, max_length=100)
+    instrutor: str = Field(..., min_length=2, max_length=100)
+    carga_horaria: int = Field(..., gt=0)
+    turno: str = Field(..., min_length=2, max_length=50)
+    regime_dias: str = Field(..., min_length=2, max_length=100)
+
+class TurmaUpdate(BaseModel):
+    nome_curso: Optional[str] = None
+    instrutor: Optional[str] = None
+    carga_horaria: Optional[int] = None
+    turno: Optional[str] = None
+    regime_dias: Optional[str] = None
+
 class TurmaResponse(BaseModel):
     id: str
     curso: str

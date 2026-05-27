@@ -67,7 +67,7 @@ export default function EmprestimoForm({ onSubmit, loading }) {
           <input
             type="text"
             name="notebook_patrimonio"
-            placeholder="Ex: NB-001"
+            placeholder="Ex: 29673"
             value={form.notebook_patrimonio}
             onChange={handleChange}
             className="tech-input w-full font-mono"

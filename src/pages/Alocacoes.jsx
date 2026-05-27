@@ -7,6 +7,7 @@ export default function Alocacoes() {
     new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local format
   );
   const [alocacoes, setAlocacoes] = useState([]);
+  const [selectedAloc, setSelectedAloc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,6 +26,7 @@ export default function Alocacoes() {
 
   useEffect(() => {
     carregarAlocacoes();
+    setSelectedAloc(null);
   }, [dataSelecionada]);
 
   return (
@@ -68,80 +70,108 @@ export default function Alocacoes() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {!loading && alocacoes.map((aloc) => {
-          const percent = aloc.quantidade_solicitada > 0
-            ? Math.round((aloc.quantidade_retirada / aloc.quantidade_solicitada) * 100)
-            : 0;
-
-          return (
-            <div key={`${aloc.turma}-${aloc.turno}`} className="glass-card p-5 relative overflow-hidden flex flex-col justify-between group hover:border-cyan/30 transition-all duration-300">
-              <div className="absolute top-0 right-0 h-24 w-24 bg-cyan/5 rounded-full blur-2xl -mr-6 -mt-6" />
-              <div className="space-y-4 relative z-10">
-                <div className="flex items-start justify-between border-b border-navy-500/20 pb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight">{aloc.turma}</h3>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Solicitante: <span className="text-slate-350 font-medium">{aloc.solicitante}</span></p>
-                  </div>
-                  <span className="px-2 py-1 rounded bg-navy-800 text-[10px] uppercase font-mono tracking-wider text-cyan border border-cyan/10">
-                    {aloc.turno}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-slate-500">Notebooks Retirados:</span>
-                    <span className="text-slate-200 font-bold">
-                      {aloc.quantidade_retirada} {aloc.quantidade_solicitada > 0 && `/ ${aloc.quantidade_solicitada}`}
-                    </span>
-                  </div>
-                  
-                  {aloc.quantidade_solicitada > 0 && (
-                    <div className="w-full bg-navy-800/80 rounded-full h-1.5 overflow-hidden border border-navy-500/10">
-                      <div
-                        className="bg-cyan h-full transition-all duration-500"
-                        style={{ width: `${Math.min(percent, 100)}%` }}
-                      />
+      <div className="glass-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="tech-table-header">
+              <tr>
+                <th className="text-left px-5 py-3">Número da Turma</th>
+                <th className="text-left px-5 py-3">Professor Responsável</th>
+                <th className="text-center px-5 py-3">Notebooks Solicitados</th>
+                <th className="text-center px-5 py-3">Notebooks Utilizados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-10 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
+                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
+                      <span className="text-xs text-slate-500 ml-2 font-mono">Sincronizando alocações...</span>
                     </div>
-                  )}
-                </div>
+                  </td>
+                </tr>
+              )}
 
-                <div className="space-y-2 pt-1">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Patrimônios Alocados ({aloc.patrimonios.length})</span>
-                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
-                    {aloc.patrimonios.map((pat) => (
-                      <span key={pat} className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan/10 text-cyan border border-cyan/15">
-                        {pat}
-                      </span>
-                    ))}
-                    {aloc.patrimonios.length === 0 && (
-                      <span className="text-xs text-slate-650 italic">Nenhum notebook retirado ainda</span>
-                    )}
-                  </div>
-                </div>
+              {!loading && alocacoes.map((aloc) => {
+                const isSelected = selectedAloc?.turma === aloc.turma && selectedAloc?.turno === aloc.turno;
+                return (
+                  <tr
+                    key={`${aloc.turma}-${aloc.turno}`}
+                    onClick={() => setSelectedAloc(aloc)}
+                    className={`tech-table-row cursor-pointer transition-colors ${
+                      isSelected ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                    }`}
+                  >
+                    <td className="px-5 py-3.5 font-mono text-xs text-primary/80">
+                      {aloc.turma} <span className="text-[10px] text-slate-500 font-sans ml-2">({aloc.turno})</span>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-200">{aloc.solicitante}</td>
+                    <td className="px-5 py-3.5 text-xs text-center text-slate-400">{aloc.quantidade_solicitada}</td>
+                    <td className="px-5 py-3.5 text-xs text-center text-slate-200 font-bold">{aloc.quantidade_retirada}</td>
+                  </tr>
+                );
+              })}
+
+              {!loading && alocacoes.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-10 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-3xl opacity-20">◈</span>
+                      <p className="text-xs text-slate-500 font-mono">Nenhuma alocação ou reserva identificada para {dataSelecionada}.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sub-painel de Detalhes da Turma Selecionada */}
+      {selectedAloc && (
+        <div className="glass-card p-5 border border-primary/20 bg-dark-800/40 animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex justify-between items-center border-b border-dark-600/50 pb-3 mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+                Detalhes da Turma: <span className="text-primary font-mono">{selectedAloc.turma}</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Professor: {selectedAloc.solicitante} • Turno: {selectedAloc.turno}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedAloc(null)}
+              className="text-xs text-slate-400 hover:text-slate-200"
+            >
+              Fechar Detalhes
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-2">
+                Patrimônios Ativos em Uso ({selectedAloc.patrimonios.length})
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {selectedAloc.patrimonios.map((pat) => (
+                  <span
+                    key={pat}
+                    className="px-3 py-1 rounded-lg text-xs font-mono bg-primary/10 text-primary border border-primary/20 animate-[fadeIn_0.2s_ease-out]"
+                  >
+                    {pat}
+                  </span>
+                ))}
+                {selectedAloc.patrimonios.length === 0 && (
+                  <p className="text-xs text-slate-550 italic">Nenhum notebook foi retirado por esta turma ainda.</p>
+                )}
               </div>
             </div>
-          );
-        })}
-
-        {!loading && alocacoes.length === 0 && (
-          <div className="col-span-full glass-card p-10 text-center flex flex-col items-center justify-center gap-2">
-            <span className="text-3xl opacity-20">◈</span>
-            <p className="text-sm text-slate-500 font-mono">Nenhuma alocação ou reserva identificada para {dataSelecionada}.</p>
           </div>
-        )}
-
-        {loading && (
-          <div className="col-span-full py-10 text-center">
-            <div className="flex items-center justify-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-              <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
-              <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
-              <span className="text-xs text-slate-500 ml-2 font-mono">Sincronizando alocações...</span>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

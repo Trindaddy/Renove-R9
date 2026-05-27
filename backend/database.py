@@ -10,7 +10,11 @@ load_dotenv()
 def get_brasilia_time():
     return datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./r9_notebooks.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(BASE_DIR, "r9_notebooks.db").replace("\\", "/")
+    DATABASE_URL = f"sqlite:///{db_path}"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(

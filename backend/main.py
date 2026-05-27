@@ -140,6 +140,11 @@ def create_usuario(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br"
             )
+        if not usuario.turma or not usuario.turma.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O campo turma é obrigatório para usuários com perfil de Aluno."
+            )
             
     if crud.get_usuario_by_email(db, usuario.email):
         raise HTTPException(status_code=400, detail="Email já cadastrado")
@@ -147,6 +152,15 @@ def create_usuario(
         raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
     
     return crud.create_usuario(db, usuario)
+
+@app.get("/usuarios", response_model=List[schemas.UsuarioResponse])
+def list_usuarios(
+    role: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    return crud.listar_usuarios(db, role=role)
 
 @app.get("/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
 def get_usuario(
@@ -178,7 +192,7 @@ def get_usuario_by_matricula(
 def list_notebooks(
     status: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
@@ -503,6 +517,95 @@ def list_turmas(
         for t in db_turmas
     ]
 
+@app.post("/turmas", response_model=schemas.TurmaResponse, status_code=status.HTTP_201_CREATED)
+def create_turma(
+    turma: schemas.TurmaCreate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    db_turma = db.query(models.Turma).filter(models.Turma.codigo_turma == turma.codigo_turma).first()
+    if db_turma:
+        raise HTTPException(status_code=400, detail="Turma com este código já existe")
+        
+    db_turma = models.Turma(
+        codigo_turma=turma.codigo_turma,
+        nome_curso=turma.nome_curso,
+        instrutor=turma.instrutor,
+        carga_horaria=turma.carga_horaria,
+        turno=turma.turno,
+        regime_dias=turma.regime_dias
+    )
+    db.add(db_turma)
+    db.commit()
+    db.refresh(db_turma)
+    
+    return schemas.TurmaResponse(
+        id=db_turma.codigo_turma,
+        curso=db_turma.nome_curso,
+        instrutor=db_turma.instrutor,
+        carga_horaria=db_turma.carga_horaria,
+        turno=db_turma.turno,
+        regime_dias=db_turma.regime_dias
+    )
+
+@app.patch("/turmas/{codigo_turma}", response_model=schemas.TurmaResponse)
+def update_turma(
+    codigo_turma: str,
+    turma_update: schemas.TurmaUpdate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    db_turma = db.query(models.Turma).filter(models.Turma.codigo_turma == codigo_turma).first()
+    if not db_turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    update_data = turma_update.model_dump(exclude_unset=True)
+    if "nome_curso" in update_data:
+        db_turma.nome_curso = update_data["nome_curso"]
+    if "instrutor" in update_data:
+        db_turma.instrutor = update_data["instrutor"]
+    if "carga_horaria" in update_data:
+        db_turma.carga_horaria = update_data["carga_horaria"]
+    if "turno" in update_data:
+        db_turma.turno = update_data["turno"]
+    if "regime_dias" in update_data:
+        db_turma.regime_dias = update_data["regime_dias"]
+        
+    db.commit()
+    db.refresh(db_turma)
+    
+    return schemas.TurmaResponse(
+        id=db_turma.codigo_turma,
+        curso=db_turma.nome_curso,
+        instrutor=db_turma.instrutor,
+        carga_horaria=db_turma.carga_horaria,
+        turno=db_turma.turno,
+        regime_dias=db_turma.regime_dias
+    )
+
+@app.delete("/turmas/{codigo_turma}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_turma(
+    codigo_turma: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    db_turma = db.query(models.Turma).filter(models.Turma.codigo_turma == codigo_turma).first()
+    if not db_turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    # Deletar reservas associadas primeiro
+    db.query(models.Reserva).filter(models.Reserva.turma_id == codigo_turma).delete()
+    
+    db.delete(db_turma)
+    db.commit()
+    return None
+
 @app.get("/reservas", response_model=List[schemas.ReservaResponse])
 def list_reservas(
     db: Session = Depends(get_db),
@@ -646,6 +749,16 @@ def get_dashboard_ti_route(
     crud.verificar_atrasos(db)
     stats = crud.get_dashboard_stats(db)
     
+    # Count of delayed loans
+    atrasados_count = db.query(models.Emprestimo).filter(models.Emprestimo.status == "Atrasado").count()
+    
+    # Count of notebooks sent to maintenance today
+    today_start = get_brasilia_time().replace(hour=0, minute=0, second=0, microsecond=0)
+    manutencao_hoje_count = db.query(models.Historico).filter(
+        models.Historico.status_novo == "Manutenção",
+        models.Historico.created_at >= today_start
+    ).count()
+    
     return {
         "notebooksTotais": stats.total,
         "notebooksDisponiveis": stats.disponiveis,
@@ -654,7 +767,9 @@ def get_dashboard_ti_route(
         "reservasHoje": stats.reservados,
         "solicitacoesPendentes": stats.emprestimos_ativos,
         "percentualDisponivel": stats.percentual_disponivel,
-        "alerta_escassez": stats.alerta_escassez
+        "alerta_escassez": stats.alerta_escassez,
+        "atrasadosCount": atrasados_count,
+        "manutencaoHojeCount": manutencao_hoje_count
     }
 
 @app.get("/dashboard/aluno")

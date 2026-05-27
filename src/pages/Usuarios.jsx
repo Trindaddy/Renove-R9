@@ -39,7 +39,13 @@ export default function Usuarios() {
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'role' && value !== 'aluno') {
+        updated.turma = '';
+      }
+      return updated;
+    });
   }
 
   // Visual domain validation
@@ -63,6 +69,11 @@ export default function Usuarios() {
 
     if (!emailDomainValid) {
       setError(`Domínio de e-mail inválido para o cargo selecionado. Aluno exige ${expectedDomainLabel}, TI/Professor exige @df.senac.br.`);
+      return;
+    }
+
+    if (form.role === 'aluno' && !form.turma) {
+      setError('A seleção de uma turma é obrigatória para usuários com perfil de Aluno.');
       return;
     }
 

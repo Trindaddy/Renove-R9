@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { motion } from 'framer-motion';
@@ -11,10 +11,29 @@ import {
   CalendarCheck,
   SignOut,
   ChartBar,
-  UsersThree
+  UsersThree,
+  Sun,
+  Moon
 } from '@phosphor-icons/react';
 
 export default function Layout({ children }) {
+  const [theme, setTheme] = useState(
+    localStorage.getItem('theme') || 'dark'
+  );
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  }
+
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -125,6 +144,15 @@ export default function Layout({ children }) {
                 {roleLabel[user?.role] || user?.role}
               </span>
             </div>
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-dark-700/50 transition-colors text-slate-400 hover:text-slate-200 flex items-center justify-center"
+              title={theme === 'dark' ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" weight="duotone" /> : <Moon className="w-5 h-5" weight="duotone" />}
+            </button>
+
             <button
               onClick={handleLogout}
               className="group relative p-2 rounded-lg hover:bg-red-500/10 transition-colors"

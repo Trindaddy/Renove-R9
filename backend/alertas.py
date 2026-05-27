@@ -2,8 +2,39 @@ from sqlalchemy.orm import Session
 from typing import Dict
 from datetime import datetime
 import asyncio
-from models import Notebook, Configuracao
+from models import Notebook, Configuracao, Reserva, Emprestimo, Usuario
 from database import get_brasilia_time
+
+def obter_disponiveis_reais(db: Session) -> int:
+    """
+    Retorna a quantidade de notebooks fisicamente disponíveis menos os que estão reservados
+    mas ainda não foram retirados pelas turmas hoje.
+    """
+    disponiveis_fisicos = db.query(Notebook).filter(Notebook.status == "Disponível").count()
+    today_str = get_brasilia_time().strftime("%Y-%m-%d")
+    
+    reservas_hoje = db.query(Reserva).filter(
+        Reserva.data == today_str,
+        Reserva.status == "Pendente"
+    ).all()
+    
+    reservas_por_turma = {}
+    for r in reservas_hoje:
+        reservas_por_turma[r.turma_id] = reservas_por_turma.get(r.turma_id, 0) + r.quantidade
+        
+    total_pendente_reservado = 0
+    for turma_id, qtd_reservada in reservas_por_turma.items():
+        active_loans = db.query(Emprestimo).join(
+            Usuario, Emprestimo.usuario_id == Usuario.id
+        ).filter(
+            Usuario.turma == turma_id,
+            Emprestimo.status.in_(["Ativo", "Atrasado"])
+        ).count()
+        
+        pendente = max(0, qtd_reservada - active_loans)
+        total_pendente_reservado += pendente
+        
+    return max(0, disponiveis_fisicos - total_pendente_reservado)
 
 async def verificar_alerta_escassez(db: Session) -> Dict:
     """
@@ -11,7 +42,7 @@ async def verificar_alerta_escassez(db: Session) -> Dict:
     Retorna um dicionário com informações do alerta.
     """
     total = db.query(Notebook).count()
-    disponiveis = db.query(Notebook).filter(Notebook.status == "Disponível").count()
+    disponiveis = obter_disponiveis_reais(db)
     
     config = db.query(Configuracao).filter(Configuracao.chave == "alerta_escassez_percentual").first()
     limite_percentual = float(config.valor) if config else 10.0
@@ -41,7 +72,7 @@ async def verificar_alerta_escassez(db: Session) -> Dict:
 def verificar_alerta_escassez_sync(db: Session) -> Dict:
     """Versão síncrona para uso em endpoints HTTP"""
     total = db.query(Notebook).count()
-    disponiveis = db.query(Notebook).filter(Notebook.status == "Disponível").count()
+    disponiveis = obter_disponiveis_reais(db)
     
     config = db.query(Configuracao).filter(Configuracao.chave == "alerta_escassez_percentual").first()
     limite_percentual = float(config.valor) if config else 10.0

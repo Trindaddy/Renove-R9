@@ -2,7 +2,7 @@ import api from './api';
 
 export async function listarEquipamentos() {
   // Backend usa /notebooks para inventário de computadores.
-  const response = await api.get('/notebooks');
+  const response = await api.get('/notebooks?limit=1000');
   return response.data;
 }
 

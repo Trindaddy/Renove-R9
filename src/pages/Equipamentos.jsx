@@ -12,11 +12,13 @@ export default function Equipamentos() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 20;
 
   // Modais
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-  const [selectedEqId, setSelectedEqId] = useState(null);
+  const [selectedEq, setSelectedEq] = useState(null);
 
   // Form de Cadastro
   const [newNotebook, setNewNotebook] = useState({
@@ -112,13 +114,13 @@ export default function Equipamentos() {
       setError('');
       setSuccess('');
       const reasonDetail = maintenanceNotes ? `${maintenanceReason} - ${maintenanceNotes}` : maintenanceReason;
-      await atualizarEquipamento(selectedEqId, { 
+      await atualizarEquipamento(selectedEq.id, { 
         status: 'Manutenção',
         observacoes: reasonDetail
       });
       setSuccess('Equipamento enviado para manutenção.');
       setShowMaintenanceModal(false);
-      setSelectedEqId(null);
+      setSelectedEq(null);
       setMaintenanceReason('');
       setMaintenanceNotes('');
       await load();
@@ -148,11 +150,12 @@ export default function Equipamentos() {
   }
 
   const filtrados = equipamentos.filter((eq) => {
-    const idStr = (eq?.id ?? '').toString().toLowerCase();
     const patrimonioStr = (eq?.patrimonio ?? '').toString().toLowerCase();
     const q = (busca ?? '').toLowerCase();
-    return idStr.includes(q) || patrimonioStr.includes(q);
+    return patrimonioStr.includes(q);
   });
+
+  const paginated = filtrados.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <motion.div 
@@ -175,10 +178,13 @@ export default function Equipamentos() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 w-full md:w-auto">
           <div className="w-full md:w-72">
             <Input
-              label="Buscar por ID/Patrimônio"
-              placeholder="Ex: NB-001"
+              label="Buscar por Patrimônio"
+              placeholder="Ex: 29673"
               value={busca}
-              onChange={(e) => setBusca(e.target.value)}
+              onChange={(e) => {
+                setBusca(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <Button onClick={() => setShowAddModal(true)} variant="cyan" className="h-fit py-2 px-4">
@@ -220,7 +226,6 @@ export default function Equipamentos() {
           <table className="w-full text-sm">
             <thead className="tech-table-header">
               <tr>
-                <th className="text-left px-5 py-3 font-mono">ID</th>
                 <th className="text-left px-5 py-3">Patrimônio</th>
                 <th className="text-left px-5 py-3">Modelo</th>
                 <th className="text-left px-5 py-3">Local</th>
@@ -231,7 +236,7 @@ export default function Equipamentos() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center">
+                  <td colSpan={5} className="px-5 py-8 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
@@ -242,11 +247,10 @@ export default function Equipamentos() {
                 </tr>
               )}
 
-              {!loading && filtrados.map((eq) => {
+              {!loading && paginated.map((eq) => {
                 const isEmprestadoOuUso = eq.status === 'Emprestado' || eq.status === 'Em uso';
                 return (
                   <tr key={eq.id} className="tech-table-row group">
-                    <td className="px-5 py-3.5 font-mono text-xs text-slate-400">#{eq.id?.toString().padStart(4, '0')}</td>
                     <td className="px-5 py-3.5 font-mono text-xs text-primary/80">{eq.patrimonio}</td>
                     <td className="px-5 py-3.5 text-xs text-slate-200">{eq.modelo}</td>
                     <td className="px-5 py-3.5 text-xs text-slate-400">{eq.local}</td>
@@ -259,7 +263,7 @@ export default function Equipamentos() {
                           variant="danger"
                           className="px-2.5 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => {
-                            setSelectedEqId(eq.id);
+                            setSelectedEq(eq);
                             setShowMaintenanceModal(true);
                           }}
                         >
@@ -284,7 +288,7 @@ export default function Equipamentos() {
               })}
               {!loading && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center">
+                  <td colSpan={5} className="px-5 py-10 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-3xl opacity-20 text-slate-500"><Archive weight="duotone" /></span>
                       <p className="text-xs text-slate-500">Nenhum equipamento encontrado.</p>
@@ -306,7 +310,7 @@ export default function Equipamentos() {
             </div>
           )}
 
-          {!loading && filtrados.map((eq) => {
+          {!loading && paginated.map((eq) => {
             const isEmprestadoOuUso = eq.status === 'Emprestado' || eq.status === 'Em uso';
             return (
               <div key={eq.id} className="bg-dark-700/30 border border-dark-600 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
@@ -323,11 +327,7 @@ export default function Equipamentos() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2 text-xs border-t border-dark-600/50 pt-3">
-                  <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-slate-500">ID</span>
-                    <span className="font-mono text-slate-300">#{eq.id?.toString().padStart(4, '0')}</span>
-                  </div>
+                <div className="grid grid-cols-1 gap-2 text-xs border-t border-dark-600/50 pt-3">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-slate-500">Local</span>
                     <span className="text-slate-300">{eq.local}</span>
@@ -340,7 +340,7 @@ export default function Equipamentos() {
                       variant="danger"
                       className="w-full text-[11px] py-2"
                       onClick={() => {
-                        setSelectedEqId(eq.id);
+                        setSelectedEq(eq);
                         setShowMaintenanceModal(true);
                       }}
                     >
@@ -372,6 +372,31 @@ export default function Equipamentos() {
             </div>
           )}
         </div>
+        
+        {/* Pagination Controls */}
+        {filtrados.length > itemsPerPage && (
+          <div className="flex items-center justify-between px-5 py-4 border-t border-dark-600/50 bg-dark-800/50">
+            <span className="text-[10px] text-slate-500 font-mono">
+              Página {page} de {Math.ceil(filtrados.length / itemsPerPage)} ({filtrados.length} notebooks)
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                disabled={page === 1 || loading}
+                className="px-3.5 py-1.5 rounded-lg bg-dark-700 border border-dark-600 hover:bg-dark-600 text-slate-350 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-semibold animate-all"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPage((prev) => prev + 1)}
+                disabled={page * itemsPerPage >= filtrados.length || loading}
+                className="px-3.5 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-semibold animate-all"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL: Adicionar Notebook */}
@@ -481,7 +506,7 @@ export default function Equipamentos() {
             <button
               onClick={() => {
                 setShowMaintenanceModal(false);
-                setSelectedEqId(null);
+                setSelectedEq(null);
               }}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
             >
@@ -490,7 +515,7 @@ export default function Equipamentos() {
             <form onSubmit={handleSendToMaintenance} className="space-y-4">
               <header className="border-b border-slate-800 pb-3">
                 <h3 className="text-base font-bold text-slate-100">Enviar para Manutenção</h3>
-                <p className="text-xs text-slate-400 mt-1">Indique obrigatoriamente o motivo da baixa do notebook #{selectedEqId}.</p>
+                <p className="text-xs text-slate-400 mt-1">Indique obrigatoriamente o motivo da baixa do notebook {selectedEq?.patrimonio}.</p>
               </header>
 
               <label className="flex flex-col gap-1 text-sm">
@@ -526,7 +551,7 @@ export default function Equipamentos() {
                   className="flex-1 text-xs py-2 bg-slate-800 hover:bg-slate-700 text-slate-200"
                   onClick={() => {
                     setShowMaintenanceModal(false);
-                    setSelectedEqId(null);
+                    setSelectedEq(null);
                   }}
                 >
                   Cancelar
