@@ -311,7 +311,31 @@ def get_dashboard_stats(db: Session):
     disponiveis = obter_disponiveis_reais(db)
     emprestados = db.query(models.Notebook).filter(models.Notebook.status == "Emprestado").count()
     manutencao = db.query(models.Notebook).filter(models.Notebook.status == "Manutenção").count()
-    reservados = db.query(models.Notebook).filter(models.Notebook.status == "Reservado").count()
+    
+    # Calculate today's pending reservations (reservados)
+    today_str = get_brasilia_time().strftime("%Y-%m-%d")
+    reservas_hoje = db.query(models.Reserva).filter(
+        models.Reserva.data == today_str,
+        models.Reserva.status == "Pendente"
+    ).all()
+    
+    reservas_por_turma = {}
+    for r in reservas_hoje:
+        reservas_por_turma[r.turma_id] = reservas_por_turma.get(r.turma_id, 0) + r.quantidade
+        
+    total_pendente_reservado = 0
+    for turma_id, qtd_reservada in reservas_por_turma.items():
+        active_loans = db.query(models.Emprestimo).join(
+            models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id
+        ).filter(
+            models.Usuario.turma == turma_id,
+            models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+        ).count()
+        
+        pendente = max(0, qtd_reservada - active_loans)
+        total_pendente_reservado += pendente
+        
+    reservados = total_pendente_reservado
     emprestimos_ativos = db.query(models.Emprestimo).filter(models.Emprestimo.status == "Ativo").count()
     
     percentual = round((disponiveis / total * 100), 2) if total > 0 else 0

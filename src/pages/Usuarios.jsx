@@ -27,6 +27,7 @@ export default function Usuarios() {
 }
 
 function UsuariosPanel() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('lista');
   const [usuarios, setUsuarios] = useState([]);
   const [turmas, setTurmas] = useState([]);
@@ -46,6 +47,10 @@ function UsuariosPanel() {
   const [resetUser, setResetUser] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Exclusão de usuário
+  const [deleteUser, setDeleteUser] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -131,6 +136,25 @@ function UsuariosPanel() {
       setError(err.response?.data?.detail || 'Erro ao redefinir senha.');
     } finally {
       setResetLoading(false);
+    }
+  }
+
+  async function handleDeleteUser(e) {
+    e.preventDefault();
+    if (!deleteUser) return;
+    try {
+      setDeleteLoading(true);
+      setError('');
+      setSuccess('');
+      await api.delete(`/usuarios/${deleteUser.id}`);
+      setSuccess(`Usuário ${deleteUser.nome} excluído com sucesso!`);
+      setDeleteUser(null);
+      await loadData();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao excluir usuário.');
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -271,13 +295,26 @@ function UsuariosPanel() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <button
-                            onClick={() => { setResetUser(u); setNewPassword(''); setError(''); }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all"
-                          >
-                            <LockKey weight="fill" size={13} />
-                            Redefinir Senha
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => { setResetUser(u); setNewPassword(''); setError(''); }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all"
+                              title="Redefinir Senha"
+                            >
+                              <LockKey weight="fill" size={13} />
+                              Senha
+                            </button>
+                            {u.id !== user.id && (
+                              <button
+                                onClick={() => { setDeleteUser(u); setError(''); setSuccess(''); }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                                title="Excluir Usuário"
+                              >
+                                <Warning weight="fill" size={13} />
+                                Excluir
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -429,6 +466,40 @@ function UsuariosPanel() {
                     Cancelar
                   </Button>
                 </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Exclusão de Usuário */}
+      <AnimatePresence>
+        {deleteUser && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteUser(null); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card border border-red-500/30 p-6 w-full max-w-md text-center"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-400 text-2xl">
+                <Warning weight="fill" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">Excluir Usuário</h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Tem certeza de que deseja excluir permanentemente o usuário <strong className="text-slate-200">{deleteUser.nome}</strong> ({deleteUser.email})? 
+                Esta ação liberará notebooks ativos deste usuário e removerá todos os seus empréstimos, histórico e reservas em cascata de forma irreversível.
+              </p>
+              <form onSubmit={handleDeleteUser} className="flex gap-3">
+                <Button type="submit" variant="danger" className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white border border-red-500" disabled={deleteLoading}>
+                  {deleteLoading ? 'Excluindo...' : 'Confirmar Exclusão'}
+                </Button>
+                <Button type="button" onClick={() => setDeleteUser(null)}
+                  className="flex-1 py-2 bg-dark-700/50 text-slate-300 border border-dark-600 hover:border-primary/20">
+                  Cancelar
+                </Button>
               </form>
             </motion.div>
           </motion.div>

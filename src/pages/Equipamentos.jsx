@@ -402,7 +402,7 @@ export default function Equipamentos() {
       {/* MODAL: Adicionar Notebook */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative mx-4">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4">
             <button
               onClick={() => setShowAddModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
@@ -410,7 +410,7 @@ export default function Equipamentos() {
               ✕
             </button>
             <form onSubmit={handleAddNotebook} className="space-y-4">
-              <header className="border-b border-slate-800 pb-3">
+              <header className="border-b border-dark-600/50 pb-3">
                 <h3 className="text-base font-bold text-slate-100">Cadastrar Novo Notebook</h3>
                 <p className="text-xs text-slate-400 mt-1">Classificação inteligente baseada no patrimônio.</p>
               </header>
@@ -473,15 +473,15 @@ export default function Equipamentos() {
                   value={newNotebook.observacoes}
                   onChange={(e) => setNewNotebook(prev => ({ ...prev, observacoes: e.target.value }))}
                   placeholder="Informações adicionais sobre o equipamento..."
-                  className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-senac-orange text-slate-200 h-20 resize-none"
+                  className="tech-input h-20 resize-none w-full"
                 />
               </label>
 
-              <div className="flex gap-2 pt-3 border-t border-slate-800">
+              <div className="flex gap-2 pt-3 border-t border-dark-600/50">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 text-xs py-2 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  className="flex-1 text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
                   onClick={() => setShowAddModal(false)}
                 >
                   Cancelar
@@ -502,7 +502,7 @@ export default function Equipamentos() {
       {/* MODAL: Enviar para Manutenção (Formulário Obrigatório) */}
       {showMaintenanceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative mx-4">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4">
             <button
               onClick={() => {
                 setShowMaintenanceModal(false);
@@ -513,7 +513,7 @@ export default function Equipamentos() {
               ✕
             </button>
             <form onSubmit={handleSendToMaintenance} className="space-y-4">
-              <header className="border-b border-slate-800 pb-3">
+              <header className="border-b border-dark-600/50 pb-3">
                 <h3 className="text-base font-bold text-slate-100">Enviar para Manutenção</h3>
                 <p className="text-xs text-slate-400 mt-1">Indique obrigatoriamente o motivo da baixa do notebook {selectedEq?.patrimonio}.</p>
               </header>
@@ -535,20 +535,20 @@ export default function Equipamentos() {
               </label>
 
               <label className="flex flex-col gap-1 text-sm">
-                <span className="text-xs text-slate-350">Detalhes / Observações (Opcional)</span>
+                <span className="text-xs text-slate-355">Detalhes / Observações (Opcional)</span>
                 <textarea
                   value={maintenanceNotes}
                   onChange={(e) => setMaintenanceNotes(e.target.value)}
                   placeholder="Descreva melhor o problema ocorrido..."
-                  className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-senac-orange text-slate-250 h-24 resize-none"
+                  className="tech-input h-24 resize-none w-full"
                 />
               </label>
 
-              <div className="flex gap-2 pt-3 border-t border-slate-800">
+              <div className="flex gap-2 pt-3 border-t border-dark-600/50">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 text-xs py-2 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  className="flex-1 text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
                   onClick={() => {
                     setShowMaintenanceModal(false);
                     setSelectedEq(null);

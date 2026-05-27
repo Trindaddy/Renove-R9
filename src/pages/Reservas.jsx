@@ -82,7 +82,7 @@ export default function Reservas() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const restantes = stats ? stats.total - stats.reservados : 0;
+    const restantes = stats ? stats.disponiveis : 0;
     
     if (form.quantidade > restantes && !editingId) {
       setError(`Quantidade indisponível. Restam apenas ${restantes} notebooks para novas reservas.`);
@@ -182,26 +182,26 @@ export default function Reservas() {
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+          <div className="glass-card p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total no Sistema</p>
               <p className="text-2xl font-black text-slate-200">{stats.total}</p>
             </div>
             <Laptop className="text-3xl text-slate-600" weight="duotone" />
           </div>
-          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+          <div className="glass-card p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Notebooks Reservados</p>
               <p className="text-2xl font-black text-senac-blue">{stats.reservados}</p>
             </div>
             <WarningCircle className="text-3xl text-senac-blue/50" weight="duotone" />
           </div>
-          <div className="bg-senac-orange/10 border border-senac-orange/30 rounded-lg p-4 flex items-center justify-between">
+          <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-senac-orange uppercase tracking-wider font-semibold">Disponíveis p/ Reserva</p>
-              <p className="text-2xl font-black text-senac-orange">{Math.max(0, stats.total - stats.reservados)}</p>
+              <p className="text-xs text-primary uppercase tracking-wider font-semibold">Disponíveis p/ Reserva</p>
+              <p className="text-2xl font-black text-primary">{stats.disponiveis}</p>
             </div>
-            <Laptop className="text-3xl text-senac-orange" weight="fill" />
+            <Laptop className="text-3xl text-primary" weight="fill" />
           </div>
         </div>
       )}
@@ -209,7 +209,7 @@ export default function Reservas() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <form
           onSubmit={handleSubmit}
-          className="bg-slate-900/70 border border-slate-800 rounded-lg p-4 space-y-3 lg:col-span-1 h-fit"
+          className="glass-card p-4 space-y-3 lg:col-span-1 h-fit"
         >
           <h2 className="text-sm font-semibold text-slate-200 mb-1">
             {editingId ? `Editar reserva #${editingId}` : 'Nova reserva de lote'}
@@ -221,7 +221,7 @@ export default function Reservas() {
               name="turmaId"
               value={form.turmaId}
               onChange={handleChange}
-              className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-senac-orange focus:border-senac-orange text-slate-200"
+              className="tech-select w-full"
               required
             >
               <option value="">Selecione uma turma</option>
@@ -249,7 +249,7 @@ export default function Reservas() {
                 name="turno"
                 value={form.turno}
                 onChange={handleChange}
-                className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-senac-orange focus:border-senac-orange text-slate-200"
+                className="tech-select w-full"
                 required
               >
                 <option value="">Selecione</option>
@@ -279,7 +279,7 @@ export default function Reservas() {
                 type="button"
                 variant="ghost"
                 onClick={handleCancelEdit}
-                className="border border-slate-700 text-slate-300 hover:bg-slate-800"
+                className="border border-dark-600 text-slate-300 hover:bg-dark-700/50"
               >
                 Cancelar
               </Button>
@@ -287,8 +287,8 @@ export default function Reservas() {
           </div>
         </form>
 
-        <div className="lg:col-span-2 bg-slate-900/70 border border-slate-800 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div className="lg:col-span-2 glass-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-dark-600/50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">
               Reservas recentes
             </h2>
@@ -296,7 +296,7 @@ export default function Reservas() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-900/90 text-xs uppercase text-slate-400">
+              <thead className="tech-table-header">
                 <tr>
                   <th className="text-left px-3 py-2">ID</th>
                   <th className="text-left px-3 py-2">Turma</th>
@@ -324,7 +324,7 @@ export default function Reservas() {
                   reservas.map((reserva) => (
                     <tr
                       key={reserva.id}
-                      className="border-t border-slate-800/80 hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      className="tech-table-row cursor-pointer transition-colors"
                       onClick={() => {
                         if (reserva.status === 'Pendente') {
                           setSelectedReserva(reserva);
@@ -394,15 +394,15 @@ export default function Reservas() {
       {/* Details modal for Pending Reservations */}
       {selectedReserva && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative mx-4">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4">
             <button
               onClick={() => setSelectedReserva(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg transition-colors"
+              className="absolute top-4 right-4 text-slate-450 hover:text-slate-200 text-lg transition-colors"
             >
               ✕
             </button>
             <div className="space-y-4">
-              <header className="border-b border-slate-800 pb-3">
+              <header className="border-b border-dark-600/50 pb-3">
                 <span className="text-[10px] uppercase tracking-wider text-yellow-450 font-bold bg-yellow-500/10 border border-yellow-500/25 px-2.5 py-1 rounded-full">
                   Empréstimo Pendente
                 </span>
@@ -434,10 +434,10 @@ export default function Reservas() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 pt-3 border-t border-slate-800">
+              <div className="flex flex-col gap-2 pt-3 border-t border-dark-600/50">
                 <Button
                   variant="outline"
-                  className="w-full text-xs py-2 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  className="w-full text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
                   onClick={() => handleEditClick(selectedReserva)}
                 >
                   Alterar Empréstimo

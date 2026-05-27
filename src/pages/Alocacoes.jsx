@@ -31,7 +31,7 @@ export default function Alocacoes() {
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-navy-500/20">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-dark-600/50">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="h-px w-8 bg-gradient-to-r from-cyan to-transparent" />

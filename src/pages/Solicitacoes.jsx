@@ -77,10 +77,10 @@ function ListaMaquinasAluno() {
             <button
               key={maq.id}
               onClick={() => setSelecionada(maq.id)}
-              className={`text-left bg-slate-900/70 border rounded-lg p-3 text-sm hover:border-senac-orange transition-colors ${
+              className={`text-left glass-card p-3 text-sm hover:border-primary transition-colors ${
                 selecionada === maq.id
-                  ? 'border-senac-orange'
-                  : 'border-slate-800'
+                  ? 'border-primary'
+                  : 'border-dark-600/50'
               }`}
             >
               <p className="font-mono text-xs mb-1">{maq.id}</p>
@@ -96,10 +96,10 @@ function ListaMaquinasAluno() {
       </div>
 
       {selecionada && (
-        <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-4 text-xs text-slate-300">
+        <div className="glass-card p-4 text-xs text-slate-350">
           <p>
             Máquina selecionada:{' '}
-            <span className="font-mono text-emerald-300">{selecionada}</span>
+            <span className="font-mono text-primary">{selecionada}</span>
           </p>
         </div>
       )}
@@ -154,9 +154,9 @@ function TabelaSolicitacoesGestor() {
         </p>
       )}
 
-      <div className="bg-slate-900/70 border border-slate-800 rounded-lg overflow-hidden">
+      <div className="glass-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-900/90 text-xs uppercase text-slate-400">
+          <thead className="tech-table-header">
             <tr>
               <th className="text-left px-3 py-2">ID</th>
               <th className="text-left px-3 py-2">Aluno</th>
@@ -183,7 +183,7 @@ function TabelaSolicitacoesGestor() {
               solicitacoes.map((sol) => (
                 <tr
                   key={sol.id}
-                  className="border-t border-slate-800/80 hover:bg-slate-800/40"
+                  className="tech-table-row"
                 >
                   <td className="px-3 py-2 font-mono text-xs">{sol.id}</td>
                   <td className="px-3 py-2 text-xs">{sol.aluno}</td>

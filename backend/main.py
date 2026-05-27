@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
+import asyncio
 
 from database import engine, SessionLocal, get_db, get_brasilia_time
 import models
@@ -225,6 +226,58 @@ def reset_senha_usuario(
     ))
     
     return {"detail": f"Senha de {user.nome} redefinida com sucesso"}
+
+@app.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
+async def delete_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    """Exclui permanentemente um usuário e seus registros dependentes (cascata). Exclusivo para TI."""
+    require_role(["ti"])(current_user)
+    
+    if current_user.id == usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível excluir a própria conta de TI ativa."
+        )
+        
+    user = crud.get_usuario(db, usuario_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+    # 1. Buscar empréstimos ativos deste usuário e liberar os respectivos notebooks
+    active_loans = db.query(models.Emprestimo).filter(
+        models.Emprestimo.usuario_id == usuario_id,
+        models.Emprestimo.status == "Ativo"
+    ).all()
+    for loan in active_loans:
+        notebook = db.query(models.Notebook).filter(models.Notebook.id == loan.notebook_id).first()
+        if notebook:
+            notebook.status = "Disponível"
+            
+    # 2. Excluir empréstimos
+    db.query(models.Emprestimo).filter(
+        (models.Emprestimo.usuario_id == usuario_id) | (models.Emprestimo.responsavel_id == usuario_id)
+    ).delete()
+    
+    # 3. Excluir histórico
+    db.query(models.Historico).filter(
+        (models.Historico.usuario_id == usuario_id) | (models.Historico.responsavel_id == usuario_id)
+    ).delete()
+    
+    # 4. Excluir reservas
+    db.query(models.Reserva).filter(models.Reserva.usuario_id == usuario_id).delete()
+    
+    # 5. Excluir usuário
+    db.delete(user)
+    db.commit()
+    
+    # Atualizar disponibilidade
+    stats = crud.get_dashboard_stats(db)
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
+    return {"detail": f"Usuário {user.nome} e todos os seus registros foram excluídos com sucesso"}
 
 # ==================== ROTAS DE NOTEBOOKS ====================
 
@@ -667,7 +720,7 @@ def list_reservas(
     ]
 
 @app.post("/reservas", response_model=schemas.ReservaResponse, status_code=status.HTTP_201_CREATED)
-def create_reserva(
+async def create_reserva(
     reserva: schemas.ReservaCreate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
@@ -690,6 +743,10 @@ def create_reserva(
     db.commit()
     db.refresh(db_reserva)
     
+    # Broadcast availability updates
+    stats = crud.get_dashboard_stats(db)
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
     return schemas.ReservaResponse(
         id=db_reserva.id,
         turma=db_reserva.turma_id,
@@ -701,7 +758,7 @@ def create_reserva(
     )
 
 @app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
-def update_reserva(
+async def update_reserva(
     reserva_id: int,
     reserva_update: schemas.ReservaUpdate,
     db: Session = Depends(get_db),
@@ -732,6 +789,10 @@ def update_reserva(
     db.commit()
     db.refresh(db_reserva)
     
+    # Broadcast availability updates
+    stats = crud.get_dashboard_stats(db)
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
     return schemas.ReservaResponse(
         id=db_reserva.id,
         turma=db_reserva.turma_id,
@@ -743,7 +804,7 @@ def update_reserva(
     )
 
 @app.delete("/reservas/{reserva_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_reserva(
+async def delete_reserva(
     reserva_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
@@ -756,6 +817,11 @@ def delete_reserva(
         
     db.delete(db_reserva)
     db.commit()
+    
+    # Broadcast availability updates
+    stats = crud.get_dashboard_stats(db)
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

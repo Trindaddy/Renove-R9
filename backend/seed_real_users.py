@@ -17,11 +17,11 @@ def seed_real_users():
         
         # 1. Atualizar contas de teste/fictícias existentes in-place
         updates = {
-            1: {"email": "ti@df.senac.br", "nome": "Administrador TI", "role": "ti", "matricula": "TI001"},
-            2: {"email": "alysson@df.senac.br", "nome": "Alysson Santos", "role": "professor", "matricula": "PROF002"},
-            3: {"email": "joao.pereira@edu.df.senac.br", "nome": "João Pereira", "role": "aluno", "matricula": "ALU001"},
-            4: {"email": "maria.santos@edu.df.senac.br", "nome": "Maria Santos", "role": "aluno", "matricula": "ALU002"},
-            5: {"email": "pedro.costa@edu.df.senac.br", "nome": "Pedro Costa", "role": "aluno", "matricula": "ALU003"},
+            1: {"email": "ti@df.senac.br", "nome": "Administrador TI", "role": "ti", "matricula": "TI001", "turma": None},
+            2: {"email": "alysson@df.senac.br", "nome": "Alysson Santos", "role": "professor", "matricula": "PROF002", "turma": None},
+            3: {"email": "joao.pereira@edu.df.senac.br", "nome": "João Pereira", "role": "aluno", "matricula": "ALU001", "turma": "2026.09.55"},
+            4: {"email": "maria.santos@edu.df.senac.br", "nome": "Maria Santos", "role": "aluno", "matricula": "ALU002", "turma": "2026.09.55"},
+            5: {"email": "pedro.costa@edu.df.senac.br", "nome": "Pedro Costa", "role": "aluno", "matricula": "ALU003", "turma": "2025.09.53"},
         }
         
         for uid, data in updates.items():
@@ -32,6 +32,7 @@ def seed_real_users():
                 user.nome = data["nome"]
                 user.role = data["role"]
                 user.matricula = data["matricula"]
+                user.turma = data["turma"]
                 user.senha_hash = pwd_context.hash("Senac@2025")
                 user.ativo = True
         db.commit()

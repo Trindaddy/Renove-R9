@@ -302,7 +302,7 @@ export default function Turmas() {
       {/* MODAL: Cadastrar Nova Turma */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative mx-4">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4">
             <button
               onClick={() => setShowAddModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
@@ -310,7 +310,7 @@ export default function Turmas() {
               ✕
             </button>
             <form onSubmit={handleCreateTurma} className="space-y-4">
-              <header className="border-b border-slate-800 pb-3">
+              <header className="border-b border-dark-600/50 pb-3">
                 <h3 className="text-base font-bold text-slate-100">Cadastrar Nova Turma</h3>
                 <p className="text-xs text-slate-400 mt-1">Informe os dados da nova turma acadêmica.</p>
               </header>
@@ -389,11 +389,11 @@ export default function Turmas() {
                 />
               </div>
 
-              <div className="flex gap-2 pt-3 border-t border-slate-800">
+              <div className="flex gap-2 pt-3 border-t border-dark-600/50">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 text-xs py-2 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  className="flex-1 text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
                   onClick={() => setShowAddModal(false)}
                 >
                   Cancelar
@@ -414,7 +414,7 @@ export default function Turmas() {
       {/* MODAL: Visão por Professor */}
       {selectedProfessor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-lg shadow-2xl relative mx-4">
+          <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4">
             <button
               onClick={() => setSelectedProfessor(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
@@ -422,7 +422,7 @@ export default function Turmas() {
               ✕
             </button>
             <div className="space-y-4">
-              <header className="border-b border-slate-800 pb-3">
+              <header className="border-b border-dark-600/50 pb-3">
                 <div className="flex items-center gap-2 text-primary">
                   <Users size={20} weight="duotone" />
                   <h3 className="text-base font-bold text-slate-100">Turmas do Professor</h3>
@@ -450,11 +450,11 @@ export default function Turmas() {
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <div className="pt-3 border-t border-dark-600/50 flex justify-end">
                 <Button
                   onClick={() => setSelectedProfessor(null)}
                   variant="outline"
-                  className="text-xs py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  className="text-xs py-2 px-4 bg-dark-700 hover:bg-dark-600 text-slate-200"
                 >
                   Fechar
                 </Button>
