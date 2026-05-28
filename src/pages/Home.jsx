@@ -444,6 +444,7 @@ function DashboardTI({ data }) {
 }
 
 function DashboardAluno({ data, user, onRefresh }) {
+  const [activeTab, setActiveTab] = useState('emprestimos');
   const [patrimonio, setPatrimonio] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -485,7 +486,7 @@ function DashboardAluno({ data, user, onRefresh }) {
         motivo: 'Retirada Individual Aluno',
         horas_previstas: 4
       });
-      setSuccess('Empréstimo rápido registrado com sucesso!');
+      setSuccess('Retirada rápida registrada! Confirme a retirada física abaixo.');
       setPatrimonio('');
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -503,8 +504,8 @@ function DashboardAluno({ data, user, onRefresh }) {
       setConfirmSuccess('');
       const { confirmarRetirada } = await import('../services/emprestimosService');
       await confirmarRetirada(data.reservaAtual.id);
-      setConfirmSuccess('Retirada física confirmada com sucesso!');
-      setTimeout(() => setConfirmSuccess(''), 4000);
+      setConfirmSuccess('Retirada física confirmada com sucesso! Bom uso do equipamento.');
+      setTimeout(() => setConfirmSuccess(''), 6000);
       if (onRefresh) onRefresh();
     } catch (err) {
       setConfirmError(err.response?.data?.detail || 'Erro ao confirmar a retirada física.');
@@ -515,231 +516,284 @@ function DashboardAluno({ data, user, onRefresh }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* PAINEL CENTRAL: Status do Notebook */}
-        <div className="lg:col-span-8 space-y-6">
-          {data.reservaAtual ? (
-            data.reservaAtual.confirmacaoPendente ? (
-              /* ESTADO A: Pendente de Confirmação */
-              <motion.div 
-                initial={{ opacity: 0, y: 15 }} 
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-                
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                      <Laptop weight="duotone" className="text-3xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        Aguardando Confirmação Física
-                      </span>
-                      <h2 className="text-lg font-black text-slate-100">Seu notebook está pronto para retirada!</h2>
-                      <p className="text-sm text-slate-400">
-                        Confirme o recebimento do notebook <strong className="text-slate-200">{data.reservaAtual.modelo}</strong> no balcão de atendimento.
-                      </p>
-                    </div>
-                  </div>
+      {/* Navegação por Abas com Design Premium */}
+      <div className="flex gap-2 border-b border-dark-600/50 pb-0">
+        <button
+          onClick={() => { setActiveTab('emprestimos'); setError(''); setSuccess(''); }}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-t-xl transition-all border-b-2 ${
+            activeTab === 'emprestimos'
+              ? 'text-primary border-primary bg-primary/5'
+              : 'text-slate-400 border-transparent hover:text-slate-200'
+          }`}
+        >
+          <Laptop size={16} />
+          Empréstimos Ativos
+        </button>
+        <button
+          onClick={() => { setActiveTab('historico_agenda'); setError(''); setSuccess(''); }}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-t-xl transition-all border-b-2 ${
+            activeTab === 'historico_agenda'
+              ? 'text-primary border-primary bg-primary/5'
+              : 'text-slate-400 border-transparent hover:text-slate-200'
+          }`}
+        >
+          <Clock size={16} />
+          Histórico & Agenda
+        </button>
+      </div>
 
-                  {/* Barcode / Tech Chip */}
-                  <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[200px] shrink-0">
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Patrimônio</div>
-                    
-                    <div className="flex items-center justify-center gap-3 px-4 py-2 rounded-lg bg-amber-500/5 border border-amber-500/30 relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                      <span className="text-2xl font-mono font-black text-amber-400 tracking-widest uppercase">
-                        {data.reservaAtual.patrimonio}
-                      </span>
-                    </div>
-                    
-                    <div className="flex gap-[2px] h-6 items-end opacity-60 mt-1 select-none pointer-events-none">
-                      <div className="w-[1px] h-full bg-slate-400" />
-                      <div className="w-[3px] h-full bg-slate-400" />
-                      <div className="w-[1px] h-4 bg-slate-400" />
-                      <div className="w-[2px] h-full bg-slate-400" />
-                      <div className="w-[1px] h-full bg-slate-400" />
-                      <div className="w-[4px] h-full bg-slate-400" />
-                      <div className="w-[1px] h-3 bg-slate-400" />
-                      <div className="w-[2px] h-full bg-slate-400" />
-                      <div className="w-[1px] h-full bg-slate-400" />
-                      <div className="w-[3px] h-4 bg-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Confirm Action Button */}
-                  <div className="w-full md:w-auto shrink-0 flex flex-col gap-2">
-                    <Button 
-                      onClick={handleConfirmRetirada} 
-                      variant="cyan" 
-                      className="w-full md:w-auto px-6 py-3 font-bold text-sm tracking-wide shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 uppercase"
-                      disabled={confirmLoading}
-                    >
-                      {confirmLoading ? 'Confirmando...' : 'Confirmar Retirada Física'}
-                    </Button>
-                    {confirmError && (
-                      <p className="text-xs text-red-400 text-center bg-red-950/20 border border-red-900/40 rounded p-1.5 max-w-[240px] mx-auto">
-                        {confirmError}
-                      </p>
-                    )}
-                    {confirmSuccess && (
-                      <p className="text-xs text-emerald-400 text-center bg-emerald-950/20 border border-emerald-900/40 rounded p-1.5 max-w-[240px] mx-auto">
-                        {confirmSuccess}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              /* ESTADO B: Ativo e Confirmado (Mensagem de Bom Uso) */
-              <motion.div 
-                initial={{ opacity: 0, y: 15 }} 
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-                
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                      <CheckCircle weight="fill" className="text-4xl text-emerald-400 animate-pulse" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                        Equipamento em Uso
-                      </span>
-                      <h2 className="text-lg font-black text-slate-100">{data.reservaAtual.equipamento}</h2>
-                      <p className="text-xs text-slate-400 font-mono mt-1">{data.reservaAtual.horario}</p>
+      <AnimatePresence mode="wait">
+        {activeTab === 'emprestimos' && (
+          <motion.div
+            key="emprestimos"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {data.reservaAtual ? (
+              data.reservaAtual.confirmacaoPendente ? (
+                /* ESTADO A: Pendente de Confirmação (Aguardando Retirada) */
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.98 }} 
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+                  
+                  {/* Mensagem de Disponibilização (Destaque) */}
+                  <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-3 animate-pulse">
+                    <Warning weight="fill" className="text-xl shrink-0" />
+                    <div>
+                      <span className="font-black uppercase tracking-wider block text-[10px] text-amber-400">Notificação de Retirada</span>
+                      Você tem um dispositivo aguardando a sua retirada no balcão de atendimento!
                     </div>
                   </div>
 
-                  {/* Patrimonio Display */}
-                  <div className="flex flex-col items-center gap-1 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[150px] shrink-0">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Patrimônio Ativo</span>
-                    <span className="text-xl font-mono font-black text-emerald-400 tracking-wider">
-                      {data.reservaAtual.patrimonio}
-                    </span>
-                    <span className="text-[10px] text-slate-400 capitalize">Condição: {data.reservaAtual.condicao}</span>
-                  </div>
-                </div>
-
-                {/* Mensagem de Bom Uso */}
-                <div className="mt-6 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-emerald-350/90 leading-relaxed">
-                  <p className="font-semibold text-emerald-400 mb-1">💡 Dica de Bom Uso:</p>
-                  Aproveite o seu notebook para as atividades acadêmicas! Zelar pelo patrimônio público garante que todos os alunos tenham acesso a equipamentos de qualidade. Lembre-se de devolvê-lo ao final da aula.
-                </div>
-              </motion.div>
-            )
-          ) : (
-            /* ESTADO C: Nenhum Notebook Alocado (Com Formulário de Retirada Rápida) */
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }} 
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-6 shadow-xl space-y-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-700/20 border border-dark-600 flex items-center justify-center text-slate-400">
-                  <Laptop weight="duotone" className="text-xl" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-100">Nenhum Notebook Alocado</h2>
-                  <p className="text-xs text-slate-400">Você não possui nenhuma alocação ativa no momento.</p>
-                </div>
-              </div>
-
-              <div className="border-t border-dark-600/50 pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Retirada Rápida de Notebook</h3>
-                <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                  Caso o instrutor solicite a retirada individual, insira o número de patrimônio do notebook abaixo para validar e registrar imediatamente.
-                </p>
-
-                <form onSubmit={handleQuickLoan} className="space-y-3 max-w-md">
-                  <Input
-                    placeholder="Ex: 21491"
-                    value={patrimonio}
-                    onChange={(e) => setPatrimonio(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                  {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
-                  {success && <p className="text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
-                  <Button 
-                    type="submit" 
-                    variant="cyan" 
-                    className="w-full text-xs py-2.5" 
-                    disabled={loading}
-                  >
-                    {loading ? 'Validando...' : 'Confirmar Retirada'}
-                  </Button>
-                </form>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* PAINEL LATERAL: Histórico Completo & Aulas */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Histórico Completo */}
-          <Card title="Histórico de Retiradas">
-            <div className="border border-dark-600 rounded-xl overflow-hidden bg-dark-900/30 max-h-80 overflow-y-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-dark-600 bg-dark-800/50 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                    <th className="px-4 py-2.5">Patrimônio</th>
-                    <th className="px-4 py-2.5">Modelo</th>
-                    <th className="px-4 py-2.5 text-right">Data</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[11px] text-slate-300 divide-y divide-dark-600/30">
-                  {Array.isArray(data.historicoAnterior) && data.historicoAnterior.length > 0 ? (
-                    data.historicoAnterior.map((item) => (
-                      <tr key={item.id} className="hover:bg-dark-700/20 transition-colors">
-                        <td className="px-4 py-2.5 font-mono font-bold text-primary">{item.patrimonio}</td>
-                        <td className="px-4 py-2.5 truncate max-w-[100px]">{item.modelo}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-400 font-mono">{item.data?.split(' ')[0]}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="3" className="px-4 py-6 text-center text-slate-500 italic">
-                        Nenhum empréstimo registrado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          {/* Próximas Aulas */}
-          <Card title="Agenda de Aulas">
-            <ul className="space-y-2">
-              {Array.isArray(data.proximasAulas) &&
-                data.proximasAulas.map((aula) => (
-                  <li
-                    key={aula.id}
-                    className="group rounded-xl border border-dark-600 bg-dark-700/30 px-3 py-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs text-slate-200 font-semibold">{aula.curso}</p>
-                        <p className="text-[9px] text-slate-500 font-mono mt-0.5 flex items-center gap-1">
-                          <Clock weight="fill" /> Turma: {aula.id} • {aula.data} • {aula.turno}
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                        <Laptop weight="duotone" className="text-3xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                          Pendente / Aguardando Retirada
+                        </span>
+                        <h2 className="text-lg font-black text-slate-100">{data.reservaAtual.modelo}</h2>
+                        <p className="text-sm text-slate-400">
+                          Confirme o recebimento do notebook ao retirar o equipamento fisicamente.
                         </p>
                       </div>
-                      <ArrowRight weight="bold" size={12} className="text-slate-500 group-hover:text-primary transition-colors" />
                     </div>
-                  </li>
-                ))}
-              {(!Array.isArray(data.proximasAulas) || data.proximasAulas.length === 0) && (
-                <div className="py-4 text-center text-slate-500 text-xs">Nenhuma aula agendada para sua turma.</div>
-              )}
-            </ul>
-          </Card>
-        </div>
-      </div>
+
+                    {/* Barcode / Tech Chip */}
+                    <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[200px] shrink-0">
+                      <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Patrimônio</div>
+                      
+                      <div className="flex items-center justify-center gap-3 px-4 py-2 rounded-lg bg-amber-500/5 border border-amber-500/30 relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                        <span className="text-2xl font-mono font-black text-amber-400 tracking-widest uppercase">
+                          {data.reservaAtual.patrimonio}
+                        </span>
+                      </div>
+                      
+                      <div className="flex gap-[2px] h-6 items-end opacity-60 mt-1 select-none pointer-events-none">
+                        <div className="w-[1px] h-full bg-slate-400" />
+                        <div className="w-[3px] h-full bg-slate-400" />
+                        <div className="w-[1px] h-4 bg-slate-400" />
+                        <div className="w-[2px] h-full bg-slate-400" />
+                        <div className="w-[1px] h-full bg-slate-400" />
+                        <div className="w-[4px] h-full bg-slate-400" />
+                        <div className="w-[1px] h-3 bg-slate-400" />
+                        <div className="w-[2px] h-full bg-slate-400" />
+                        <div className="w-[1px] h-full bg-slate-400" />
+                        <div className="w-[3px] h-4 bg-slate-400" />
+                      </div>
+                    </div>
+
+                    {/* Confirm Action Button */}
+                    <div className="w-full lg:w-auto shrink-0 flex flex-col gap-2">
+                      <Button 
+                        onClick={handleConfirmRetirada} 
+                        variant="cyan" 
+                        className="w-full lg:w-auto px-6 py-3 font-bold text-sm tracking-wide shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 uppercase"
+                        disabled={confirmLoading}
+                      >
+                        {confirmLoading ? 'Confirmando...' : 'Confirmar Retirada'}
+                      </Button>
+                      {confirmError && (
+                        <p className="text-xs text-red-400 text-center bg-red-950/20 border border-red-900/40 rounded p-1.5 max-w-[240px] mx-auto">
+                          {confirmError}
+                        </p>
+                      )}
+                      {confirmSuccess && (
+                        <p className="text-xs text-emerald-400 text-center bg-emerald-950/20 border border-emerald-900/40 rounded p-1.5 max-w-[240px] mx-auto font-semibold">
+                          {confirmSuccess}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                /* ESTADO B: Ativo e Confirmado (Mensagem de Bom Uso) */
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.98 }} 
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+                  
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <CheckCircle weight="fill" className="text-4xl text-emerald-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                          Ativo / Em Uso
+                        </span>
+                        <h2 className="text-lg font-black text-slate-100">{data.reservaAtual.modelo}</h2>
+                        <p className="text-xs text-slate-400 font-mono mt-1">{data.reservaAtual.horario}</p>
+                      </div>
+                    </div>
+
+                    {/* Patrimonio Display */}
+                    <div className="flex flex-col items-center gap-1 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[150px] shrink-0">
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Patrimônio Ativo</span>
+                      <span className="text-xl font-mono font-black text-emerald-400 tracking-wider">
+                        {data.reservaAtual.patrimonio}
+                      </span>
+                      <span className="text-[10px] text-slate-450 capitalize">Condição: {data.reservaAtual.condicao}</span>
+                    </div>
+                  </div>
+
+                  {/* Mensagem de Bom Uso com design premium */}
+                  <div className="mt-6 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-emerald-300 leading-relaxed shadow-inner">
+                    <p className="font-bold text-emerald-400 mb-1 flex items-center gap-1.5 text-xs">
+                      <span>💡</span> Dica de Bom Uso:
+                    </p>
+                    Aproveite o seu notebook para as atividades acadêmicas! Zelar pelo patrimônio público garante que todos os alunos tenham acesso a equipamentos de qualidade. Lembre-se de devolvê-lo ao final da aula.
+                  </div>
+                </motion.div>
+              )
+            ) : (
+              /* ESTADO C: Nenhum Notebook Alocado (Com Formulário de Retirada Rápida) */
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.98 }} 
+                animate={{ opacity: 1, scale: 1 }}
+                className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-6 shadow-xl space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-slate-700/20 border border-dark-600 flex items-center justify-center text-slate-400">
+                    <Laptop weight="duotone" className="text-xl" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-100">Nenhum Notebook Alocado</h2>
+                    <p className="text-xs text-slate-400">Você não possui nenhuma alocação ativa no momento.</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-dark-600/50 pt-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Retirada Rápida de Notebook</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-3">
+                    Caso o instrutor solicite a retirada individual, insira o número de patrimônio do notebook abaixo para alocá-lo à sua conta.
+                  </p>
+
+                  <form onSubmit={handleQuickLoan} className="space-y-3 max-w-md">
+                    <Input
+                      placeholder="Ex: 21491"
+                      value={patrimonio}
+                      onChange={(e) => setPatrimonio(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                    {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
+                    {success && <p className="text-xs text-emerald-400 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
+                    <Button 
+                      type="submit" 
+                      variant="cyan" 
+                      className="w-full text-xs py-2.5 uppercase font-bold tracking-wider" 
+                      disabled={loading}
+                    >
+                      {loading ? 'Validando...' : 'Iniciar Retirada'}
+                    </Button>
+                  </form>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'historico_agenda' && (
+          <motion.div
+            key="historico_agenda"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            {/* Histórico Completo */}
+            <Card title="Histórico de Retiradas">
+              <div className="border border-dark-600 rounded-xl overflow-hidden bg-dark-900/30 max-h-80 overflow-y-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-dark-600 bg-dark-800/50 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                      <th className="px-4 py-2.5">Patrimônio</th>
+                      <th className="px-4 py-2.5">Modelo</th>
+                      <th className="px-4 py-2.5 text-right">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[11px] text-slate-300 divide-y divide-dark-600/30">
+                    {Array.isArray(data.historicoAnterior) && data.historicoAnterior.length > 0 ? (
+                      data.historicoAnterior.map((item) => (
+                        <tr key={item.id} className="hover:bg-dark-700/20 transition-colors">
+                          <td className="px-4 py-2.5 font-mono font-bold text-primary">{item.patrimonio}</td>
+                          <td className="px-4 py-2.5 truncate max-w-[150px]">{item.modelo}</td>
+                          <td className="px-4 py-2.5 text-right text-slate-400 font-mono">{item.data}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" className="px-4 py-6 text-center text-slate-500 italic">
+                          Nenhum empréstimo registrado.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* Próximas Aulas */}
+            <Card title="Agenda de Aulas">
+              <ul className="space-y-2">
+                {Array.isArray(data.proximasAulas) &&
+                  data.proximasAulas.map((aula) => (
+                    <li
+                      key={aula.id}
+                      className="group rounded-xl border border-dark-600 bg-dark-700/30 px-3 py-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-slate-200 font-semibold">{aula.curso}</p>
+                          <p className="text-[9px] text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                            <Clock weight="fill" /> Turma: {aula.id} • {aula.data} • {aula.turno}
+                          </p>
+                        </div>
+                        <ArrowRight weight="bold" size={12} className="text-slate-500 group-hover:text-primary transition-colors" />
+                      </div>
+                    </li>
+                  ))}
+                {(!Array.isArray(data.proximasAulas) || data.proximasAulas.length === 0) && (
+                  <div className="py-4 text-center text-slate-500 text-xs">Nenhuma aula agendada para sua turma.</div>
+                )}
+              </ul>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Lack of Availability Modal */}
       <AnimatePresence>
@@ -818,8 +872,7 @@ function DashboardAluno({ data, user, onRefresh }) {
               <div className="flex justify-end border-t border-dark-600/50 pt-4">
                 <Button 
                   onClick={() => setShowNoDispoModal(false)} 
-                  variant="muted" 
-                  className="px-6 py-2 text-xs font-bold uppercase tracking-wider"
+                  className="px-6 py-2 text-xs font-bold uppercase tracking-wider bg-dark-700 hover:bg-dark-600 text-slate-300 border border-dark-600"
                 >
                   OK
                 </Button>

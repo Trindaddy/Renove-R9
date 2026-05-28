@@ -44,6 +44,30 @@ def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
+def run_db_migrations():
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            # Check notebooks table columns
+            result = conn.execute(text("PRAGMA table_info(notebooks)"))
+            columns = [row[1] for row in result.fetchall()]
+            if columns and "usuario_id" not in columns:
+                print("Adding usuario_id column to notebooks table...")
+                conn.execute(text("ALTER TABLE notebooks ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)"))
+                conn.commit()
+                print("Successfully added usuario_id column to notebooks table.")
+            
+            # Check reservas table columns
+            result = conn.execute(text("PRAGMA table_info(reservas)"))
+            columns = [row[1] for row in result.fetchall()]
+            if columns and "usuario_id" not in columns:
+                print("Adding usuario_id column to reservas table...")
+                conn.execute(text("ALTER TABLE reservas ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)"))
+                conn.commit()
+                print("Successfully added usuario_id column to reservas table.")
+    except Exception as e:
+        print(f"Error running db migration: {e}")
+
 def get_db():
     db = SessionLocal()
     try:

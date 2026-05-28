@@ -177,13 +177,14 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
         usuario_id=emprestimo.usuario_id,
         responsavel_id=responsavel_id or emprestimo.responsavel_id,
         data_prevista_devolucao=data_prevista,
-        observacao_saida=emprestimo.observacao_saida,
+        observacao_saida=emprestimo.observacao_saida or "Pré-alocado (Aguardando Confirmação Aluno)",
         motivo=emprestimo.motivo,
-        status="Ativo"
+        status="Pendente"
     )
     
-    # Atualizar status do notebook
-    notebook.status = "Emprestado"
+    # Atualizar status do notebook e vincular usuario_id
+    notebook.status = "Reservado"
+    notebook.usuario_id = emprestimo.usuario_id
     
     db.add(db_emprestimo)
     db.commit()
@@ -196,8 +197,8 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
         responsavel_id=responsavel_id or emprestimo.responsavel_id,
         tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
         status_anterior="Disponível",
-        status_novo="Emprestado",
-        descricao=f"Empréstimo para {usuario.nome} ({usuario.matricula})",
+        status_novo="Reservado",
+        descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})",
         informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
     ))
     
@@ -228,10 +229,11 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
 
 def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
-    if not emprestimo or emprestimo.status != "Ativo":
+    if not emprestimo or emprestimo.status not in ["Ativo", "Atrasado", "Pendente"]:
         raise ValueError("Empréstimo não encontrado ou já finalizado")
     
     notebook = get_notebook(db, emprestimo.notebook_id)
+    status_anterior_nb = notebook.status
     
     # Atualizar empréstimo
     emprestimo.status = "Devolvido"
@@ -240,8 +242,9 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
     if responsavel_id:
         emprestimo.responsavel_id = responsavel_id
     
-    # Liberar notebook
+    # Liberar notebook e desvincular usuário
     notebook.status = "Disponível"
+    notebook.usuario_id = None
     
     db.commit()
     db.refresh(emprestimo)
@@ -252,7 +255,7 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
         usuario_id=emprestimo.usuario_id,
         responsavel_id=responsavel_id,
         tipo_movimentacao=schemas.TipoMovimentacao.devolucao,
-        status_anterior="Emprestado",
+        status_anterior=status_anterior_nb,
         status_novo="Disponível",
         descricao=f"Devolução do notebook {notebook.patrimonio}",
         informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id})
@@ -262,13 +265,15 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
 
 def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optional[int] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
-    if not emprestimo or emprestimo.status != "Ativo":
+    if not emprestimo or emprestimo.status not in ["Ativo", "Pendente", "Atrasado"]:
         raise ValueError("Empréstimo não encontrado ou não está ativo")
     
     notebook = get_notebook(db, emprestimo.notebook_id)
+    status_anterior_nb = notebook.status
     
     emprestimo.status = "Cancelado"
     notebook.status = "Disponível"
+    notebook.usuario_id = None
     
     db.commit()
     db.refresh(emprestimo)
@@ -278,7 +283,7 @@ def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optiona
         usuario_id=emprestimo.usuario_id,
         responsavel_id=responsavel_id,
         tipo_movimentacao=schemas.TipoMovimentacao.cancelamento,
-        status_anterior="Emprestado",
+        status_anterior=status_anterior_nb,
         status_novo="Disponível",
         descricao="Empréstimo cancelado"
     ))

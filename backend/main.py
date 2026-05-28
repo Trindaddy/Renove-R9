@@ -15,7 +15,7 @@ from passlib.context import CryptContext
 import os
 import asyncio
 
-from database import engine, SessionLocal, get_db, get_brasilia_time
+from database import engine, SessionLocal, get_db, get_brasilia_time, run_db_migrations
 import models
 from models import Base
 import crud
@@ -26,6 +26,7 @@ from alertas import verificar_alerta_escassez_sync
 # Criar tabelas (apenas se configurado para evitar conflito com Alembic em produção)
 if os.getenv("CREATE_TABLES_ON_STARTUP", "true").lower() == "true":
     Base.metadata.create_all(bind=engine)
+    run_db_migrations()
 
 app = FastAPI(
     title="R9 - Gestão de Notebooks",
@@ -247,15 +248,16 @@ async def delete_usuario(
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
         
-    # 1. Buscar empréstimos ativos deste usuário e liberar os respectivos notebooks
+    # 1. Buscar empréstimos ativos, pendentes ou atrasados deste usuário e liberar os respectivos notebooks
     active_loans = db.query(models.Emprestimo).filter(
         models.Emprestimo.usuario_id == usuario_id,
-        models.Emprestimo.status == "Ativo"
+        models.Emprestimo.status.in_(["Ativo", "Pendente", "Atrasado"])
     ).all()
     for loan in active_loans:
         notebook = db.query(models.Notebook).filter(models.Notebook.id == loan.notebook_id).first()
         if notebook:
             notebook.status = "Disponível"
+            notebook.usuario_id = None
             
     # 2. Excluir empréstimos
     db.query(models.Emprestimo).filter(
@@ -611,11 +613,12 @@ async def create_emprestimos_lote(
                 usuario_id=aluno.id,
                 responsavel_id=current_user.id,
                 data_prevista_devolucao=data_prevista,
-                status="Ativo",
+                status="Pendente",
                 observacao_saida="Pré-alocado (Aguardando Confirmação Aluno)",
                 motivo="Alocação em Lote"
             )
-            notebook.status = "Emprestado"
+            notebook.status = "Reservado"
+            notebook.usuario_id = aluno.id
             db.add(db_emp)
             db.flush()
             
@@ -626,7 +629,7 @@ async def create_emprestimos_lote(
                 responsavel_id=current_user.id,
                 tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
                 status_anterior="Disponível",
-                status_novo="Emprestado",
+                status_novo="Reservado",
                 descricao=f"Pré-alocação em lote para aluno {aluno.nome}",
                 informacoes_adicionais=json.dumps({"emprestimo_id": db_emp.id, "batch": True})
             ))
@@ -694,19 +697,25 @@ async def confirmar_emprestimo(
         )
         
     # Verificar se já está confirmado
-    if emp.observacao_saida != "Pré-alocado (Aguardando Confirmação Aluno)":
+    if emp.status != "Pendente":
         return {"message": "Este empréstimo já foi confirmado ou não necessita de confirmação."}
         
+    emp.status = "Ativo"
     emp.observacao_saida = "Retirada Confirmada pelo Aluno"
     emp.data_emprestimo = get_brasilia_time()
     
+    # Atualizar status do notebook e vincular usuario_id
+    if emp.notebook:
+        emp.notebook.status = "Emprestado"
+        emp.notebook.usuario_id = emp.usuario_id
+        
     # Registrar no histórico
     crud.registrar_historico(db, schemas.HistoricoCreate(
         notebook_id=emp.notebook_id,
         usuario_id=emp.usuario_id,
         responsavel_id=current_user.id,
         tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
-        descricao=f"Aluno {emp.usuario.nome} confirmou a retirada física do notebook {emp.notebook.patrimonio}"
+        descricao=f"Aluno {emp.usuario.nome} confirmou a retirada física do notebook {emp.notebook.patrimonio if emp.notebook else 'N/A'}"
     ))
     
     db.commit()
@@ -717,6 +726,18 @@ async def confirmar_emprestimo(
     import asyncio
     asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
     
+    # Também broadcast do empréstimo realizado para atualizar painéis de TI
+    try:
+        from websocket import broadcast_emprestimo_realizado
+        asyncio.create_task(broadcast_emprestimo_realizado({
+            "id": emp.id,
+            "usuario_nome": emp.usuario.nome if emp.usuario else "N/A",
+            "notebook_patrimonio": emp.notebook.patrimonio if emp.notebook else "N/A",
+            "status": emp.status
+        }))
+    except Exception as e:
+        print(f"Erro ao transmitir broadcast: {e}")
+        
     return {"message": "Retirada física confirmada com sucesso!", "emprestimo": emp}
 
 @app.post("/emprestimos/{emprestimo_id}/devolver")
@@ -1142,7 +1163,7 @@ def get_dashboard_aluno_route(
         joinedload(models.Emprestimo.notebook)
     ).filter(
         models.Emprestimo.usuario_id == current_user.id,
-        models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+        models.Emprestimo.status.in_(["Pendente", "Ativo", "Atrasado"])
     ).first()
     
     reserva_atual = None
@@ -1150,7 +1171,7 @@ def get_dashboard_aluno_route(
     historico_anterior = []
     
     if emp:
-        confirmacao_pendente = emp.observacao_saida == "Pré-alocado (Aguardando Confirmação Aluno)"
+        confirmacao_pendente = emp.status == "Pendente"
         
         status_label = "Aguardando Confirmação" if confirmacao_pendente else ("Em uso" if emp.status == "Ativo" else "Atrasado")
         

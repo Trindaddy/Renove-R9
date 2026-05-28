@@ -16,14 +16,14 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         if user_id:
             self.user_connections[user_id] = websocket
-        print(f"🔗 WebSocket conectado. Total: {len(self.active_connections)}")
+        print(f"WebSocket conectado. Total: {len(self.active_connections)}")
     
     def disconnect(self, websocket: WebSocket, user_id: Optional[int] = None):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
         if user_id and user_id in self.user_connections:
             del self.user_connections[user_id]
-        print(f"🔌 WebSocket desconectado. Total: {len(self.active_connections)}")
+        print(f"WebSocket desconectado. Total: {len(self.active_connections)}")
     
     async def send_message(self, websocket: WebSocket, message: dict):
         try:

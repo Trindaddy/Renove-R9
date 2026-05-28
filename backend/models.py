@@ -35,6 +35,9 @@ class Notebook(Base):
     observacoes = Column(Text)
     created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
     updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
     __table_args__ = (
         CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado')", name="check_notebook_status"),
@@ -61,7 +64,7 @@ class Emprestimo(Base):
     motivo = Column(String(50))
 
     __table_args__ = (
-        CheckConstraint("status IN ('Ativo', 'Devolvido', 'Atrasado', 'Cancelado')", name="check_emprestimo_status"),
+        CheckConstraint("status IN ('Pendente', 'Ativo', 'Devolvido', 'Atrasado', 'Cancelado')", name="check_emprestimo_status"),
     )
 
 class Historico(Base):

@@ -167,10 +167,10 @@ function UsuariosPanel() {
   const roleLabels = { ti: 'TI', professor: 'Professor', aluno: 'Aluno' };
 
   const filteredUsuarios = usuarios.filter(u =>
-    u.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.matricula?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    (u.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.matricula || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
