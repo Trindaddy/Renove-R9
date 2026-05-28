@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/Button.jsx';
 import {
@@ -111,6 +112,8 @@ function TabelaSolicitacoesGestor() {
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [promptAlterarId, setPromptAlterarId] = useState(null);
+  const [promptNovoIdVal, setPromptNovoIdVal] = useState('');
 
   async function carregar() {
     try {
@@ -136,13 +139,32 @@ function TabelaSolicitacoesGestor() {
       } else if (tipo === 'negar') {
         await negarSolicitacao(id);
       } else if (tipo === 'alterar-id') {
-        const novoId = window.prompt('Informe o novo ID do equipamento:');
-        if (!novoId) return;
-        await alterarEquipamentoSolicitacao(id, novoId);
+        setPromptAlterarId(id);
+        setPromptNovoIdVal('');
+        return;
       }
       await carregar();
     } catch (err) {
       setError('Não foi possível atualizar a solicitação. Verifique a API.');
+    }
+  }
+
+  async function executeAlterarId(e) {
+    e.preventDefault();
+    if (!promptAlterarId || !promptNovoIdVal.trim()) return;
+    const id = promptAlterarId;
+    const novoId = promptNovoIdVal.trim();
+    setPromptAlterarId(null);
+    setPromptNovoIdVal('');
+    try {
+      setLoading(true);
+      setError('');
+      await alterarEquipamentoSolicitacao(id, novoId);
+      await carregar();
+    } catch (err) {
+      setError('Não foi possível atualizar a solicitação. Verifique a API.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -252,6 +274,56 @@ function TabelaSolicitacoesGestor() {
           </tbody>
         </table>
       </div>
+
+      {/* Custom Prompt Modal for altering Equipment ID */}
+      <AnimatePresence>
+        {promptAlterarId && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4"
+            >
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Alterar ID do Equipamento
+              </h3>
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                Informe o novo número de patrimônio (ID) para a solicitação #{promptAlterarId}:
+              </p>
+              <form onSubmit={executeAlterarId} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Ex: 21491"
+                  value={promptNovoIdVal}
+                  onChange={(e) => setPromptNovoIdVal(e.target.value)}
+                  className="tech-input w-full"
+                  required
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 text-xs py-2 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                    onClick={() => { setPromptAlterarId(null); setPromptNovoIdVal(''); }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="cyan"
+                    className="flex-1 text-xs py-2"
+                  >
+                    Confirmar
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

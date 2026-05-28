@@ -31,6 +31,7 @@ export default function Emprestimos() {
   const [filtroStatus, setFiltroStatus] = useState('Ativo');
   
   const [confirmDevolucaoId, setConfirmDevolucaoId] = useState(null);
+  const [confirmCancelarId, setConfirmCancelarId] = useState(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const { lastMessage } = useWebSocket();
@@ -107,8 +108,10 @@ export default function Emprestimos() {
     }
   }
 
-  async function handleCancelar(id) {
-    if (!window.confirm('Deseja cancelar este empréstimo?')) return;
+  async function executeCancelar() {
+    if (!confirmCancelarId) return;
+    const id = confirmCancelarId;
+    setConfirmCancelarId(null);
     try {
       setLoadingAction(true);
       setError('');
@@ -291,7 +294,7 @@ export default function Emprestimos() {
                             <Button
                               variant="danger"
                               className="px-2.5 py-1 text-[11px]"
-                              onClick={() => handleCancelar(emp.id)}
+                              onClick={() => setConfirmCancelarId(emp.id)}
                               disabled={loadingAction}
                             >
                               Cancelar
@@ -353,6 +356,47 @@ export default function Emprestimos() {
                   onClick={executeDevolucao}
                 >
                   Confirmar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Styled confirm modal for notebook cancel */}
+      <AnimatePresence>
+        {confirmCancelarId && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-400 text-2xl animate-pulse">
+                <WarningCircle weight="fill" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Cancelar Empréstimo
+              </h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Tem certeza que deseja cancelar este empréstimo? Esta ação é irreversível e o notebook retornará ao inventário.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                  onClick={() => setConfirmCancelarId(null)}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white border border-red-500"
+                  onClick={executeCancelar}
+                >
+                  Cancelar
                 </Button>
               </div>
             </motion.div>

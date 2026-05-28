@@ -54,8 +54,18 @@ export default function Turmas() {
     }
   }
 
-  async function handleRemoveStudent(studentId) {
-    if (!window.confirm('Deseja realmente remover este aluno desta turma?')) return;
+  const [confirmRemoveStudent, setConfirmRemoveStudent] = useState(null);
+  const [confirmBatchLoanTurmaId, setConfirmBatchLoanTurmaId] = useState(null);
+  const [confirmDeleteTurmaId, setConfirmDeleteTurmaId] = useState(null);
+
+  function handleRemoveStudentClick(student) {
+    setConfirmRemoveStudent(student);
+  }
+
+  async function executeRemoveStudent() {
+    if (!confirmRemoveStudent) return;
+    const studentId = confirmRemoveStudent.id;
+    setConfirmRemoveStudent(null);
     try {
       setLoadingAlunos(true);
       setAlunosError('');
@@ -83,7 +93,7 @@ export default function Turmas() {
   async function handleSaveEditStudent(e) {
     e.preventDefault();
     if (!editForm.email.toLowerCase().endsWith('@edu.df.senac.br')) {
-      alert('Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br');
+      setAlunosError('Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br');
       return;
     }
     try {
@@ -110,16 +120,20 @@ export default function Turmas() {
       setHistoryLogs(Array.isArray(logs) ? logs : []);
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar histórico do aluno.');
+      setAlunosError('Erro ao carregar histórico do aluno.');
     } finally {
       setLoadingHistory(false);
     }
   }
 
-  async function handleBatchLoanClick(turmaId) {
-    if (!window.confirm(`Deseja realmente iniciar o empréstimo em lote para todos os alunos da turma ${turmaId}?`)) {
-      return;
-    }
+  function handleBatchLoanClick(turmaId) {
+    setConfirmBatchLoanTurmaId(turmaId);
+  }
+
+  async function executeBatchLoan() {
+    if (!confirmBatchLoanTurmaId) return;
+    const turmaId = confirmBatchLoanTurmaId;
+    setConfirmBatchLoanTurmaId(null);
     try {
       setLoadingAlunos(true);
       setAlunosError('');
@@ -217,10 +231,14 @@ export default function Turmas() {
     }
   }
 
-  async function handleDeleteTurma(codigoTurma) {
-    if (!window.confirm(`Deseja realmente excluir a turma ${codigoTurma}? Isso removerá também todas as reservas ativas associadas.`)) {
-      return;
-    }
+  function handleDeleteTurmaClick(codigoTurma) {
+    setConfirmDeleteTurmaId(codigoTurma);
+  }
+
+  async function executeDeleteTurma() {
+    if (!confirmDeleteTurmaId) return;
+    const codigoTurma = confirmDeleteTurmaId;
+    setConfirmDeleteTurmaId(null);
     try {
       setLoading(true);
       setError('');
@@ -397,8 +415,8 @@ export default function Turmas() {
                   {isTi && (
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        onClick={() => handleDeleteTurma(turma.id)}
-                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/15 text-red-450 transition-all opacity-0 group-hover:opacity-100"
+                        onClick={() => handleDeleteTurmaClick(turma.id)}
+                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/15 text-red-455 transition-all opacity-0 group-hover:opacity-100"
                         title="Excluir Turma"
                       >
                         <Trash size={14} />
@@ -694,8 +712,8 @@ export default function Turmas() {
                                     <PencilSimple size={14} />
                                   </button>
                                   <button
-                                    onClick={() => handleRemoveStudent(aluno.id)}
-                                    className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-450 hover:bg-red-500/20 transition-all"
+                                    onClick={() => handleRemoveStudentClick(aluno)}
+                                    className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-455 hover:bg-red-500/20 transition-all"
                                     title="Remover da Turma"
                                   >
                                     <UserMinus size={14} />
@@ -958,6 +976,129 @@ export default function Turmas() {
               </div>
             </div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom confirm modal for student removal from class */}
+      <AnimatePresence>
+        {confirmRemoveStudent && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center text-slate-200"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-450 text-2xl">
+                <UserMinus weight="bold" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Desvincular Aluno
+              </h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Tem certeza que deseja remover o aluno <strong>{confirmRemoveStudent.nome}</strong> da turma? O aluno não possuirá turma vinculada no sistema.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                  onClick={() => setConfirmRemoveStudent(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white border border-red-500"
+                  onClick={executeRemoveStudent}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom confirm modal for Batch Loan trigger */}
+      <AnimatePresence>
+        {confirmBatchLoanTurmaId && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center text-slate-200"
+            >
+              <div className="h-12 w-12 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4 text-cyan-400 text-2xl">
+                <Lightning weight="fill" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Iniciar Empréstimo em Lote
+              </h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Deseja realmente iniciar a alocação e o empréstimo em lote de notebooks para todos os alunos da turma <strong>{confirmBatchLoanTurmaId}</strong>?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                  onClick={() => setConfirmBatchLoanTurmaId(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="cyan"
+                  className="flex-1 text-xs py-2.5"
+                  onClick={executeBatchLoan}
+                >
+                  Iniciar Lote
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom confirm modal for class deletion */}
+      <AnimatePresence>
+        {confirmDeleteTurmaId && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center text-slate-200"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-400 text-2xl">
+                <Trash weight="duotone" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Excluir Turma
+              </h3>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Tem certeza que deseja excluir a turma <strong>{confirmDeleteTurmaId}</strong>? Isso também removerá todas as reservas ativas associadas a ela.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
+                  onClick={() => setConfirmDeleteTurmaId(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white border border-red-500"
+                  onClick={executeDeleteTurma}
+                >
+                  Confirmar Exclusão
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

@@ -71,10 +71,8 @@ export default function Layout({ children }) {
       { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }
     );
   } else {
-    navItems.push(
-      { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
-      { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> }
-    );
+    // Aluno: A experiência dele se resume estritamente ao Dashboard Principal (Visão Única).
+    // Não deve ver links de navegação secundários.
   }
 
   function handleLogout() {
@@ -164,25 +162,27 @@ export default function Layout({ children }) {
       </header>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden glass-card border-b border-dark-600 rounded-none overflow-x-auto bg-dark-900/60">
-        <div className="flex gap-1 px-4 py-2 min-w-max">
-          {navItems.map((item) => {
-            const active = location.pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
-                  active ? 'text-primary bg-primary/10 border border-primary/20' : 'text-slate-400'
-                }`}
-              >
-                <span className="text-sm opacity-80">{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      {navItems.length > 0 && (
+        <nav className="md:hidden glass-card border-b border-dark-600 rounded-none overflow-x-auto bg-dark-900/60">
+          <div className="flex gap-1 px-4 py-2 min-w-max">
+            {navItems.map((item) => {
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+                    active ? 'text-primary bg-primary/10 border border-primary/20' : 'text-slate-400'
+                  }`}
+                >
+                  <span className="text-sm opacity-80">{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6">

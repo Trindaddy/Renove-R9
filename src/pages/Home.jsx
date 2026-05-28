@@ -79,18 +79,20 @@ export default function Home() {
           variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
         >
           {/* Main Layout Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start mb-5">
-            <div className="lg:col-span-7">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <DashboardCTAEmprestimo />
-                <DashboardCTATurma />
+          {user.role !== 'aluno' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start mb-5">
+              <div className="lg:col-span-7">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <DashboardCTAEmprestimo />
+                  <DashboardCTATurma />
+                </div>
+              </div>
+
+              <div className="lg:col-span-5">
+                <AlertsAndShortcutsTray user={user} data={data} />
               </div>
             </div>
-
-            <div className="lg:col-span-5">
-              <AlertsAndShortcutsTray user={user} data={data} />
-            </div>
-          </div>
+          )}
 
           {/* Role specific areas */}
           <div className="pt-2">
@@ -513,159 +515,230 @@ function DashboardAluno({ data, user, onRefresh }) {
 
   return (
     <div className="space-y-6">
-      {/* Pending Confirmation Header Banner */}
-      {data.reservaAtual?.confirmacaoPendente && (
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }} 
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-          
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                <Laptop weight="duotone" className="text-3xl" />
-              </div>
-              <div className="space-y-1">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  Aguardando Confirmação Física
-                </span>
-                <h2 className="text-lg font-black text-slate-100">Seu notebook está pronto para retirada!</h2>
-                <p className="text-sm text-slate-400">
-                  Confirme o recebimento do notebook <strong className="text-slate-200">{data.reservaAtual.modelo}</strong> no balcão de atendimento.
-                </p>
-              </div>
-            </div>
-
-            {/* Stylized technology chip / barcode */}
-            <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[200px] shrink-0">
-              <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Patrimônio</div>
-              
-              {/* Technology chip effect */}
-              <div className="flex items-center justify-center gap-3 px-4 py-2 rounded-lg bg-amber-500/5 border border-amber-500/30 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <span className="text-2xl font-mono font-black text-amber-400 tracking-widest uppercase">
-                  {data.reservaAtual.patrimonio}
-                </span>
-              </div>
-              
-              {/* Fake barcode styling */}
-              <div className="flex gap-[2px] h-6 items-end opacity-60 mt-1 select-none pointer-events-none">
-                <div className="w-[1px] h-full bg-slate-400" />
-                <div className="w-[3px] h-full bg-slate-400" />
-                <div className="w-[1px] h-4 bg-slate-400" />
-                <div className="w-[2px] h-full bg-slate-400" />
-                <div className="w-[1px] h-full bg-slate-400" />
-                <div className="w-[4px] h-full bg-slate-400" />
-                <div className="w-[1px] h-3 bg-slate-400" />
-                <div className="w-[2px] h-full bg-slate-400" />
-                <div className="w-[1px] h-full bg-slate-400" />
-                <div className="w-[3px] h-4 bg-slate-400" />
-              </div>
-            </div>
-
-            {/* Confirm Action Button */}
-            <div className="w-full md:w-auto shrink-0 flex flex-col gap-2">
-              <Button 
-                onClick={handleConfirmRetirada} 
-                variant="cyan" 
-                className="w-full md:w-auto px-6 py-3 font-bold text-sm tracking-wide shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 uppercase"
-                disabled={confirmLoading}
-              >
-                {confirmLoading ? 'Confirmando...' : 'Confirmar Retirada Física'}
-              </Button>
-              {confirmError && (
-                <p className="text-xs text-red-400 text-center bg-red-950/20 border border-red-900/40 rounded p-1.5 max-w-[240px] mx-auto">
-                  {confirmError}
-                </p>
-              )}
-              {confirmSuccess && (
-                <p className="text-xs text-emerald-400 text-center bg-emerald-950/20 border border-emerald-900/40 rounded p-1.5 max-w-[240px] mx-auto">
-                  {confirmSuccess}
-                </p>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Card title="Retirada Rápida de Notebook">
-          <form onSubmit={handleQuickLoan} className="space-y-3">
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Digite o patrimônio do notebook que você está retirando para validar e registrar imediatamente.
-            </p>
-            <Input
-              placeholder="Ex: 21491"
-              value={patrimonio}
-              onChange={(e) => setPatrimonio(e.target.value)}
-              disabled={loading || (data.reservaAtual && !data.reservaAtual.confirmacaoPendente)}
-              required
-            />
-            {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
-            {success && <p className="text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
-            <Button 
-              type="submit" 
-              variant="cyan" 
-              className="w-full text-xs" 
-              disabled={loading || (data.reservaAtual && !data.reservaAtual.confirmacaoPendente)}
-            >
-              {loading ? 'Validando...' : 'Confirmar Retirada'}
-            </Button>
-          </form>
-        </Card>
-
-        <Card title="Minha Solicitação">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* PAINEL CENTRAL: Status do Notebook */}
+        <div className="lg:col-span-8 space-y-6">
           {data.reservaAtual ? (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-dark-600 bg-dark-800/50 px-3 py-2.5">
-                <p className="text-sm text-slate-200 font-semibold">{data.reservaAtual.equipamento}</p>
-                <p className="text-xs text-slate-400 font-mono mt-1">{data.reservaAtual.horario}</p>
-              </div>
-              <div className="flex items-center">
-                <span className={`status-badge ${
-                  data.reservaAtual.status === 'Atrasado'
-                    ? 'bg-red-500/10 text-red-450 border border-red-500/20 animate-pulse'
-                    : data.reservaAtual.status === 'Aguardando Confirmação'
-                    ? 'bg-amber-550/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                    : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                }`}>
-                  {data.reservaAtual.status}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dark-600 bg-dark-800/40 px-3 py-4">
-              <p className="text-sm text-slate-400">Você não possui nenhum notebook ativo no momento.</p>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Próximas Aulas">
-          <ul className="space-y-2">
-            {Array.isArray(data.proximasAulas) &&
-              data.proximasAulas.map((aula) => (
-                <li
-                  key={aula.id}
-                  className="group rounded-xl border border-dark-600 bg-dark-700/30 px-3 py-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-slate-200 font-semibold">{aula.curso}</p>
-                      <p className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1">
-                        <Clock weight="fill" /> Turma: {aula.id} • {aula.data} • {aula.turno}
+            data.reservaAtual.confirmacaoPendente ? (
+              /* ESTADO A: Pendente de Confirmação */
+              <motion.div 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+                
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                      <Laptop weight="duotone" className="text-3xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        Aguardando Confirmação Física
+                      </span>
+                      <h2 className="text-lg font-black text-slate-100">Seu notebook está pronto para retirada!</h2>
+                      <p className="text-sm text-slate-400">
+                        Confirme o recebimento do notebook <strong className="text-slate-200">{data.reservaAtual.modelo}</strong> no balcão de atendimento.
                       </p>
                     </div>
-                    <ArrowRight weight="bold" className="text-slate-500 group-hover:text-primary transition-colors" />
                   </div>
-                </li>
-              ))}
-            {(!Array.isArray(data.proximasAulas) || data.proximasAulas.length === 0) && (
-              <div className="py-6 text-center text-slate-500 text-xs">Nenhuma aula agendada para sua turma.</div>
-            )}
-          </ul>
-        </Card>
+
+                  {/* Barcode / Tech Chip */}
+                  <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[200px] shrink-0">
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-slate-500 font-bold">Patrimônio</div>
+                    
+                    <div className="flex items-center justify-center gap-3 px-4 py-2 rounded-lg bg-amber-500/5 border border-amber-500/30 relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                      <span className="text-2xl font-mono font-black text-amber-400 tracking-widest uppercase">
+                        {data.reservaAtual.patrimonio}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-[2px] h-6 items-end opacity-60 mt-1 select-none pointer-events-none">
+                      <div className="w-[1px] h-full bg-slate-400" />
+                      <div className="w-[3px] h-full bg-slate-400" />
+                      <div className="w-[1px] h-4 bg-slate-400" />
+                      <div className="w-[2px] h-full bg-slate-400" />
+                      <div className="w-[1px] h-full bg-slate-400" />
+                      <div className="w-[4px] h-full bg-slate-400" />
+                      <div className="w-[1px] h-3 bg-slate-400" />
+                      <div className="w-[2px] h-full bg-slate-400" />
+                      <div className="w-[1px] h-full bg-slate-400" />
+                      <div className="w-[3px] h-4 bg-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Confirm Action Button */}
+                  <div className="w-full md:w-auto shrink-0 flex flex-col gap-2">
+                    <Button 
+                      onClick={handleConfirmRetirada} 
+                      variant="cyan" 
+                      className="w-full md:w-auto px-6 py-3 font-bold text-sm tracking-wide shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 uppercase"
+                      disabled={confirmLoading}
+                    >
+                      {confirmLoading ? 'Confirmando...' : 'Confirmar Retirada Física'}
+                    </Button>
+                    {confirmError && (
+                      <p className="text-xs text-red-400 text-center bg-red-950/20 border border-red-900/40 rounded p-1.5 max-w-[240px] mx-auto">
+                        {confirmError}
+                      </p>
+                    )}
+                    {confirmSuccess && (
+                      <p className="text-xs text-emerald-400 text-center bg-emerald-950/20 border border-emerald-900/40 rounded p-1.5 max-w-[240px] mx-auto">
+                        {confirmSuccess}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              /* ESTADO B: Ativo e Confirmado (Mensagem de Bom Uso) */
+              <motion.div 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-dark-800/80 to-dark-800/90 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+                
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <CheckCircle weight="fill" className="text-4xl text-emerald-400 animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                        Equipamento em Uso
+                      </span>
+                      <h2 className="text-lg font-black text-slate-100">{data.reservaAtual.equipamento}</h2>
+                      <p className="text-xs text-slate-400 font-mono mt-1">{data.reservaAtual.horario}</p>
+                    </div>
+                  </div>
+
+                  {/* Patrimonio Display */}
+                  <div className="flex flex-col items-center gap-1 p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 min-w-[150px] shrink-0">
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Patrimônio Ativo</span>
+                    <span className="text-xl font-mono font-black text-emerald-400 tracking-wider">
+                      {data.reservaAtual.patrimonio}
+                    </span>
+                    <span className="text-[10px] text-slate-400 capitalize">Condição: {data.reservaAtual.condicao}</span>
+                  </div>
+                </div>
+
+                {/* Mensagem de Bom Uso */}
+                <div className="mt-6 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-xs text-emerald-350/90 leading-relaxed">
+                  <p className="font-semibold text-emerald-400 mb-1">💡 Dica de Bom Uso:</p>
+                  Aproveite o seu notebook para as atividades acadêmicas! Zelar pelo patrimônio público garante que todos os alunos tenham acesso a equipamentos de qualidade. Lembre-se de devolvê-lo ao final da aula.
+                </div>
+              </motion.div>
+            )
+          ) : (
+            /* ESTADO C: Nenhum Notebook Alocado (Com Formulário de Retirada Rápida) */
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-6 shadow-xl space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-slate-700/20 border border-dark-600 flex items-center justify-center text-slate-400">
+                  <Laptop weight="duotone" className="text-xl" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-100">Nenhum Notebook Alocado</h2>
+                  <p className="text-xs text-slate-400">Você não possui nenhuma alocação ativa no momento.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-dark-600/50 pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Retirada Rápida de Notebook</h3>
+                <p className="text-xs text-slate-500 leading-relaxed mb-3">
+                  Caso o instrutor solicite a retirada individual, insira o número de patrimônio do notebook abaixo para validar e registrar imediatamente.
+                </p>
+
+                <form onSubmit={handleQuickLoan} className="space-y-3 max-w-md">
+                  <Input
+                    placeholder="Ex: 21491"
+                    value={patrimonio}
+                    onChange={(e) => setPatrimonio(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                  {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
+                  {success && <p className="text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
+                  <Button 
+                    type="submit" 
+                    variant="cyan" 
+                    className="w-full text-xs py-2.5" 
+                    disabled={loading}
+                  >
+                    {loading ? 'Validando...' : 'Confirmar Retirada'}
+                  </Button>
+                </form>
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* PAINEL LATERAL: Histórico Completo & Aulas */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Histórico Completo */}
+          <Card title="Histórico de Retiradas">
+            <div className="border border-dark-600 rounded-xl overflow-hidden bg-dark-900/30 max-h-80 overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-dark-600 bg-dark-800/50 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                    <th className="px-4 py-2.5">Patrimônio</th>
+                    <th className="px-4 py-2.5">Modelo</th>
+                    <th className="px-4 py-2.5 text-right">Data</th>
+                  </tr>
+                </thead>
+                <tbody className="text-[11px] text-slate-300 divide-y divide-dark-600/30">
+                  {Array.isArray(data.historicoAnterior) && data.historicoAnterior.length > 0 ? (
+                    data.historicoAnterior.map((item) => (
+                      <tr key={item.id} className="hover:bg-dark-700/20 transition-colors">
+                        <td className="px-4 py-2.5 font-mono font-bold text-primary">{item.patrimonio}</td>
+                        <td className="px-4 py-2.5 truncate max-w-[100px]">{item.modelo}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-400 font-mono">{item.data?.split(' ')[0]}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="px-4 py-6 text-center text-slate-500 italic">
+                        Nenhum empréstimo registrado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Próximas Aulas */}
+          <Card title="Agenda de Aulas">
+            <ul className="space-y-2">
+              {Array.isArray(data.proximasAulas) &&
+                data.proximasAulas.map((aula) => (
+                  <li
+                    key={aula.id}
+                    className="group rounded-xl border border-dark-600 bg-dark-700/30 px-3 py-2.5 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-slate-200 font-semibold">{aula.curso}</p>
+                        <p className="text-[9px] text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                          <Clock weight="fill" /> Turma: {aula.id} • {aula.data} • {aula.turno}
+                        </p>
+                      </div>
+                      <ArrowRight weight="bold" size={12} className="text-slate-500 group-hover:text-primary transition-colors" />
+                    </div>
+                  </li>
+                ))}
+              {(!Array.isArray(data.proximasAulas) || data.proximasAulas.length === 0) && (
+                <div className="py-4 text-center text-slate-500 text-xs">Nenhuma aula agendada para sua turma.</div>
+              )}
+            </ul>
+          </Card>
+        </div>
       </div>
 
       {/* Lack of Availability Modal */}

@@ -52,8 +52,6 @@ export default function AppRoutes() {
 
       <Route element={<PrivateRoute />}>
         <Route path="/" element={<Home />} />
-        <Route path="/emprestimos" element={<Emprestimos />} />
-        <Route path="/solicitacoes" element={<Solicitacoes />} />
       </Route>
 
       <Route element={<PrivateRoute allowedRoles={['ti']} />}>
@@ -63,6 +61,8 @@ export default function AppRoutes() {
       </Route>
 
       <Route element={<PrivateRoute allowedRoles={['professor', 'ti']} />}>
+        <Route path="/emprestimos" element={<Emprestimos />} />
+        <Route path="/solicitacoes" element={<Solicitacoes />} />
         <Route path="/turmas" element={<Turmas />} />
         <Route path="/reservas" element={<Reservas />} />
         <Route path="/historico" element={<Historico />} />
