@@ -32,10 +32,14 @@ def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
         turma=usuario.turma,
         ativo=usuario.ativo
     )
-    db.add(db_usuario)
-    db.commit()
-    db.refresh(db_usuario)
-    return db_usuario
+    try:
+        db.add(db_usuario)
+        db.commit()
+        db.refresh(db_usuario)
+        return db_usuario
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def get_notebook(db: Session, notebook_id: int):
     return db.query(models.Notebook).filter(models.Notebook.id == notebook_id).first()
@@ -51,19 +55,24 @@ def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, l
 
 def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_id: Optional[int] = None):
     db_notebook = models.Notebook(**notebook.model_dump())
-    db.add(db_notebook)
-    db.commit()
-    db.refresh(db_notebook)
-    
-    registrar_historico(db, schemas.HistoricoCreate(
-        notebook_id=db_notebook.id,
-        tipo_movimentacao=schemas.TipoMovimentacao.cadastro,
-        responsavel_id=responsavel_id,
-        status_novo=db_notebook.status,
-        descricao=f"Notebook {db_notebook.patrimonio} ({db_notebook.modelo}) cadastrado no sistema"
-    ))
-    
-    return db_notebook
+    try:
+        db.add(db_notebook)
+        db.flush()
+        
+        db_hist = models.Historico(
+            notebook_id=db_notebook.id,
+            tipo_movimentacao="CADASTRO",
+            responsavel_id=responsavel_id,
+            status_novo=db_notebook.status,
+            descricao=f"Notebook {db_notebook.patrimonio} ({db_notebook.modelo}) cadastrado no sistema"
+        )
+        db.add(db_hist)
+        db.commit()
+        db.refresh(db_notebook)
+        return db_notebook
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate):
     db_notebook = get_notebook(db, notebook_id)
@@ -76,20 +85,25 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
     for key, value in update_data.items():
         setattr(db_notebook, key, value)
     
-    db.commit()
-    db.refresh(db_notebook)
-    
-    if 'status' in update_data:
-        registrar_historico(db, schemas.HistoricoCreate(
-            notebook_id=db_notebook.id,
-            tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
-            status_anterior=status_anterior,
-            status_novo=db_notebook.status,
-            descricao=f"Status alterado de {status_anterior} para {db_notebook.status}"
-        ))
-        verificar_e_notificar_escassez(db)
-    
-    return db_notebook
+    try:
+        if 'status' in update_data:
+            db_hist = models.Historico(
+                notebook_id=db_notebook.id,
+                tipo_movimentacao="ATUALIZACAO",
+                status_anterior=status_anterior,
+                status_novo=db_notebook.status,
+                descricao=f"Status alterado de {status_anterior} para {db_notebook.status}"
+            )
+            db.add(db_hist)
+        db.commit()
+        db.refresh(db_notebook)
+        
+        if 'status' in update_data:
+            verificar_e_notificar_escassez(db)
+        return db_notebook
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def get_emprestimo(db: Session, emprestimo_id: int):
     return db.query(models.Emprestimo).options(
@@ -116,7 +130,7 @@ def listar_emprestimos(
         query = query.filter(models.Emprestimo.usuario_id == usuario_id)
     return query.order_by(models.Emprestimo.data_emprestimo.desc()).offset(skip).limit(limit).all()
 
-def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None):
+def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None, status_inicial: str = "Pendente"):
     # Obter lock pessimista na configuração de alta demanda para serializar as verificações sob concorrência
     config_alta_demanda = db.query(models.Configuracao).filter(
         models.Configuracao.chave == "dia_alta_demanda"
@@ -177,34 +191,39 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
         usuario_id=emprestimo.usuario_id,
         responsavel_id=responsavel_id or emprestimo.responsavel_id,
         data_prevista_devolucao=data_prevista,
-        observacao_saida=emprestimo.observacao_saida or "Pré-alocado (Aguardando Confirmação Aluno)",
+        observacao_saida=emprestimo.observacao_saida or ("Retirada física" if status_inicial == "Ativo" else "Pré-alocado (Aguardando Confirmação Aluno)"),
         motivo=emprestimo.motivo,
-        status="Pendente"
+        status=status_inicial
     )
     
     # Atualizar status do notebook e vincular usuario_id
-    notebook.status = "Reservado"
+    notebook.status = "Emprestado" if status_inicial == "Ativo" else "Reservado"
     notebook.usuario_id = emprestimo.usuario_id
     
-    db.add(db_emprestimo)
-    db.commit()
-    db.refresh(db_emprestimo)
-    
-    # Registrar no histórico
-    registrar_historico(db, schemas.HistoricoCreate(
-        notebook_id=notebook.id,
-        usuario_id=usuario.id,
-        responsavel_id=responsavel_id or emprestimo.responsavel_id,
-        tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
-        status_anterior="Disponível",
-        status_novo="Reservado",
-        descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})",
-        informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
-    ))
-    
-    verificar_e_notificar_escassez(db)
-    
-    return db_emprestimo
+    try:
+        db.add(db_emprestimo)
+        db.flush()
+        
+        # Registrar no histórico na mesma transação
+        db_hist = models.Historico(
+            notebook_id=notebook.id,
+            usuario_id=usuario.id,
+            responsavel_id=responsavel_id or emprestimo.responsavel_id,
+            tipo_movimentacao="EMPRESTIMO",
+            status_anterior="Disponível",
+            status_novo=notebook.status,
+            descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})" if status_inicial == "Pendente" else f"Empréstimo rápido para {usuario.nome} ({usuario.matricula})",
+            informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
+        )
+        db.add(db_hist)
+        db.commit()
+        db.refresh(db_emprestimo)
+        
+        verificar_e_notificar_escassez(db)
+        return db_emprestimo
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, responsavel_id: Optional[int] = None):
     notebook = get_notebook_by_patrimonio(db, dados.notebook_patrimonio)
@@ -225,7 +244,7 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
         data_prevista_devolucao=data_prevista
     )
     
-    return criar_emprestimo(db, emprestimo, responsavel_id)
+    return criar_emprestimo(db, emprestimo, responsavel_id, status_inicial="Ativo")
 
 def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
@@ -246,22 +265,25 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
     notebook.status = "Disponível"
     notebook.usuario_id = None
     
-    db.commit()
-    db.refresh(emprestimo)
-    
-    # Registrar no histórico
-    registrar_historico(db, schemas.HistoricoCreate(
-        notebook_id=notebook.id,
-        usuario_id=emprestimo.usuario_id,
-        responsavel_id=responsavel_id,
-        tipo_movimentacao=schemas.TipoMovimentacao.devolucao,
-        status_anterior=status_anterior_nb,
-        status_novo="Disponível",
-        descricao=f"Devolução do notebook {notebook.patrimonio}",
-        informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id})
-    ))
-    
-    return emprestimo
+    try:
+        db_hist = models.Historico(
+            notebook_id=notebook.id,
+            usuario_id=emprestimo.usuario_id,
+            responsavel_id=responsavel_id,
+            tipo_movimentacao="DEVOLUCAO",
+            status_anterior=status_anterior_nb,
+            status_novo="Disponível",
+            descricao=f"Devolução do notebook {notebook.patrimonio}",
+            informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id})
+        )
+        db.add(db_hist)
+        db.commit()
+        db.refresh(emprestimo)
+        return emprestimo
+    except Exception as e:
+        db.rollback()
+        raise e
+
 
 def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optional[int] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
@@ -275,22 +297,25 @@ def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optiona
     notebook.status = "Disponível"
     notebook.usuario_id = None
     
-    db.commit()
-    db.refresh(emprestimo)
-    
-    registrar_historico(db, schemas.HistoricoCreate(
-        notebook_id=notebook.id,
-        usuario_id=emprestimo.usuario_id,
-        responsavel_id=responsavel_id,
-        tipo_movimentacao=schemas.TipoMovimentacao.cancelamento,
-        status_anterior=status_anterior_nb,
-        status_novo="Disponível",
-        descricao="Empréstimo cancelado"
-    ))
-    
-    verificar_e_notificar_escassez(db)
-    
-    return emprestimo
+    try:
+        db_hist = models.Historico(
+            notebook_id=notebook.id,
+            usuario_id=emprestimo.usuario_id,
+            responsavel_id=responsavel_id,
+            tipo_movimentacao="CANCELAMENTO",
+            status_anterior=status_anterior_nb,
+            status_novo="Disponível",
+            descricao="Empréstimo cancelado"
+        )
+        db.add(db_hist)
+        db.commit()
+        db.refresh(emprestimo)
+        
+        verificar_e_notificar_escassez(db)
+        return emprestimo
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def get_historico(db: Session, notebook_id: Optional[int] = None, usuario_id: Optional[int] = None, skip: int = 0, limit: int = 100):
     query = db.query(models.Historico).options(
@@ -306,10 +331,14 @@ def get_historico(db: Session, notebook_id: Optional[int] = None, usuario_id: Op
 
 def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
     db_historico = models.Historico(**historico.model_dump())
-    db.add(db_historico)
-    db.commit()
-    db.refresh(db_historico)
-    return db_historico
+    try:
+        db.add(db_historico)
+        db.commit()
+        db.refresh(db_historico)
+        return db_historico
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def get_dashboard_stats(db: Session):
     total = db.query(models.Notebook).count()
@@ -406,7 +435,11 @@ def update_usuario(db: Session, usuario_id: int, usuario_update: schemas.Usuario
     for key, value in update_data.items():
         setattr(db_usuario, key, value)
         
-    db.commit()
-    db.refresh(db_usuario)
-    return db_usuario
+    try:
+        db.commit()
+        db.refresh(db_usuario)
+        return db_usuario
+    except Exception as e:
+        db.rollback()
+        raise e
 

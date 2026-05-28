@@ -11,7 +11,7 @@ def get_brasilia_time():
     return datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
+if not DATABASE_URL or DATABASE_URL == "sqlite://" or DATABASE_URL == "sqlite:///:memory:":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(BASE_DIR, "r9_notebooks.db").replace("\\", "/")
     DATABASE_URL = f"sqlite:///{db_path}"

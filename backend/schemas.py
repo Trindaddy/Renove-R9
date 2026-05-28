@@ -75,6 +75,7 @@ class NotebookBase(BaseModel):
     status: NotebookStatus = NotebookStatus.disponivel
     condicao: NotebookCondicao = NotebookCondicao.bom
     observacoes: Optional[str] = None
+    usuario_id: Optional[int] = None
 
 class NotebookCreate(NotebookBase):
     pass

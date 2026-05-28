@@ -31,7 +31,32 @@ CREATE TABLE IF NOT EXISTS notebooks (
         CHECK (condicao IN ('Novo', 'Bom', 'Regular', 'Ruim')),
     observacoes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    usuario_id INTEGER,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- Tabela de Turmas
+CREATE TABLE IF NOT EXISTS turmas (
+    codigo_turma VARCHAR(50) PRIMARY KEY,
+    nome_curso VARCHAR(100) NOT NULL,
+    instrutor VARCHAR(100) NOT NULL,
+    carga_horaria INTEGER NOT NULL,
+    turno VARCHAR(50) NOT NULL,
+    regime_dias VARCHAR(100) NOT NULL
+);
+
+-- Tabela de Reservas (Alocações prévias de turmas)
+CREATE TABLE IF NOT EXISTS reservas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    turma_id VARCHAR(50) NOT NULL,
+    data VARCHAR(50) NOT NULL,
+    turno VARCHAR(50) NOT NULL,
+    quantidade INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Pendente',
+    usuario_id INTEGER,
+    FOREIGN KEY (turma_id) REFERENCES turmas(codigo_turma) ON DELETE RESTRICT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 
 -- Tabela de Empréstimos (Movimentações)
@@ -41,16 +66,16 @@ CREATE TABLE IF NOT EXISTS emprestimos (
     usuario_id INTEGER NOT NULL,
     responsavel_id INTEGER,
     status VARCHAR(20) NOT NULL DEFAULT 'Ativo'
-        CHECK (status IN ('Ativo', 'Devolvido', 'Atrasado', 'Cancelado')),
+        CHECK (status IN ('Pendente', 'Ativo', 'Devolvido', 'Atrasado', 'Cancelado')),
     data_emprestimo TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_prevista_devolucao TIMESTAMP,
     data_devolucao TIMESTAMP,
     observacao_saida TEXT,
     observacao_devolucao TEXT,
     motivo VARCHAR(50),
-    FOREIGN KEY (notebook_id) REFERENCES notebooks(id),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-    FOREIGN KEY (responsavel_id) REFERENCES usuarios(id)
+    FOREIGN KEY (notebook_id) REFERENCES notebooks(id) ON DELETE RESTRICT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+    FOREIGN KEY (responsavel_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 
 -- Tabela de Histórico/Movimentações (Log completo)
@@ -70,8 +95,9 @@ CREATE TABLE IF NOT EXISTS historico (
     descricao TEXT,
     metadata TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (notebook_id) REFERENCES notebooks(id),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    FOREIGN KEY (notebook_id) REFERENCES notebooks(id) ON DELETE RESTRICT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+    FOREIGN KEY (responsavel_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 
 -- Tabela de Configurações (Alertas, Parâmetros)
@@ -96,7 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_usuarios_role ON usuarios(role);
 INSERT OR IGNORE INTO configuracoes (chave, valor, descricao) VALUES
 ('alerta_escassez_percentual', '10', 'Percentual mínimo de notebooks disponíveis para disparar alerta'),
 ('tempo_maximo_emprestimo_horas', '4', 'Tempo máximo padrão de empréstimo em horas'),
-('quantidade_total_notebooks', '0', 'Quantidade total de notebooks no sistema (atualizado via trigger/job)');
+('dia_alta_demanda', 'False', 'Indica se hoje é um dia de alta demanda e restrições de inventário'),
+('limite_distribuicao_alta_demanda_percentual', '50', 'Percentual máximo de notebooks que podem ser emprestados em dias de alta demanda');
 
 -- View para disponibilidade em tempo real
 CREATE VIEW IF NOT EXISTS v_disponibilidade AS
@@ -133,4 +160,3 @@ JOIN notebooks n ON e.notebook_id = n.id
 JOIN usuarios u ON e.usuario_id = u.id
 LEFT JOIN usuarios r ON e.responsavel_id = r.id
 WHERE e.status = 'Ativo';
-

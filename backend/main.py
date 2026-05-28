@@ -206,27 +206,38 @@ def reset_senha_usuario(
             detail="A nova senha deve ter pelo menos 6 caracteres"
         )
     
-    user = crud.get_usuario(db, usuario_id)
+    user = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Obter um notebook ID válido para evitar erro de FK no histórico
+    first_nb = db.query(models.Notebook).first()
+    if not first_nb:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nenhum notebook cadastrado no sistema. Não é possível registrar alteração de senha no histórico."
+        )
     
     from passlib.context import CryptContext
     pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
     user.senha_hash = pwd_context.hash(nova_senha)
-    db.commit()
     
-    # Obter um notebook ID válido para evitar erro de FK no histórico
-    first_nb = db.query(models.Notebook).first()
-    nb_id = first_nb.id if first_nb else 1
-    
-    # Registrar no histórico
-    crud.registrar_historico(db, schemas.HistoricoCreate(
-        notebook_id=nb_id,
-        tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
+    # Adicionar histórico log na mesma transação
+    db_hist = models.Historico(
+        notebook_id=first_nb.id,
+        usuario_id=user.id,
         responsavel_id=current_user.id,
+        tipo_movimentacao="ATUALIZACAO",
         descricao=f"Senha redefinida pela TI para o usuário {user.nome} ({user.email})"
-    ))
+    )
+    db.add(db_hist)
     
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar redefinição de senha: {str(e)}")
+        
     return {"detail": f"Senha de {user.nome} redefinida com sucesso"}
 
 @app.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
@@ -597,82 +608,89 @@ async def create_emprestimos_lote(
     alocados = []
     nao_alocados = []
     
-    # Pair students with available notebooks
     idx_nb = 0
     num_nbs = len(notebooks_disponiveis)
     
-    for aluno in alunos_precisam:
-        if idx_nb < num_nbs:
-            notebook = notebooks_disponiveis[idx_nb]
-            idx_nb += 1
-            
-            # Criar empréstimo pré-alocado
-            data_prevista = get_brasilia_time() + timedelta(hours=4)
-            db_emp = models.Emprestimo(
-                notebook_id=notebook.id,
-                usuario_id=aluno.id,
-                responsavel_id=current_user.id,
-                data_prevista_devolucao=data_prevista,
-                status="Pendente",
-                observacao_saida="Pré-alocado (Aguardando Confirmação Aluno)",
-                motivo="Alocação em Lote"
-            )
-            notebook.status = "Reservado"
-            notebook.usuario_id = aluno.id
-            db.add(db_emp)
-            db.flush()
-            
-            # Registrar no histórico
-            crud.registrar_historico(db, schemas.HistoricoCreate(
-                notebook_id=notebook.id,
-                usuario_id=aluno.id,
-                responsavel_id=current_user.id,
-                tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
-                status_anterior="Disponível",
-                status_novo="Reservado",
-                descricao=f"Pré-alocação em lote para aluno {aluno.nome}",
-                informacoes_adicionais=json.dumps({"emprestimo_id": db_emp.id, "batch": True})
-            ))
-            
-            alocados.append({
-                "usuario_id": aluno.id,
-                "nome": aluno.nome,
-                "matricula": aluno.matricula,
-                "notebook_patrimonio": notebook.patrimonio
-            })
-        else:
-            # Sem notebook disponível para este aluno!
-            # Vamos carregar o histórico anterior
-            historico_registros = db.query(models.Historico).filter(
-                models.Historico.usuario_id == aluno.id,
-                models.Historico.tipo_movimentacao == "EMPRESTIMO"
-            ).order_by(models.Historico.created_at.desc()).limit(5).all()
-            
-            hist_aluno = []
-            for h in historico_registros:
-                hist_aluno.append({
-                    "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
-                    "modelo": h.notebook.modelo if h.notebook else "N/A",
-                    "data": h.created_at.strftime('%d/%m/%Y %H:%M')
+    try:
+        for aluno in alunos_precisam:
+            if idx_nb < num_nbs:
+                notebook = notebooks_disponiveis[idx_nb]
+                idx_nb += 1
+                
+                # Criar empréstimo pré-alocado
+                data_prevista = get_brasilia_time() + timedelta(hours=4)
+                db_emp = models.Emprestimo(
+                    notebook_id=notebook.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=current_user.id,
+                    data_prevista_devolucao=data_prevista,
+                    status="Pendente",
+                    observacao_saida="Pré-alocado (Aguardando Confirmação Aluno)",
+                    motivo="Alocação em Lote"
+                )
+                notebook.status = "Reservado"
+                notebook.usuario_id = aluno.id
+                db.add(db_emp)
+                db.flush()
+                
+                # Registrar no histórico
+                db_hist = models.Historico(
+                    notebook_id=notebook.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=current_user.id,
+                    tipo_movimentacao="EMPRESTIMO",
+                    status_anterior="Disponível",
+                    status_novo="Reservado",
+                    descricao=f"Pré-alocação em lote para aluno {aluno.nome}",
+                    informacoes_adicionais=json.dumps({"emprestimo_id": db_emp.id, "batch": True})
+                )
+                db.add(db_hist)
+                
+                alocados.append({
+                    "usuario_id": aluno.id,
+                    "nome": aluno.nome,
+                    "matricula": aluno.matricula,
+                    "notebook_patrimonio": notebook.patrimonio
+                })
+            else:
+                # Sem notebook disponível para este aluno!
+                # Vamos carregar o histórico anterior
+                historico_registros = db.query(models.Historico).filter(
+                    models.Historico.usuario_id == aluno.id,
+                    models.Historico.tipo_movimentacao == "EMPRESTIMO"
+                ).order_by(models.Historico.created_at.desc()).limit(5).all()
+                
+                hist_aluno = []
+                for h in historico_registros:
+                    hist_aluno.append({
+                        "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
+                        "modelo": h.notebook.modelo if h.notebook else "N/A",
+                        "data": h.created_at.strftime('%d/%m/%Y %H:%M')
+                    })
+                    
+                nao_alocados.append({
+                    "usuario_id": aluno.id,
+                    "nome": aluno.nome,
+                    "matricula": aluno.matricula,
+                    "motivo": "Sem notebook disponível hoje",
+                    "historico": hist_aluno
                 })
                 
-            nao_alocados.append({
-                "usuario_id": aluno.id,
-                "nome": aluno.nome,
-                "matricula": aluno.matricula,
-                "motivo": "Sem notebook disponível hoje",
-                "historico": hist_aluno
-            })
-            
-    db.commit()
-    
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao alocar empréstimos em lote: {str(e)}"
+        )
+        
     # WebSocket Broadcast
     stats = crud.get_dashboard_stats(db)
     import asyncio
     asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
     
     return {
-        "message": f"Alocação concluída. {len(alocados)} notebooks alocados, {len(nao_alocados)} sem disponibilidade.",
+        "message": f"Processamento concluído. {len(alocados)} notebooks alocados, {len(nao_alocados)} alunos sem dispositivo.",
         "alocados": alocados,
         "nao_alocados": nao_alocados,
         "ja_alocados": alunos_ja_com_notebook

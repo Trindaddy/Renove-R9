@@ -80,40 +80,48 @@ def seed():
         else:
             print("[INFO] Usuarios ja existentes.")
 
-        # 2. Notebooks de teste (sequência exata de patrimônio: 37568 a 37608)
+        # 2. Notebooks de teste (sequência completa de patrimônios: 21, 29, 37)
         if not db.query(Notebook).first():
+            notebook_ranges = [
+                (21491, 21520, "Dell Latitude 5430", "Dell"),
+                (21581, 21590, "Dell Latitude 5430", "Dell"),
+                (21770, 21773, "Dell Latitude 5430", "Dell"),
+                (29673, 29722, "Dell Latitude 5450", "Dell"),
+                (37568, 37609, "Dell Pro", "Dell")
+            ]
             notebooks = []
-            for patrimonio in range(37568, 37609):
-                if patrimonio % 5 == 0:
-                    local = "Manutenção"
-                    status = "Manutenção"
-                    condicao = "Regular"
-                    observacoes = "Setup de manutenção (seed)"
-                elif patrimonio % 7 == 0:
-                    local = "Estoque"
-                    status = "Disponível"
-                    condicao = "Novo"
-                    observacoes = None
-                else:
-                    local = "Lab 1" if patrimonio % 2 == 0 else "Lab 2"
-                    status = "Disponível"
-                    condicao = "Bom"
-                    observacoes = None
+            for start, end, model, brand in notebook_ranges:
+                for patrimonio in range(start, end + 1):
+                    if patrimonio % 17 == 0:
+                        local = "Manutenção"
+                        status = "Manutenção"
+                        condicao = "Regular"
+                        observacoes = "Setup de manutenção (seed)"
+                    elif patrimonio % 11 == 0:
+                        local = "Estoque"
+                        status = "Disponível"
+                        condicao = "Novo"
+                        observacoes = None
+                    else:
+                        local = "Lab 1" if patrimonio % 2 == 0 else "Lab 2"
+                        status = "Disponível"
+                        condicao = "Bom"
+                        observacoes = None
 
-                notebooks.append(
-                    Notebook(
-                        patrimonio=str(patrimonio),
-                        modelo="Dell Latitude 3420" if patrimonio % 3 != 0 else "Lenovo ThinkPad E14",
-                        marca="Dell" if patrimonio % 3 != 0 else "Lenovo",
-                        local=local,
-                        status=status,
-                        condicao=condicao,
-                        observacoes=observacoes,
+                    notebooks.append(
+                        Notebook(
+                            patrimonio=str(patrimonio),
+                            modelo=model,
+                            marca=brand,
+                            local=local,
+                            status=status,
+                            condicao=condicao,
+                            observacoes=observacoes,
+                        )
                     )
-                )
             db.add_all(notebooks)
             db.commit()
-            print(f"[SUCCESS] {len(notebooks)} notebooks criados (37568..37608)")
+            print(f"[SUCCESS] {len(notebooks)} notebooks criados contendo todos os prefixos reais (21, 29, 37)")
         else:
             print("[INFO] Notebooks ja existentes.")
 

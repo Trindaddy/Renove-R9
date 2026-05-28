@@ -35,7 +35,7 @@ class Notebook(Base):
     observacoes = Column(Text)
     created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
     updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
@@ -48,9 +48,9 @@ class Emprestimo(Base):
     __tablename__ = "emprestimos"
 
     id = Column(Integer, primary_key=True, index=True)
-    notebook_id = Column(Integer, ForeignKey("notebooks.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
+    notebook_id = Column(Integer, ForeignKey("notebooks.id", ondelete="RESTRICT"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"))
     status = Column(String(20), nullable=False, default='Ativo')
 
     notebook = relationship("Notebook")
@@ -71,9 +71,9 @@ class Historico(Base):
     __tablename__ = "historico"
 
     id = Column(Integer, primary_key=True, index=True)
-    notebook_id = Column(Integer, ForeignKey("notebooks.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"))
-    responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
+    notebook_id = Column(Integer, ForeignKey("notebooks.id", ondelete="RESTRICT"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"))
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"))
 
     notebook = relationship("Notebook")
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
@@ -118,12 +118,12 @@ class Reserva(Base):
     __tablename__ = "reservas"
 
     id = Column(Integer, primary_key=True, index=True)
-    turma_id = Column(String(50), ForeignKey("turmas.codigo_turma"), nullable=False)
+    turma_id = Column(String(50), ForeignKey("turmas.codigo_turma", ondelete="RESTRICT"), nullable=False)
     data = Column(String(50), nullable=False)
     turno = Column(String(50), nullable=False)
     quantidade = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, default="Pendente")
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=True)
 
     usuario = relationship("Usuario")
 
