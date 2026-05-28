@@ -22,6 +22,7 @@ class NotebookCondicao(str, Enum):
     ruim = "Ruim"
 
 class EmprestimoStatus(str, Enum):
+    pendente = "Pendente"
     ativo = "Ativo"
     devolvido = "Devolvido"
     atrasado = "Atrasado"
