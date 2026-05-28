@@ -58,6 +58,15 @@ class UsuarioResponse(UsuarioBase):
     class Config:
         from_attributes = True
 
+class UsuarioUpdate(BaseModel):
+    matricula: Optional[str] = Field(None, min_length=3, max_length=20)
+    nome: Optional[str] = Field(None, min_length=3, max_length=100)
+    email: Optional[str] = Field(None, pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
+    role: Optional[Role] = None
+    curso: Optional[str] = None
+    turma: Optional[str] = None
+    ativo: Optional[bool] = None
+
 class NotebookBase(BaseModel):
     patrimonio: str = Field(..., min_length=3, max_length=30)
     modelo: str = Field(..., min_length=2, max_length=100)

@@ -384,9 +384,24 @@ def verificar_atrasos(db: Session):
     db.commit()
     return len(atrasados)
 
-def listar_usuarios(db: Session, role: Optional[str] = None):
+def listar_usuarios(db: Session, role: Optional[str] = None, turma: Optional[str] = None):
     query = db.query(models.Usuario)
     if role:
         query = query.filter(models.Usuario.role == role)
+    if turma:
+        query = query.filter(models.Usuario.turma == turma)
     return query.all()
+
+def update_usuario(db: Session, usuario_id: int, usuario_update: schemas.UsuarioUpdate):
+    db_usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not db_usuario:
+        return None
+    
+    update_data = usuario_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_usuario, key, value)
+        
+    db.commit()
+    db.refresh(db_usuario)
+    return db_usuario
 

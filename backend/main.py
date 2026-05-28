@@ -157,11 +157,12 @@ def create_usuario(
 @app.get("/usuarios", response_model=List[schemas.UsuarioResponse])
 def list_usuarios(
     role: Optional[str] = None,
+    turma: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
-    return crud.listar_usuarios(db, role=role)
+    return crud.listar_usuarios(db, role=role, turma=turma)
 
 @app.get("/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
 def get_usuario(
@@ -278,6 +279,65 @@ async def delete_usuario(
     asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
     
     return {"detail": f"Usuário {user.nome} e todos os seus registros foram excluídos com sucesso"}
+
+@app.patch("/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
+def update_usuario_route(
+    usuario_id: int,
+    usuario_update: schemas.UsuarioUpdate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    db_usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not db_usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+    email = usuario_update.email.strip().lower() if usuario_update.email is not None else db_usuario.email
+    role = usuario_update.role or db_usuario.role
+    
+    if email:
+        if role in ["ti", "professor"]:
+            if not email.endswith("@df.senac.br"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Usuários com perfil de TI ou Professor devem utilizar um e-mail do domínio @df.senac.br"
+                )
+        elif role == "aluno":
+            if not email.endswith("@edu.df.senac.br"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br"
+                )
+                
+    if usuario_update.email:
+        existing_email = crud.get_usuario_by_email(db, email)
+        if existing_email and existing_email.id != usuario_id:
+            raise HTTPException(status_code=400, detail="Email já cadastrado")
+            
+    if usuario_update.matricula:
+        existing_mat = crud.get_usuario_by_matricula(db, usuario_update.matricula)
+        if existing_mat and existing_mat.id != usuario_id:
+            raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
+            
+    return crud.update_usuario(db, usuario_id, usuario_update)
+
+@app.patch("/usuarios/{usuario_id}/remover-turma", response_model=schemas.UsuarioResponse)
+def remover_usuario_turma_route(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    db_usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not db_usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+    db_usuario.turma = None
+    db.commit()
+    db.refresh(db_usuario)
+    return db_usuario
 
 # ==================== ROTAS DE NOTEBOOKS ====================
 
@@ -480,6 +540,185 @@ async def create_emprestimo_rapido(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/emprestimos/lote/{turma_id}")
+async def create_emprestimos_lote(
+    turma_id: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    import json
+    
+    # 1. Verificar se a turma existe
+    turma = db.query(models.Turma).filter(models.Turma.codigo_turma == turma_id).first()
+    if not turma:
+        raise HTTPException(status_code=404, detail=f"Turma {turma_id} não encontrada")
+        
+    # 2. Obter alunos ativos da turma
+    alunos = db.query(models.Usuario).filter(
+        models.Usuario.turma == turma_id,
+        models.Usuario.role == "aluno",
+        models.Usuario.ativo == True
+    ).all()
+    
+    if not alunos:
+        return {
+            "message": "Nenhum aluno ativo matriculado nesta turma.",
+            "alocados": [],
+            "nao_alocados": [],
+            "ja_alocados": []
+        }
+        
+    # 3. Filtrar alunos que já têm empréstimo ativo
+    alunos_precisam = []
+    alunos_ja_com_notebook = []
+    for aluno in alunos:
+        emp_ativo = db.query(models.Emprestimo).filter(
+            models.Emprestimo.usuario_id == aluno.id,
+            models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+        ).first()
+        if emp_ativo:
+            alunos_ja_com_notebook.append({
+                "usuario_id": aluno.id,
+                "nome": aluno.nome,
+                "matricula": aluno.matricula,
+                "notebook_patrimonio": emp_ativo.notebook.patrimonio if emp_ativo.notebook else "N/A"
+            })
+        else:
+            alunos_precisam.append(aluno)
+            
+    # 4. Buscar notebooks disponíveis
+    notebooks_disponiveis = db.query(models.Notebook).filter(
+        models.Notebook.status == "Disponível"
+    ).with_for_update().all()
+    
+    alocados = []
+    nao_alocados = []
+    
+    # Pair students with available notebooks
+    idx_nb = 0
+    num_nbs = len(notebooks_disponiveis)
+    
+    for aluno in alunos_precisam:
+        if idx_nb < num_nbs:
+            notebook = notebooks_disponiveis[idx_nb]
+            idx_nb += 1
+            
+            # Criar empréstimo pré-alocado
+            data_prevista = get_brasilia_time() + timedelta(hours=4)
+            db_emp = models.Emprestimo(
+                notebook_id=notebook.id,
+                usuario_id=aluno.id,
+                responsavel_id=current_user.id,
+                data_prevista_devolucao=data_prevista,
+                status="Ativo",
+                observacao_saida="Pré-alocado (Aguardando Confirmação Aluno)",
+                motivo="Alocação em Lote"
+            )
+            notebook.status = "Emprestado"
+            db.add(db_emp)
+            db.flush()
+            
+            # Registrar no histórico
+            crud.registrar_historico(db, schemas.HistoricoCreate(
+                notebook_id=notebook.id,
+                usuario_id=aluno.id,
+                responsavel_id=current_user.id,
+                tipo_movimentacao=schemas.TipoMovimentacao.emprestimo,
+                status_anterior="Disponível",
+                status_novo="Emprestado",
+                descricao=f"Pré-alocação em lote para aluno {aluno.nome}",
+                informacoes_adicionais=json.dumps({"emprestimo_id": db_emp.id, "batch": True})
+            ))
+            
+            alocados.append({
+                "usuario_id": aluno.id,
+                "nome": aluno.nome,
+                "matricula": aluno.matricula,
+                "notebook_patrimonio": notebook.patrimonio
+            })
+        else:
+            # Sem notebook disponível para este aluno!
+            # Vamos carregar o histórico anterior
+            historico_registros = db.query(models.Historico).filter(
+                models.Historico.usuario_id == aluno.id,
+                models.Historico.tipo_movimentacao == "EMPRESTIMO"
+            ).order_by(models.Historico.created_at.desc()).limit(5).all()
+            
+            hist_aluno = []
+            for h in historico_registros:
+                hist_aluno.append({
+                    "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
+                    "modelo": h.notebook.modelo if h.notebook else "N/A",
+                    "data": h.created_at.strftime('%d/%m/%Y %H:%M')
+                })
+                
+            nao_alocados.append({
+                "usuario_id": aluno.id,
+                "nome": aluno.nome,
+                "matricula": aluno.matricula,
+                "motivo": "Sem notebook disponível hoje",
+                "historico": hist_aluno
+            })
+            
+    db.commit()
+    
+    # WebSocket Broadcast
+    stats = crud.get_dashboard_stats(db)
+    import asyncio
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
+    return {
+        "message": f"Alocação concluída. {len(alocados)} notebooks alocados, {len(nao_alocados)} sem disponibilidade.",
+        "alocados": alocados,
+        "nao_alocados": nao_alocados,
+        "ja_alocados": alunos_ja_com_notebook
+    }
+
+@app.post("/emprestimos/{emprestimo_id}/confirmar")
+async def confirmar_emprestimo(
+    emprestimo_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["aluno", "ti", "professor"])(current_user)
+    
+    emp = db.query(models.Emprestimo).filter(models.Emprestimo.id == emprestimo_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Empréstimo não encontrado")
+        
+    if current_user.role == "aluno" and emp.usuario_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode confirmar retiradas associadas à sua conta"
+        )
+        
+    # Verificar se já está confirmado
+    if emp.observacao_saida != "Pré-alocado (Aguardando Confirmação Aluno)":
+        return {"message": "Este empréstimo já foi confirmado ou não necessita de confirmação."}
+        
+    emp.observacao_saida = "Retirada Confirmada pelo Aluno"
+    emp.data_emprestimo = get_brasilia_time()
+    
+    # Registrar no histórico
+    crud.registrar_historico(db, schemas.HistoricoCreate(
+        notebook_id=emp.notebook_id,
+        usuario_id=emp.usuario_id,
+        responsavel_id=current_user.id,
+        tipo_movimentacao=schemas.TipoMovimentacao.atualizacao,
+        descricao=f"Aluno {emp.usuario.nome} confirmou a retirada física do notebook {emp.notebook.patrimonio}"
+    ))
+    
+    db.commit()
+    db.refresh(emp)
+    
+    # Broadcast
+    stats = crud.get_dashboard_stats(db)
+    import asyncio
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
+    return {"message": "Retirada física confirmada com sucesso!", "emprestimo": emp}
+
 @app.post("/emprestimos/{emprestimo_id}/devolver")
 async def devolver_emprestimo(
     emprestimo_id: int,
@@ -533,6 +772,7 @@ async def cancelar_emprestimo(
 @app.get("/historico", response_model=List[schemas.HistoricoResponse])
 def list_historico(
     notebook_id: Optional[int] = None,
+    usuario_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -555,6 +795,8 @@ def list_historico(
         
         if notebook_id:
             query = query.filter(models.Historico.notebook_id == notebook_id)
+        if usuario_id:
+            query = query.filter(models.Historico.usuario_id == usuario_id)
             
         records = query.order_by(models.Historico.created_at.desc()).all()
         
@@ -578,7 +820,7 @@ def list_historico(
                 
         return filtered[skip : skip + limit]
         
-    return crud.get_historico(db, notebook_id=notebook_id, skip=skip, limit=limit)
+    return crud.get_historico(db, notebook_id=notebook_id, usuario_id=usuario_id, skip=skip, limit=limit)
 
 @app.get("/historico/notebook/{notebook_id}", response_model=List[schemas.HistoricoResponse])
 def get_historico_notebook(
@@ -904,13 +1146,49 @@ def get_dashboard_aluno_route(
     ).first()
     
     reserva_atual = None
+    sem_disponibilidade_hoje = False
+    historico_anterior = []
+    
     if emp:
+        confirmacao_pendente = emp.observacao_saida == "Pré-alocado (Aguardando Confirmação Aluno)"
+        
+        status_label = "Aguardando Confirmação" if confirmacao_pendente else ("Em uso" if emp.status == "Ativo" else "Atrasado")
+        
         reserva_atual = {
             "id": emp.id,
-            "equipamento": f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})",
-            "horario": f"Retirado em {emp.data_emprestimo.strftime('%d/%m/%Y %H:%M')}",
-            "status": "Em uso" if emp.status == "Ativo" else "Atrasado"
+            "notebook_id": emp.notebook.id if emp.notebook else None,
+            "patrimonio": emp.notebook.patrimonio if emp.notebook else "N/A",
+            "modelo": emp.notebook.modelo if emp.notebook else "N/A",
+            "condicao": emp.notebook.condicao if emp.notebook else "Bom",
+            "equipamento": f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})" if emp.notebook else "Notebook",
+            "horario": f"Retirado em {emp.data_emprestimo.strftime('%d/%m/%Y %H:%M')}" if emp.data_emprestimo else "Data pendente",
+            "status": status_label,
+            "confirmacaoPendente": confirmacao_pendente
         }
+    else:
+        # Se não há empréstimo, verificar se havia reserva da turma hoje
+        today_str = get_brasilia_time().strftime("%Y-%m-%d")
+        reserva_hoje = db.query(models.Reserva).filter(
+            models.Reserva.turma_id == current_user.turma,
+            models.Reserva.data == today_str
+        ).first()
+        
+        if reserva_hoje:
+            sem_disponibilidade_hoje = True
+            
+            # Buscar histórico de notebooks utilizados
+            historicos = db.query(models.Historico).filter(
+                models.Historico.usuario_id == current_user.id,
+                models.Historico.tipo_movimentacao == "EMPRESTIMO"
+            ).order_by(models.Historico.created_at.desc()).limit(10).all()
+            
+            for h in historicos:
+                historico_anterior.append({
+                    "id": h.id,
+                    "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
+                    "modelo": h.notebook.modelo if h.notebook else "N/A",
+                    "data": h.created_at.strftime('%d/%m/%Y %H:%M')
+                })
         
     db_turmas = db.query(models.Turma).filter(models.Turma.codigo_turma == current_user.turma).all()
     proximas_aulas = []
@@ -924,7 +1202,9 @@ def get_dashboard_aluno_route(
         
     return {
         "reservaAtual": reserva_atual,
-        "proximasAulas": proximas_aulas
+        "proximasAulas": proximas_aulas,
+        "semDisponibilidadeHoje": sem_disponibilidade_hoje,
+        "historicoAnterior": historico_anterior
     }
 
 @app.get("/dashboard/professor")

@@ -9,7 +9,8 @@ import {
   editarTurma,
   deletarTurma
 } from '../services/turmasService';
-import { WarningCircle, Plus, Trash, Users, X, Check } from '@phosphor-icons/react';
+import { getHistorico, processarEmprestimoLote } from '../services/emprestimosService';
+import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Turmas() {
@@ -25,6 +26,114 @@ export default function Turmas() {
   const [selectedProfessor, setSelectedProfessor] = useState(null);
   const [editingTurmaId, setEditingTurmaId] = useState(null);
   const [newInstructorVal, setNewInstructorVal] = useState('');
+
+  // Estados de alunos por turma
+  const [selectedTurmaForAlunos, setSelectedTurmaForAlunos] = useState(null);
+  const [turmaAlunos, setTurmaAlunos] = useState([]);
+  const [loadingAlunos, setLoadingAlunos] = useState(false);
+  const [alunosError, setAlunosError] = useState('');
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editForm, setEditForm] = useState({ nome: '', email: '', matricula: '' });
+  const [studentHistory, setStudentHistory] = useState(null);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [batchResult, setBatchResult] = useState(null);
+
+  // Handlers para alunos da turma
+  async function handleOpenAlunosPanel(turma) {
+    setSelectedTurmaForAlunos(turma);
+    setLoadingAlunos(true);
+    setAlunosError('');
+    try {
+      const response = await api.get(`/usuarios?turma=${turma.id}`);
+      setTurmaAlunos(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setAlunosError('Erro ao carregar lista de alunos.');
+    } finally {
+      setLoadingAlunos(false);
+    }
+  }
+
+  async function handleRemoveStudent(studentId) {
+    if (!window.confirm('Deseja realmente remover este aluno desta turma?')) return;
+    try {
+      setLoadingAlunos(true);
+      setAlunosError('');
+      await api.patch(`/usuarios/${studentId}/remover-turma`);
+      setSuccess('Aluno removido da turma com sucesso.');
+      // Atualiza lista
+      const response = await api.get(`/usuarios?turma=${selectedTurmaForAlunos.id}`);
+      setTurmaAlunos(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setAlunosError(err.response?.data?.detail || 'Erro ao remover aluno da turma.');
+    } finally {
+      setLoadingAlunos(false);
+    }
+  }
+
+  function handleEditStudent(student) {
+    setEditingStudent(student);
+    setEditForm({
+      nome: student.nome || '',
+      email: student.email || '',
+      matricula: student.matricula || ''
+    });
+  }
+
+  async function handleSaveEditStudent(e) {
+    e.preventDefault();
+    if (!editForm.email.toLowerCase().endsWith('@edu.df.senac.br')) {
+      alert('Usuários com perfil de Aluno devem utilizar um e-mail do domínio @edu.df.senac.br');
+      return;
+    }
+    try {
+      setLoadingAlunos(true);
+      setAlunosError('');
+      await api.patch(`/usuarios/${editingStudent.id}`, editForm);
+      setSuccess('Dados do aluno atualizados com sucesso!');
+      setEditingStudent(null);
+      // Atualiza lista
+      const response = await api.get(`/usuarios?turma=${selectedTurmaForAlunos.id}`);
+      setTurmaAlunos(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setAlunosError(err.response?.data?.detail || 'Erro ao atualizar dados do aluno.');
+    } finally {
+      setLoadingAlunos(false);
+    }
+  }
+
+  async function handleViewHistory(student) {
+    setStudentHistory(student);
+    setLoadingHistory(true);
+    try {
+      const logs = await getHistorico(null, student.id);
+      setHistoryLogs(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao carregar histórico do aluno.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  async function handleBatchLoanClick(turmaId) {
+    if (!window.confirm(`Deseja realmente iniciar o empréstimo em lote para todos os alunos da turma ${turmaId}?`)) {
+      return;
+    }
+    try {
+      setLoadingAlunos(true);
+      setAlunosError('');
+      const response = await processarEmprestimoLote(turmaId);
+      setBatchResult(response);
+      // Atualiza lista
+      const listResponse = await api.get(`/usuarios?turma=${turmaId}`);
+      setTurmaAlunos(Array.isArray(listResponse.data) ? listResponse.data : []);
+    } catch (err) {
+      setAlunosError(err.response?.data?.detail || 'Erro ao realizar empréstimo em lote.');
+    } finally {
+      setLoadingAlunos(false);
+    }
+  }
 
   // Form de cadastro
   const [newTurma, setNewTurma] = useState({
@@ -196,6 +305,7 @@ export default function Turmas() {
                 <th className="text-left px-5 py-3">Professor Responsável</th>
                 <th className="text-left px-5 py-3">Turno</th>
                 <th className="text-left px-5 py-3">Regime</th>
+                <th className="text-left px-5 py-3">Alunos</th>
                 {isTi && <th className="text-right px-5 py-3">Ações</th>}
               </tr>
             </thead>
@@ -273,6 +383,17 @@ export default function Turmas() {
                   </td>
                   <td className="px-5 py-3.5 text-xs text-slate-400">{turma.turno}</td>
                   <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">{turma.regime_dias}</td>
+                  <td className="px-5 py-3.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAlunosPanel(turma)}
+                      className="flex items-center gap-1.5 text-xs text-primary hover:text-cyan-400 font-semibold transition-colors"
+                      title="Gerenciar alunos matriculados"
+                    >
+                      <Users size={16} />
+                      <span>Ver Alunos</span>
+                    </button>
+                  </td>
                   {isTi && (
                     <td className="px-5 py-3.5 text-right">
                       <button
@@ -463,6 +584,382 @@ export default function Turmas() {
           </div>
         </div>
       )}
+
+      {/* DRAWER: Gestão de Alunos da Turma */}
+      <AnimatePresence>
+        {selectedTurmaForAlunos && (
+          <div className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm">
+            {/* Click outside to close */}
+            <div 
+              className="absolute inset-0" 
+              onClick={() => {
+                if (!loadingAlunos) setSelectedTurmaForAlunos(null);
+              }} 
+            />
+            
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-full max-w-2xl h-full bg-[#0d131f]/95 border-l border-dark-600/50 p-6 shadow-2xl overflow-y-auto flex flex-col z-50 text-slate-200"
+            >
+              <header className="flex justify-between items-start border-b border-dark-600/50 pb-4 mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-px w-8 bg-gradient-to-r from-primary to-transparent" />
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-primary/60 font-medium">Gestão de Alunos</span>
+                  </div>
+                  <h2 className="text-lg font-black text-slate-100 tracking-tight">
+                    Turma: {selectedTurmaForAlunos.id}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Curso: {selectedTurmaForAlunos.curso} | Turno: {selectedTurmaForAlunos.turno}
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => handleBatchLoanClick(selectedTurmaForAlunos.id)}
+                    variant="cyan"
+                    className="h-fit py-1.5 px-3 flex items-center gap-1.5 text-[11px] font-bold"
+                  >
+                    <Lightning size={14} weight="fill" />
+                    Empréstimo em Lote
+                  </Button>
+                  <button
+                    onClick={() => setSelectedTurmaForAlunos(null)}
+                    className="p-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </header>
+
+              {alunosError && (
+                <div className="bg-red-950/30 border border-red-800/30 rounded-lg px-4 py-2.5 flex items-center gap-3 mb-4">
+                  <WarningCircle className="w-5 h-5 text-red-400 shrink-0" weight="fill" />
+                  <p className="text-xs text-red-450">{alunosError}</p>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+                {loadingAlunos && turmaAlunos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
+                    <div className="flex gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
+                    </div>
+                    <span className="text-xs font-mono">Carregando estudantes...</span>
+                  </div>
+                ) : turmaAlunos.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 text-xs font-mono">
+                    Nenhum aluno matriculado nesta turma.
+                  </div>
+                ) : (
+                  <div className="glass-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="tech-table-header">
+                          <tr>
+                            <th className="text-left px-4 py-2.5">Matrícula</th>
+                            <th className="text-left px-4 py-2.5">Nome</th>
+                            <th className="text-left px-4 py-2.5">E-mail</th>
+                            <th className="text-right px-4 py-2.5">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {turmaAlunos.map((aluno) => (
+                            <tr key={aluno.id} className="tech-table-row group">
+                              <td className="px-4 py-3 font-mono text-primary/80">{aluno.matricula}</td>
+                              <td className="px-4 py-3 font-bold text-slate-200">{aluno.nome}</td>
+                              <td className="px-4 py-3 text-slate-450 font-mono text-[10px] max-w-[170px] truncate" title={aluno.email}>
+                                {aluno.email}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleViewHistory(aluno)}
+                                    className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                                    title="Histórico de Empréstimos"
+                                  >
+                                    <ClockCounterClockwise size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleEditStudent(aluno)}
+                                    className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                                    title="Editar Aluno"
+                                  >
+                                    <PencilSimple size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveStudent(aluno.id)}
+                                    className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-450 hover:bg-red-500/20 transition-all"
+                                    title="Remover da Turma"
+                                  >
+                                    <UserMinus size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SUB-MODAL: Editar Dados do Aluno */}
+      <AnimatePresence>
+        {editingStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 text-slate-200">
+              <button
+                onClick={() => setEditingStudent(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+              >
+                ✕
+              </button>
+              <form onSubmit={handleSaveEditStudent} className="space-y-4">
+                <header className="border-b border-dark-600/50 pb-3">
+                  <h3 className="text-base font-bold text-slate-100">Editar Aluno</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Atualize os dados cadastrais do aluno. E-mail institucional obrigatório.
+                  </p>
+                </header>
+
+                <Input
+                  label="Nome Completo"
+                  value={editForm.nome}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, nome: e.target.value }))}
+                  required
+                />
+
+                <Input
+                  label="Matrícula"
+                  value={editForm.matricula}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, matricula: e.target.value }))}
+                  required
+                />
+
+                <div>
+                  <Input
+                    label="E-mail Institucional (@edu.df.senac.br)"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                  {!editForm.email.toLowerCase().endsWith('@edu.df.senac.br') && editForm.email.length > 0 && (
+                    <span className="text-[10px] text-red-400 mt-1 block">
+                      Atenção: Alunos devem ter e-mail com final @edu.df.senac.br
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t border-dark-600/50">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
+                    onClick={() => setEditingStudent(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="cyan"
+                    className="flex-1 text-xs py-2"
+                    disabled={!editForm.email.toLowerCase().endsWith('@edu.df.senac.br')}
+                  >
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SUB-MODAL: Histórico do Aluno */}
+      <AnimatePresence>
+        {studentHistory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200">
+              <button
+                onClick={() => setStudentHistory(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+              >
+                ✕
+              </button>
+              <div className="space-y-4">
+                <header className="border-b border-dark-600/50 pb-3">
+                  <div className="flex items-center gap-2 text-primary">
+                    <ClockCounterClockwise size={20} weight="bold" />
+                    <h3 className="text-base font-bold text-slate-100">Histórico do Aluno</h3>
+                  </div>
+                  <p className="text-sm font-bold text-slate-200 mt-1">{studentHistory.nome}</p>
+                  <p className="text-xs text-slate-450 mt-0.5 font-mono">Matrícula: {studentHistory.matricula}</p>
+                </header>
+
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                  {loadingHistory ? (
+                    <div className="text-center py-6 text-xs text-slate-500 font-mono animate-pulse">
+                      Carregando histórico...
+                    </div>
+                  ) : historyLogs.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic py-6 text-center">Nenhum registro de empréstimo encontrado.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {historyLogs.map((log) => (
+                        <div key={log.id} className="p-3 rounded-lg border border-dark-600 bg-dark-800/40 text-xs space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-slate-200">
+                              Notebook: <span className="font-mono text-primary">{log.notebook_patrimonio || 'N/A'}</span>
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {log.created_at ? new Date(log.created_at).toLocaleString('pt-BR') : 'N/A'}
+                            </span>
+                          </div>
+                          <p className="text-slate-400">
+                            Movimentação: <span className="text-slate-300 font-semibold">{log.tipo_movimentacao}</span>
+                          </p>
+                          <p className="text-slate-400">
+                            De <span className="font-semibold">{log.status_anterior}</span> para <span className="font-semibold">{log.status_novo}</span>
+                          </p>
+                          {log.descricao && (
+                            <p className="text-slate-500 text-[10px] italic">{log.descricao}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-dark-600/50 flex justify-end">
+                  <Button
+                    onClick={() => setStudentHistory(null)}
+                    variant="outline"
+                    className="text-xs py-2 px-4 bg-dark-700 hover:bg-dark-600 text-slate-200"
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SUB-MODAL: Resultado do Empréstimo em Lote */}
+      <AnimatePresence>
+        {batchResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="glass-card p-6 w-full max-w-xl shadow-2xl relative mx-4 text-slate-200">
+              <button
+                onClick={() => setBatchResult(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+              >
+                ✕
+              </button>
+              <div className="space-y-4">
+                <header className="border-b border-dark-600/50 pb-3">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check size={20} weight="bold" />
+                    <h3 className="text-base font-bold text-slate-100">Resultado da Alocação</h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {batchResult.message}
+                  </p>
+                </header>
+
+                <div className="max-h-[300px] overflow-y-auto space-y-4 pr-1">
+                  {/* ALOCADOS */}
+                  {batchResult.alocados && batchResult.alocados.length > 0 && (
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                        Contemplados ({batchResult.alocados.length})
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {batchResult.alocados.map((item) => (
+                          <div key={item.usuario_id} className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 text-xs flex justify-between">
+                            <span className="text-slate-300 font-semibold">{item.nome}</span>
+                            <span className="font-mono text-emerald-400 font-bold">{item.notebook_patrimonio}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* JÁ POSSUÍAM */}
+                  {batchResult.ja_alocados && batchResult.ja_alocados.length > 0 && (
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        Já com Notebook ({batchResult.ja_alocados.length})
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {batchResult.ja_alocados.map((item) => (
+                          <div key={item.usuario_id} className="p-2 rounded bg-dark-800 border border-dark-600 text-xs flex justify-between">
+                            <span className="text-slate-400">{item.nome}</span>
+                            <span className="font-mono text-slate-450">{item.notebook_patrimonio}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NÃO ALOCADOS */}
+                  {batchResult.nao_alocados && batchResult.nao_alocados.length > 0 && (
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                        Não Alocados (Sem Estoque) ({batchResult.nao_alocados.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {batchResult.nao_alocados.map((item) => (
+                          <div key={item.usuario_id} className="p-2.5 rounded bg-red-500/5 border border-red-500/10 text-xs space-y-1">
+                            <div className="flex justify-between font-semibold text-slate-300">
+                              <span>{item.nome}</span>
+                              <span className="text-red-400">{item.motivo}</span>
+                            </div>
+                            {item.historico && item.historico.length > 0 && (
+                              <div className="mt-1 pt-1 border-t border-red-500/10">
+                                <span className="text-[10px] text-slate-500">Histórico de Uso Recente:</span>
+                                <div className="space-y-1 mt-1 font-mono">
+                                  {item.historico.map((h, i) => (
+                                    <div key={i} className="text-[10px] text-slate-450 flex justify-between">
+                                      <span>{h.modelo} ({h.patrimonio})</span>
+                                      <span>{h.data}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-dark-600/50 flex justify-end">
+                  <Button
+                    onClick={() => setBatchResult(null)}
+                    variant="cyan"
+                    className="text-xs py-2 px-4"
+                  >
+                    Entendido
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

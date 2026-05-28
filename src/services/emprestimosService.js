@@ -48,10 +48,21 @@ export async function getEmprestimosAtrasados() {
   return response.data;
 }
 
-export async function getHistorico(notebookId) {
+export async function getHistorico(notebookId, usuarioId) {
   const params = new URLSearchParams();
   if (notebookId) params.append('notebook_id', notebookId);
+  if (usuarioId) params.append('usuario_id', usuarioId);
   const response = await api.get(`/historico?${params.toString()}`);
+  return response.data;
+}
+
+export async function confirmarRetirada(id) {
+  const response = await api.post(`/emprestimos/${id}/confirmar`);
+  return response.data;
+}
+
+export async function processarEmprestimoLote(turmaId) {
+  const response = await api.post(`/emprestimos/lote/${turmaId}`);
   return response.data;
 }
 
