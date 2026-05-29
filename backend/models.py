@@ -36,6 +36,8 @@ class Notebook(Base):
     created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
     updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
     usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    justificativa_manutencao = Column(Text, nullable=True)
+    autor_manutencao = Column(String(100), nullable=True)
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 

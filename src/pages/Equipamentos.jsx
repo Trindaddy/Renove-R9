@@ -116,6 +116,7 @@ export default function Equipamentos() {
       const reasonDetail = maintenanceNotes ? `${maintenanceReason} - ${maintenanceNotes}` : maintenanceReason;
       await atualizarEquipamento(selectedEq.id, { 
         status: 'Manutenção',
+        justificativa_manutencao: reasonDetail,
         observacoes: reasonDetail
       });
       setSuccess('Equipamento enviado para manutenção.');
@@ -252,7 +253,14 @@ export default function Equipamentos() {
                 return (
                   <tr key={eq.id} className="tech-table-row group">
                     <td className="px-5 py-3.5 font-mono text-xs text-primary/80">{eq.patrimonio}</td>
-                    <td className="px-5 py-3.5 text-xs text-slate-200">{eq.modelo}</td>
+                    <td className="px-5 py-3.5 text-xs text-slate-200">
+                      <div>{eq.modelo}</div>
+                      {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
+                        <div className="text-[10px] text-amber-500 mt-0.5 font-medium">
+                          Motivo: {eq.justificativa_manutencao} • Autor: {eq.autor_manutencao || 'N/A'}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-xs text-slate-400">{eq.local}</td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={eq.status} />
@@ -321,9 +329,15 @@ export default function Equipamentos() {
                   <div className="h-10 w-10 rounded-lg bg-dark-600/50 flex items-center justify-center">
                     <Laptop weight="duotone" className="text-primary text-xl" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="font-mono text-xs text-primary/80">{eq.patrimonio}</div>
                     <div className="text-sm font-bold text-slate-200">{eq.modelo}</div>
+                    {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
+                      <div className="text-[10px] text-amber-500 mt-1.5 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 font-medium">
+                        <strong>Motivo:</strong> {eq.justificativa_manutencao}<br/>
+                        <strong>Autor:</strong> {eq.autor_manutencao || 'N/A'}
+                      </div>
+                    )}
                   </div>
                 </div>
                 

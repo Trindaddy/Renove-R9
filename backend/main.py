@@ -397,13 +397,20 @@ async def update_notebook(
 ):
     require_role(["ti"])(current_user)
     
-    if notebook_update.status == "Manutenção" and (not notebook_update.observacoes or not notebook_update.observacoes.strip()):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="O motivo da manutenção é obrigatório no campo observações."
-        )
+    if notebook_update.status == "Manutenção":
+        justificativa = notebook_update.justificativa_manutencao or notebook_update.observacoes
+        if not justificativa or not justificativa.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A justificativa de manutenção é obrigatória."
+            )
+        notebook_update.justificativa_manutencao = justificativa.strip()
+        notebook_update.autor_manutencao = f"{current_user.nome} ({current_user.email})"
+    elif notebook_update.status and notebook_update.status != "Manutenção":
+        notebook_update.justificativa_manutencao = None
+        notebook_update.autor_manutencao = None
     
-    nb = crud.update_notebook(db, notebook_id, notebook_update)
+    nb = crud.update_notebook(db, notebook_id, notebook_update, responsavel_id=current_user.id)
     if not nb:
         raise HTTPException(status_code=404, detail="Notebook não encontrado")
         
@@ -1190,22 +1197,21 @@ def get_dashboard_aluno_route(
     
     if emp:
         confirmacao_pendente = emp.status == "Pendente"
-        
         status_label = "Aguardando Confirmação" if confirmacao_pendente else ("Em uso" if emp.status == "Ativo" else "Atrasado")
         
         reserva_atual = {
             "id": emp.id,
             "notebook_id": emp.notebook.id if emp.notebook else None,
-            "patrimonio": emp.notebook.patrimonio if emp.notebook else "N/A",
+            "patrimonio": "******" if confirmacao_pendente else (emp.notebook.patrimonio if emp.notebook else "N/A"),
             "modelo": emp.notebook.modelo if emp.notebook else "N/A",
             "condicao": emp.notebook.condicao if emp.notebook else "Bom",
-            "equipamento": f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})" if emp.notebook else "Notebook",
+            "equipamento": f"Notebook - ****** ({emp.notebook.modelo})" if (confirmacao_pendente and emp.notebook) else (f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})" if emp.notebook else "Notebook"),
             "horario": f"Retirado em {emp.data_emprestimo.strftime('%d/%m/%Y %H:%M')}" if emp.data_emprestimo else "Data pendente",
             "status": status_label,
             "confirmacaoPendente": confirmacao_pendente
         }
     else:
-        # Se não há empréstimo, verificar se havia reserva da turma hoje
+        # Se não há empréstimo, verificar se havia reserva da turma hoje (gerando déficit de estoque para o aluno)
         today_str = get_brasilia_time().strftime("%Y-%m-%d")
         reserva_hoje = db.query(models.Reserva).filter(
             models.Reserva.turma_id == current_user.turma,
@@ -1215,19 +1221,21 @@ def get_dashboard_aluno_route(
         if reserva_hoje:
             sem_disponibilidade_hoje = True
             
-            # Buscar histórico de notebooks utilizados
-            historicos = db.query(models.Historico).filter(
-                models.Historico.usuario_id == current_user.id,
-                models.Historico.tipo_movimentacao == "EMPRESTIMO"
-            ).order_by(models.Historico.created_at.desc()).limit(10).all()
-            
-            for h in historicos:
-                historico_anterior.append({
-                    "id": h.id,
-                    "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
-                    "modelo": h.notebook.modelo if h.notebook else "N/A",
-                    "data": h.created_at.strftime('%d/%m/%Y %H:%M')
-                })
+    # Buscar histórico de notebooks utilizados (finalizados/devolvidos) incondicionalmente
+    historicos = db.query(models.Emprestimo).options(
+        joinedload(models.Emprestimo.notebook)
+    ).filter(
+        models.Emprestimo.usuario_id == current_user.id,
+        models.Emprestimo.status == "Devolvido"
+    ).order_by(models.Emprestimo.data_devolucao.desc()).limit(10).all()
+    
+    for h in historicos:
+        historico_anterior.append({
+            "id": h.id,
+            "patrimonio": h.notebook.patrimonio if h.notebook else "N/A",
+            "modelo": h.notebook.modelo if h.notebook else "N/A",
+            "data": h.data_devolucao.strftime('%d/%m/%Y %H:%M') if h.data_devolucao else (h.data_emprestimo.strftime('%d/%m/%Y %H:%M') if h.data_emprestimo else "N/A")
+        })
         
     db_turmas = db.query(models.Turma).filter(models.Turma.codigo_turma == current_user.turma).all()
     proximas_aulas = []

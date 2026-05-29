@@ -57,6 +57,18 @@ def run_db_migrations():
                 conn.commit()
                 print("Successfully added usuario_id column to notebooks table.")
             
+            if columns and "justificativa_manutencao" not in columns:
+                print("Adding justificativa_manutencao column to notebooks table...")
+                conn.execute(text("ALTER TABLE notebooks ADD COLUMN justificativa_manutencao TEXT"))
+                conn.commit()
+                print("Successfully added justificativa_manutencao column to notebooks table.")
+
+            if columns and "autor_manutencao" not in columns:
+                print("Adding autor_manutencao column to notebooks table...")
+                conn.execute(text("ALTER TABLE notebooks ADD COLUMN autor_manutencao VARCHAR(100)"))
+                conn.commit()
+                print("Successfully added autor_manutencao column to notebooks table.")
+            
             # Check reservas table columns
             result = conn.execute(text("PRAGMA table_info(reservas)"))
             columns = [row[1] for row in result.fetchall()]

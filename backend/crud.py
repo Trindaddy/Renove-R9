@@ -74,7 +74,7 @@ def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_i
         db.rollback()
         raise e
 
-def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate):
+def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate, responsavel_id: Optional[int] = None):
     db_notebook = get_notebook(db, notebook_id)
     if not db_notebook:
         return None
@@ -87,12 +87,23 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
     
     try:
         if 'status' in update_data:
+            tipo_mov = "ATUALIZACAO"
+            desc = f"Status alterado de {status_anterior} para {db_notebook.status}"
+            
+            if db_notebook.status == "Manutenção":
+                tipo_mov = "MANUTENCAO_ENTRADA"
+                desc = f"Entrada em Manutenção. Justificativa: {db_notebook.justificativa_manutencao}. Autor: {db_notebook.autor_manutencao}"
+            elif status_anterior == "Manutenção":
+                tipo_mov = "MANUTENCAO_SAIDA"
+                desc = f"Saída de Manutenção. Retornou para {db_notebook.status}"
+                
             db_hist = models.Historico(
                 notebook_id=db_notebook.id,
-                tipo_movimentacao="ATUALIZACAO",
+                tipo_movimentacao=tipo_mov,
                 status_anterior=status_anterior,
                 status_novo=db_notebook.status,
-                descricao=f"Status alterado de {status_anterior} para {db_notebook.status}"
+                descricao=desc,
+                responsavel_id=responsavel_id
             )
             db.add(db_hist)
         db.commit()

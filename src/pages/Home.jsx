@@ -52,6 +52,36 @@ export default function Home() {
     }
   }, [lastMessage, user, load]);
 
+  useEffect(() => {
+    if (user?.role === 'ti' && data) {
+      const total = data.notebooksTotais ?? 0;
+      const emUso = data.notebooksEmUso ?? 0;
+      const percentualUso = total > 0 ? (emUso / total) * 100 : 0;
+
+      if (total > 0 && percentualUso >= 50.0) {
+        window.showToast?.({
+          title: 'ALERTA DE ALTA DEMANDA',
+          message: `Atenção! Metade do inventário do Renove (R9) já está em campo (${emUso}/${total} notebooks). Monitore os fluxos de devolução!`,
+          type: 'warning'
+        });
+      }
+
+      if (data.notebooksDisponiveis === 0) {
+        window.showToast?.({
+          title: 'ESTOQUE ESGOTADO',
+          message: 'Não há notebooks disponíveis em estoque no momento. Operações de alocação de novos lotes estão suspensas.',
+          type: 'danger'
+        });
+      } else if (data.alerta_escassez) {
+        window.showToast?.({
+          title: 'ESTOQUE CRÍTICO',
+          message: `Atenção! Disponibilidade de estoque abaixo de 20% (${data.notebooksDisponiveis} unidades restantes).`,
+          type: 'danger'
+        });
+      }
+    }
+  }, [data, user]);
+
 
   if (!user) {
     return (
@@ -315,6 +345,8 @@ function AlertsAndShortcutsTray({ user, data }) {
 
   // TI Role
   const alerts = [];
+  
+  // 1. Atrasados
   if (data?.atrasadosCount > 0) {
     alerts.push({
       type: 'danger',
@@ -322,6 +354,8 @@ function AlertsAndShortcutsTray({ user, data }) {
       link: '/emprestimos'
     });
   }
+  
+  // 2. Manutenções
   if (data?.manutencaoHojeCount > 0) {
     alerts.push({
       type: 'warning',
@@ -329,10 +363,31 @@ function AlertsAndShortcutsTray({ user, data }) {
       link: '/equipamentos'
     });
   }
-  if (data?.alerta_escassez) {
+  
+  // 3. Alta Demanda (>=50% em uso)
+  const total = data?.notebooksTotais ?? 0;
+  const emUso = data?.notebooksEmUso ?? 0;
+  const percentualUso = total > 0 ? (emUso / total) * 100 : 0;
+  if (total > 0 && percentualUso >= 50.0) {
+    alerts.push({
+      type: 'warning',
+      message: `Atenção! Metade do inventário do Renove (R9) já está em campo. Monitore os fluxos de devolução! (${emUso}/${total} em uso)`,
+      link: '/emprestimos'
+    });
+  }
+
+  // 4. Estoque Crítico ou Esgotado
+  if (data?.notebooksDisponiveis === 0) {
     alerts.push({
       type: 'danger',
-      message: `Escassez Crítica: Estoque de notebooks disponíveis está abaixo de 20%!`,
+      message: `Estoque Esgotado: Não há notebooks disponíveis em estoque no momento.`,
+      link: '/equipamentos',
+      pulse: true
+    });
+  } else if (data?.alerta_escassez) {
+    alerts.push({
+      type: 'danger',
+      message: `Escassez Crítica: Estoque de notebooks disponíveis está abaixo de 20%! (${data.notebooksDisponiveis} restantes)`,
       link: '/equipamentos'
     });
   }
@@ -356,7 +411,9 @@ function AlertsAndShortcutsTray({ user, data }) {
                 key={idx}
                 to={al.link}
                 className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs font-semibold transition-all hover:scale-[1.01] duration-200 ${
-                  al.type === 'danger'
+                  al.pulse
+                    ? 'bg-red-950/40 border-red-500 text-red-400 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.15)]'
+                    : al.type === 'danger'
                     ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/30'
                     : 'bg-amber-950/20 border-amber-900/40 text-amber-400 hover:bg-amber-950/30'
                 }`}
@@ -685,12 +742,12 @@ function DashboardAluno({ data, user, onRefresh }) {
                 className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-6 shadow-xl space-y-4"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-slate-700/20 border border-dark-600 flex items-center justify-center text-slate-400">
-                    <Laptop weight="duotone" className="text-xl" />
+                  <div className="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+                    <Warning weight="fill" className="text-xl" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-slate-100">Nenhum Notebook Alocado</h2>
-                    <p className="text-xs text-slate-400">Você não possui nenhuma alocação ativa no momento.</p>
+                    <h2 className="text-base font-bold text-red-400">Sem empréstimos disponíveis</h2>
+                    <p className="text-xs text-slate-400 font-medium">Nenhum notebook foi pré-alocado ou liberado para você hoje.</p>
                   </div>
                 </div>
 

@@ -77,6 +77,8 @@ class NotebookBase(BaseModel):
     condicao: NotebookCondicao = NotebookCondicao.bom
     observacoes: Optional[str] = None
     usuario_id: Optional[int] = None
+    justificativa_manutencao: Optional[str] = None
+    autor_manutencao: Optional[str] = None
 
 class NotebookCreate(NotebookBase):
     pass
@@ -88,6 +90,8 @@ class NotebookUpdate(BaseModel):
     status: Optional[NotebookStatus] = None
     condicao: Optional[NotebookCondicao] = None
     observacoes: Optional[str] = None
+    justificativa_manutencao: Optional[str] = None
+    autor_manutencao: Optional[str] = None
 
 class NotebookResponse(NotebookBase):
     id: int

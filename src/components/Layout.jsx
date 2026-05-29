@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   SquaresFour, 
   Laptop, 
@@ -13,13 +13,30 @@ import {
   ChartBar,
   UsersThree,
   Sun,
-  Moon
+  Moon,
+  CheckCircle,
+  Warning
 } from '@phosphor-icons/react';
 
 export default function Layout({ children }) {
   const [theme, setTheme] = useState(
     localStorage.getItem('theme') || 'dark'
   );
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    window.showToast = (toast) => {
+      const id = Date.now() + Math.random();
+      const newToast = { id, type: 'info', duration: 5000, ...toast };
+      setToasts(prev => [...prev, newToast]);
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, newToast.duration);
+    };
+    return () => {
+      delete window.showToast;
+    };
+  }, []);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -209,6 +226,40 @@ export default function Layout({ children }) {
           </div>
         </div>
       </footer>
+
+      {/* Toasts Container */}
+      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.15 } }}
+              className={`p-4 rounded-xl border backdrop-blur-xl shadow-2xl pointer-events-auto flex items-start gap-3 bg-dark-900/90 ${
+                t.type === 'success' ? 'border-emerald-500/30 text-emerald-450' :
+                t.type === 'danger' ? 'border-red-500/30 text-red-450' :
+                t.type === 'warning' ? 'border-amber-500/30 text-amber-450' :
+                'border-primary/30 text-primary'
+              }`}
+            >
+              <div className="text-xl shrink-0 mt-0.5">
+                {t.type === 'success' && <CheckCircle weight="fill" />}
+                {t.type === 'danger' && <Warning weight="fill" />}
+                {t.type === 'warning' && <Warning weight="fill" />}
+                {t.type === 'info' && <SquaresFour weight="fill" />}
+              </div>
+              <div className="flex-1">
+                {t.title && <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wide mb-1">{t.title}</h4>}
+                <p className="text-xs text-slate-300 leading-relaxed font-medium">{t.message}</p>
+              </div>
+              <button onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))} className="text-slate-500 hover:text-slate-350 text-xs font-mono ml-2 shrink-0">
+                ✕
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
