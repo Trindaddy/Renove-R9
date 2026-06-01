@@ -139,6 +139,23 @@ function UsuariosPanel() {
     }
   }
 
+  async function handleToggleUserActive(targetUser) {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const updatedStatus = !targetUser.ativo;
+      await api.patch(`/usuarios/${targetUser.id}`, { ativo: updatedStatus });
+      setSuccess(`Status do usuário ${targetUser.nome} atualizado para ${updatedStatus ? 'Ativo' : 'Inativo'}!`);
+      await loadData();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao alterar status do usuário.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleDeleteUser(e) {
     e.preventDefault();
     if (!deleteUser) return;
@@ -306,8 +323,21 @@ function UsuariosPanel() {
                             </button>
                             {u.id !== user.id && (
                               <button
+                                onClick={() => handleToggleUserActive(u)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                                  u.ativo 
+                                    ? 'bg-amber-500/10 text-amber-450 border-amber-500/20 hover:bg-amber-500/20' 
+                                    : 'bg-emerald-500/10 text-emerald-450 border-emerald-500/20 hover:bg-emerald-500/20'
+                                }`}
+                                title={u.ativo ? 'Inativar Usuário' : 'Ativar Usuário'}
+                              >
+                                {u.ativo ? 'Inativar' : 'Ativar'}
+                              </button>
+                            )}
+                            {u.id !== user.id && (
+                              <button
                                 onClick={() => { setDeleteUser(u); setError(''); setSuccess(''); }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-500/10 text-red-450 border border-red-500/20 hover:bg-red-500/20 transition-all"
                                 title="Excluir Usuário"
                               >
                                 <Warning weight="fill" size={13} />

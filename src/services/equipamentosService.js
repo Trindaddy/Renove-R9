@@ -15,3 +15,14 @@ export async function cadastrarEquipamento(payload) {
   const response = await api.post('/notebooks', payload);
   return response.data;
 }
+
+export async function forcarDevolucaoEquipamento(id) {
+  const response = await api.post(`/notebooks/${id}/forcar-devolucao`);
+  return response.data;
+}
+
+export async function excluirEquipamento(id) {
+  const response = await api.delete(`/notebooks/${id}`);
+  return response.data;
+}
+

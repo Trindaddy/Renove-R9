@@ -69,6 +69,12 @@ def run_db_migrations():
                 conn.commit()
                 print("Successfully added autor_manutencao column to notebooks table.")
             
+            if columns and "excluido" not in columns:
+                print("Adding excluido column to notebooks table...")
+                conn.execute(text("ALTER TABLE notebooks ADD COLUMN excluido BOOLEAN DEFAULT 0"))
+                conn.commit()
+                print("Successfully added excluido column to notebooks table.")
+            
             # Check reservas table columns
             result = conn.execute(text("PRAGMA table_info(reservas)"))
             columns = [row[1] for row in result.fetchall()]

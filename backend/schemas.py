@@ -14,6 +14,7 @@ class NotebookStatus(str, Enum):
     emprestado = "Emprestado"
     manutencao = "Manutenção"
     reservado = "Reservado"
+    reservado_lote = "Reservado (Em Lote)"
 
 class NotebookCondicao(str, Enum):
     novo = "Novo"
@@ -23,6 +24,7 @@ class NotebookCondicao(str, Enum):
 
 class EmprestimoStatus(str, Enum):
     pendente = "Pendente"
+    reservado = "Reservado"
     ativo = "Ativo"
     devolvido = "Devolvido"
     atrasado = "Atrasado"
@@ -79,6 +81,7 @@ class NotebookBase(BaseModel):
     usuario_id: Optional[int] = None
     justificativa_manutencao: Optional[str] = None
     autor_manutencao: Optional[str] = None
+    excluido: bool = False
 
 class NotebookCreate(NotebookBase):
     pass
@@ -92,6 +95,7 @@ class NotebookUpdate(BaseModel):
     observacoes: Optional[str] = None
     justificativa_manutencao: Optional[str] = None
     autor_manutencao: Optional[str] = None
+    excluido: Optional[bool] = None
 
 class NotebookResponse(NotebookBase):
     id: int
@@ -163,7 +167,7 @@ class DashboardStats(BaseModel):
 
 class EmprestimoRapido(BaseModel):
     notebook_patrimonio: str = Field(..., min_length=3, max_length=30)
-    usuario_matricula: str = Field(..., min_length=3, max_length=20)
+    usuario_matricula: str = Field(..., min_length=3, max_length=100)
     motivo: Optional[str] = Field(None, max_length=50)
     horas_previstas: Optional[int] = Field(4, ge=1, le=72)
 

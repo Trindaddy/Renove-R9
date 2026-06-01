@@ -637,14 +637,6 @@ export default function Turmas() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => handleBatchLoanClick(selectedTurmaForAlunos.id)}
-                    variant="cyan"
-                    className="h-fit py-1.5 px-3 flex items-center gap-1.5 text-[11px] font-bold"
-                  >
-                    <Lightning size={14} weight="fill" />
-                    Empréstimo em Lote
-                  </Button>
                   <button
                     onClick={() => setSelectedTurmaForAlunos(null)}
                     className="p-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
@@ -1020,46 +1012,7 @@ export default function Turmas() {
         )}
       </AnimatePresence>
 
-      {/* Custom confirm modal for Batch Loan trigger */}
-      <AnimatePresence>
-        {confirmBatchLoanTurmaId && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center text-slate-200"
-            >
-              <div className="h-12 w-12 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4 text-cyan-400 text-2xl">
-                <Lightning weight="fill" />
-              </div>
-              <h3 className="text-base font-bold text-slate-100 mb-2">
-                Iniciar Empréstimo em Lote
-              </h3>
-              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-                Deseja realmente iniciar a alocação e o empréstimo em lote de notebooks para todos os alunos da turma <strong>{confirmBatchLoanTurmaId}</strong>?
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 text-xs py-2.5 bg-dark-800 hover:bg-dark-700 text-slate-200"
-                  onClick={() => setConfirmBatchLoanTurmaId(null)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="cyan"
-                  className="flex-1 text-xs py-2.5"
-                  onClick={executeBatchLoan}
-                >
-                  Iniciar Lote
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Custom confirm modal for class deletion */}
       <AnimatePresence>

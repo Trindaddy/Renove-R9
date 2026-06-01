@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import Input from '../components/Input.jsx';
 import Button from '../components/Button.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import { listarEquipamentos, atualizarEquipamento, cadastrarEquipamento } from '../services/equipamentosService';
+import { listarEquipamentos, atualizarEquipamento, cadastrarEquipamento, forcarDevolucaoEquipamento, excluirEquipamento } from '../services/equipamentosService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WarningCircle, Archive, Laptop } from '@phosphor-icons/react';
+import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise } from '@phosphor-icons/react';
 
 export default function Equipamentos() {
   const [busca, setBusca] = useState('');
@@ -18,6 +18,8 @@ export default function Equipamentos() {
   // Modais
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [showForceReturnModal, setShowForceReturnModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedEq, setSelectedEq] = useState(null);
 
   // Form de Cadastro
@@ -150,6 +152,64 @@ export default function Equipamentos() {
     }
   }
 
+  async function handleForceStatus(id, newStatus) {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await atualizarEquipamento(id, { 
+        status: newStatus,
+        observacoes: newStatus === 'Disponível' ? 'Reserva cancelada administrativamente' : 'Empréstimo confirmado administrativamente'
+      });
+      setSuccess(newStatus === 'Disponível' ? 'Reserva cancelada com sucesso.' : 'Retirada física confirmada com sucesso.');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Não foi possível alterar o status do equipamento.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForceReturn() {
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await forcarDevolucaoEquipamento(selectedEq.id);
+      setSuccess(`Notebook ${selectedEq.patrimonio} foi devolvido forçadamente e liberado.`);
+      setShowForceReturnModal(false);
+      setSelectedEq(null);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao forçar devolução do equipamento.');
+      setShowForceReturnModal(false);
+      setSelectedEq(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await excluirEquipamento(selectedEq.id);
+      setSuccess(`Notebook ${selectedEq.patrimonio} excluído logicamente com sucesso.`);
+      setShowDeleteModal(false);
+      setSelectedEq(null);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao excluir o equipamento.');
+      setShowDeleteModal(false);
+      setSelectedEq(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const filtrados = equipamentos.filter((eq) => {
     const patrimonioStr = (eq?.patrimonio ?? '').toString().toLowerCase();
     const q = (busca ?? '').toLowerCase();
@@ -267,28 +327,82 @@ export default function Equipamentos() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       {eq.status === 'Disponível' && (
-                        <Button
-                          variant="danger"
-                          className="px-2.5 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            setSelectedEq(eq);
-                            setShowMaintenanceModal(true);
-                          }}
-                        >
-                          Enviar Manutenção
-                        </Button>
+                        <div className="inline-flex gap-2 items-center">
+                          <Button
+                            variant="danger"
+                            className="px-2.5 py-1 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowMaintenanceModal(true);
+                            }}
+                          >
+                            Enviar Manutenção
+                          </Button>
+                          <button
+                            className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all text-xs"
+                            title="Excluir Notebook"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowDeleteModal(true);
+                            }}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
                       )}
                       {eq.status === 'Manutenção' && (
-                        <Button
-                          variant="success"
-                          className="px-2.5 py-1 text-[11px]"
-                          onClick={() => handleReturnFromMaintenance(eq.id)}
-                        >
-                          Concluir Manutenção
-                        </Button>
+                        <div className="inline-flex gap-2 items-center">
+                          <Button
+                            variant="success"
+                            className="px-2.5 py-1 text-[11px]"
+                            onClick={() => handleReturnFromMaintenance(eq.id)}
+                          >
+                            Concluir Manutenção
+                          </Button>
+                          <button
+                            className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all text-xs"
+                            title="Excluir Notebook"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowDeleteModal(true);
+                            }}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
                       )}
-                      {isEmprestadoOuUso && (
-                        <span className="text-[11px] text-slate-505 italic">Em uso ativo</span>
+                      {(eq.status === 'Reservado' || eq.status === 'Reservado (Em Lote)' || isEmprestadoOuUso) && (
+                        <div className="inline-flex gap-1.5 items-center">
+                          <Button
+                            variant="danger"
+                            className="px-2.5 py-1 text-[11px] font-bold"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowForceReturnModal(true);
+                            }}
+                          >
+                            Forçar Devolução
+                          </Button>
+                          {eq.status === 'Reservado' && (
+                            <Button
+                              variant="success"
+                              className="px-2.5 py-1 text-[11px] font-bold"
+                              onClick={() => handleForceStatus(eq.id, 'Emprestado')}
+                            >
+                              Forçar Entrega
+                            </Button>
+                          )}
+                          <button
+                            className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all text-xs"
+                            title="Excluir Notebook"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowDeleteModal(true);
+                            }}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -350,29 +464,80 @@ export default function Equipamentos() {
 
                 <div className="mt-2 flex justify-end">
                   {eq.status === 'Disponível' && (
-                    <Button
-                      variant="danger"
-                      className="w-full text-[11px] py-2"
-                      onClick={() => {
-                        setSelectedEq(eq);
-                        setShowMaintenanceModal(true);
-                      }}
-                    >
-                      Enviar para Manutenção
-                    </Button>
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        variant="danger"
+                        className="flex-1 text-[11px] py-2"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setShowMaintenanceModal(true);
+                        }}
+                      >
+                        Enviar para Manutenção
+                      </Button>
+                      <button
+                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
                   )}
                   {eq.status === 'Manutenção' && (
-                    <Button
-                      variant="success"
-                      className="w-full text-[11px] py-2"
-                      onClick={() => handleReturnFromMaintenance(eq.id)}
-                    >
-                      Concluir Manutenção
-                    </Button>
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        variant="success"
+                        className="flex-1 text-[11px] py-2"
+                        onClick={() => handleReturnFromMaintenance(eq.id)}
+                      >
+                        Concluir Manutenção
+                      </Button>
+                      <button
+                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
                   )}
-                  {isEmprestadoOuUso && (
-                    <div className="w-full text-center text-[11px] text-slate-500 italic py-2 bg-dark-800/30 rounded border border-dark-600/50">
-                      Em uso ativo
+                  {(eq.status === 'Reservado' || eq.status === 'Reservado (Em Lote)' || isEmprestadoOuUso) && (
+                    <div className="w-full flex flex-col gap-2">
+                      <div className="flex gap-2 w-full">
+                        <Button
+                          variant="danger"
+                          className="flex-1 text-[11px] py-2 font-bold"
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setShowForceReturnModal(true);
+                          }}
+                        >
+                          Forçar Devolução
+                        </Button>
+                        <button
+                          className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setShowDeleteModal(true);
+                          }}
+                        >
+                          <Trash size={16} />
+                        </button>
+                      </div>
+                      {eq.status === 'Reservado' && (
+                        <Button
+                          variant="success"
+                          className="w-full text-[11px] py-2"
+                          onClick={() => handleForceStatus(eq.id, 'Emprestado')}
+                        >
+                          Forçar Entrega
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -579,6 +744,112 @@ export default function Equipamentos() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Forçar Devolução */}
+      {showForceReturnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 border-amber-500/20 bg-gradient-to-br from-dark-800 to-dark-900">
+            <button
+              onClick={() => {
+                setShowForceReturnModal(false);
+                setSelectedEq(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+            <div className="flex flex-col items-center text-center space-y-4 pt-2">
+              <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-405 shrink-0">
+                <ArrowClockwise weight="bold" size={32} className="animate-spin" />
+              </div>
+              
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-100 uppercase tracking-wider">Forçar Devolução</h3>
+                <p className="text-[10px] text-amber-400 font-mono tracking-widest uppercase">Gatilho de Contingência</p>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed font-medium bg-dark-950/40 p-4 rounded-xl border border-dark-600/40">
+                Você está prestes a forçar a devolução do notebook <strong className="text-amber-400">{selectedEq?.patrimonio}</strong>. 
+                Isso mudará seu status para <strong>Disponível</strong> e encerrará qualquer empréstimo ou reserva ativa correspondente.
+              </p>
+
+              <div className="flex gap-3 w-full pt-2">
+                <Button
+                  onClick={() => {
+                    setShowForceReturnModal(false);
+                    setSelectedEq(null);
+                  }}
+                  variant="outline"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold bg-dark-700 hover:bg-dark-600 text-slate-200"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleForceReturn}
+                  disabled={loading}
+                  variant="danger"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold bg-amber-600 hover:bg-amber-500 border-amber-600"
+                >
+                  {loading ? 'Processando...' : 'Confirmar'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Excluir Notebook */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 border-red-500/20 bg-gradient-to-br from-dark-800 to-dark-900">
+            <button
+              onClick={() => {
+                setShowDeleteModal(false);
+                setSelectedEq(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+            <div className="flex flex-col items-center text-center space-y-4 pt-2">
+              <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+                <Trash weight="duotone" size={32} />
+              </div>
+              
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-100 uppercase tracking-wider">Excluir Equipamento</h3>
+                <p className="text-[10px] text-red-405 font-mono tracking-widest uppercase">Soft Delete</p>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed font-medium bg-dark-950/40 p-4 rounded-xl border border-dark-600/40">
+                Deseja realmente marcar o notebook <strong className="text-red-400">{selectedEq?.patrimonio}</strong> ({selectedEq?.modelo}) como excluído do inventário?
+                Esta ação não apagará seus históricos anteriores, mas o removerá da lista ativa.
+              </p>
+
+              <div className="flex gap-3 w-full pt-2">
+                <Button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedEq(null);
+                  }}
+                  variant="outline"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold bg-dark-700 hover:bg-dark-600 text-slate-200"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleDelete}
+                  disabled={loading}
+                  variant="danger"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold"
+                >
+                  {loading ? 'Excluindo...' : 'Excluir'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

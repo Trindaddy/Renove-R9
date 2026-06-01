@@ -38,11 +38,12 @@ class Notebook(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
     justificativa_manutencao = Column(Text, nullable=True)
     autor_manutencao = Column(String(100), nullable=True)
+    excluido = Column(Boolean, default=False, nullable=False)
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
     __table_args__ = (
-        CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado')", name="check_notebook_status"),
+        CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado', 'Reservado (Em Lote)')", name="check_notebook_status"),
         CheckConstraint("condicao IN ('Novo', 'Bom', 'Regular', 'Ruim')", name="check_notebook_condicao"),
     )
 
@@ -66,7 +67,7 @@ class Emprestimo(Base):
     motivo = Column(String(50))
 
     __table_args__ = (
-        CheckConstraint("status IN ('Pendente', 'Ativo', 'Devolvido', 'Atrasado', 'Cancelado')", name="check_emprestimo_status"),
+        CheckConstraint("status IN ('Pendente', 'Reservado', 'Ativo', 'Devolvido', 'Atrasado', 'Cancelado')", name="check_emprestimo_status"),
     )
 
 class Historico(Base):

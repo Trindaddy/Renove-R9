@@ -42,13 +42,13 @@ def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
         raise e
 
 def get_notebook(db: Session, notebook_id: int):
-    return db.query(models.Notebook).filter(models.Notebook.id == notebook_id).first()
+    return db.query(models.Notebook).filter(models.Notebook.id == notebook_id, models.Notebook.excluido == False).first()
 
 def get_notebook_by_patrimonio(db: Session, patrimonio: str):
-    return db.query(models.Notebook).filter(models.Notebook.patrimonio == patrimonio).first()
+    return db.query(models.Notebook).filter(models.Notebook.patrimonio == patrimonio, models.Notebook.excluido == False).first()
 
 def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, limit: int = 1000):
-    query = db.query(models.Notebook)
+    query = db.query(models.Notebook).filter(models.Notebook.excluido == False)
     if status:
         query = query.filter(models.Notebook.status == status)
     return query.offset(skip).limit(limit).all()
@@ -89,6 +89,47 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
         if 'status' in update_data:
             tipo_mov = "ATUALIZACAO"
             desc = f"Status alterado de {status_anterior} para {db_notebook.status}"
+            
+            if status_anterior in ("Reservado", "Reservado (Em Lote)"):
+                if db_notebook.status == "Disponível":
+                    # Cancel the pending loan
+                    emp = db.query(models.Emprestimo).filter(
+                        models.Emprestimo.notebook_id == db_notebook.id,
+                        models.Emprestimo.status == "Pendente"
+                    ).first()
+                    if emp:
+                        emp.status = "Cancelado"
+                        db_notebook.usuario_id = None
+                        db_hist_emp = models.Historico(
+                            notebook_id=db_notebook.id,
+                            usuario_id=emp.usuario_id,
+                            responsavel_id=responsavel_id,
+                            tipo_movimentacao="CANCELAMENTO",
+                            status_anterior=status_anterior,
+                            status_novo="Disponível",
+                            descricao=f"Reserva cancelada administrativamente via contingência TI para notebook {db_notebook.patrimonio}"
+                        )
+                        db.add(db_hist_emp)
+                elif db_notebook.status == "Emprestado":
+                    # Confirm the pending loan
+                    emp = db.query(models.Emprestimo).filter(
+                        models.Emprestimo.notebook_id == db_notebook.id,
+                        models.Emprestimo.status == "Pendente"
+                    ).first()
+                    if emp:
+                        emp.status = "Ativo"
+                        emp.observacao_saida = "Retirada Confirmada Manualmente pela TI"
+                        emp.data_emprestimo = get_brasilia_time()
+                        db_hist_emp = models.Historico(
+                            notebook_id=db_notebook.id,
+                            usuario_id=emp.usuario_id,
+                            responsavel_id=responsavel_id,
+                            tipo_movimentacao="EMPRESTIMO",
+                            status_anterior=status_anterior,
+                            status_novo="Emprestado",
+                            descricao=f"Retirada confirmada administrativamente via contingência TI para notebook {db_notebook.patrimonio}"
+                        )
+                        db.add(db_hist_emp)
             
             if db_notebook.status == "Manutenção":
                 tipo_mov = "MANUTENCAO_ENTRADA"
@@ -151,9 +192,10 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
     
     # Se dia de alta demanda, verificar limite de distribuição
     if dia_alta_demanda:
-        total_notebooks = db.query(models.Notebook).count()
+        total_notebooks = db.query(models.Notebook).filter(models.Notebook.excluido == False).count()
         notebooks_distribuidos = db.query(models.Notebook).filter(
-            models.Notebook.status.in_(["Emprestado", "Reservado"])
+            models.Notebook.status.in_(["Emprestado", "Reservado"]),
+            models.Notebook.excluido == False
         ).count()
         
         config_limite = db.query(models.Configuracao).filter(
@@ -171,7 +213,8 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
 
     # Obter lock pessimista no notebook selecionado para garantir exclusão mútua
     notebook = db.query(models.Notebook).filter(
-        models.Notebook.id == emprestimo.notebook_id
+        models.Notebook.id == emprestimo.notebook_id,
+        models.Notebook.excluido == False
     ).with_for_update().first()
 
     if not notebook or notebook.status != "Disponível":
@@ -223,7 +266,7 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
             tipo_movimentacao="EMPRESTIMO",
             status_anterior="Disponível",
             status_novo=notebook.status,
-            descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})" if status_inicial == "Pendente" else f"Empréstimo rápido para {usuario.nome} ({usuario.matricula})",
+            descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})" if status_inicial in ("Pendente", "Reservado") else f"Empréstimo rápido para {usuario.nome} ({usuario.matricula})",
             informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
         )
         db.add(db_hist)
@@ -243,7 +286,9 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
     
     usuario = get_usuario_by_matricula(db, dados.usuario_matricula)
     if not usuario:
-        raise ValueError(f"Usuário com matrícula {dados.usuario_matricula} não encontrado")
+        usuario = get_usuario_by_email(db, dados.usuario_matricula)
+    if not usuario:
+        raise ValueError(f"Usuário com matrícula ou e-mail '{dados.usuario_matricula}' não encontrado")
     
     data_prevista = get_brasilia_time() + timedelta(hours=dados.horas_previstas or 4)
     
@@ -255,7 +300,15 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
         data_prevista_devolucao=data_prevista
     )
     
-    return criar_emprestimo(db, emprestimo, responsavel_id, status_inicial="Ativo")
+    if usuario.email == "pedro.costa@edu.df.senac.br" or usuario.matricula == "ALU003":
+        print(f"\n--- [AUDITORIA - PEDRO COSTA] ---")
+        print(f"Ação: Empréstimo Rápido (Balcão/TI) criado para {usuario.nome} ({usuario.email})")
+        print(f"Notebook: {notebook.patrimonio} ({notebook.modelo})")
+        print(f"Status Inicial do Empréstimo: Reservado")
+        print(f"Status do Ativo: Reservado")
+        print(f"---------------------------------\n")
+        
+    return criar_emprestimo(db, emprestimo, responsavel_id, status_inicial="Reservado")
 
 def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
@@ -352,10 +405,10 @@ def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
         raise e
 
 def get_dashboard_stats(db: Session):
-    total = db.query(models.Notebook).count()
+    total = db.query(models.Notebook).filter(models.Notebook.excluido == False).count()
     disponiveis = obter_disponiveis_reais(db)
-    emprestados = db.query(models.Notebook).filter(models.Notebook.status == "Emprestado").count()
-    manutencao = db.query(models.Notebook).filter(models.Notebook.status == "Manutenção").count()
+    emprestados = db.query(models.Notebook).filter(models.Notebook.status == "Emprestado", models.Notebook.excluido == False).count()
+    manutencao = db.query(models.Notebook).filter(models.Notebook.status == "Manutenção", models.Notebook.excluido == False).count()
     
     # Calculate today's pending reservations (reservados)
     today_str = get_brasilia_time().strftime("%Y-%m-%d")
@@ -380,7 +433,7 @@ def get_dashboard_stats(db: Session):
         pendente = max(0, qtd_reservada - active_loans)
         total_pendente_reservado += pendente
         
-    reservados = total_pendente_reservado
+    reservados = db.query(models.Notebook).filter(models.Notebook.status.in_(["Reservado", "Reservado (Em Lote)"]), models.Notebook.excluido == False).count()
     emprestimos_ativos = db.query(models.Emprestimo).filter(models.Emprestimo.status == "Ativo").count()
     
     percentual = round((disponiveis / total * 100), 2) if total > 0 else 0
@@ -403,7 +456,7 @@ def verificar_e_notificar_escassez(db: Session):
     if alerta["ativo"]:
         notificar_alerta_escassez(alerta)
         # Registrar no histórico
-        notebook = db.query(models.Notebook).first()
+        notebook = db.query(models.Notebook).filter(models.Notebook.excluido == False).first()
         if notebook:
             registrar_historico(db, schemas.HistoricoCreate(
                 notebook_id=notebook.id,

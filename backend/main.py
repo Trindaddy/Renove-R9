@@ -86,6 +86,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = crud.get_usuario(db, int(user_id))
     if user is None:
         raise credentials_exception
+    if not user.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta suspensa/inativa"
+        )
     return user
 
 def require_role(roles: List[str]):
@@ -105,6 +110,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = crud.get_usuario_by_email(db, form_data.username)
     if not user or not verify_password(form_data.password, user.senha_hash):
         raise HTTPException(status_code=400, detail="Email ou senha incorretos")
+    if not user.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta conta está atualmente inativa. Por favor, entre em contato com o setor de TI para verificar o seu status e solicitar o desbloqueio."
+        )
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -420,6 +430,135 @@ async def update_notebook(
     
     return nb
 
+@app.post("/notebooks/{notebook_id}/forcar-devolucao")
+async def forcar_devolucao(
+    notebook_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    notebook = db.query(models.Notebook).filter(
+        models.Notebook.id == notebook_id,
+        models.Notebook.excluido == False
+    ).with_for_update().first()
+    
+    if not notebook:
+        raise HTTPException(status_code=404, detail="Notebook não encontrado")
+        
+    status_anterior = notebook.status
+    if status_anterior not in ["Reservado", "Reservado (Em Lote)", "Emprestado"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Notebook não está em um estado que permita devolução forçada. Status atual: {status_anterior}"
+        )
+        
+    # Encontrar empréstimo ativo/pendente associado
+    loan = db.query(models.Emprestimo).filter(
+        models.Emprestimo.notebook_id == notebook_id,
+        models.Emprestimo.status.in_(["Pendente", "Reservado", "Ativo", "Atrasado"])
+    ).first()
+    
+    if loan:
+        loan.status = "Devolvido"
+        loan.data_devolucao = get_brasilia_time()
+        loan.responsavel_id = current_user.id
+        loan.observacao_devolucao = f"Devolução forçada pela TI (Contingência) por {current_user.nome}"
+        
+    notebook.status = "Disponível"
+    notebook.usuario_id = None
+    
+    # Registrar no histórico
+    db_hist = models.Historico(
+        notebook_id=notebook.id,
+        usuario_id=loan.usuario_id if loan else None,
+        responsavel_id=current_user.id,
+        tipo_movimentacao="DEVOLUCAO",
+        status_anterior=status_anterior,
+        status_novo="Disponível",
+        descricao=f"Devolução forçada administrativamente via contingência TI por {current_user.nome}"
+    )
+    db.add(db_hist)
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar transação: {e}")
+        
+    stats = crud.get_dashboard_stats(db)
+    import asyncio
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
+    return {"message": "Notebook liberado com sucesso!", "notebook_status": "Disponível"}
+
+@app.delete("/notebooks/{notebook_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notebook(
+    notebook_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    notebook = db.query(models.Notebook).filter(
+        models.Notebook.id == notebook_id,
+        models.Notebook.excluido == False
+    ).first()
+    
+    if not notebook:
+        raise HTTPException(status_code=404, detail="Notebook não encontrado")
+        
+    if notebook.status == "Emprestado":
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível excluir o notebook pois ele possui um empréstimo ativo."
+        )
+        
+    active_loan = db.query(models.Emprestimo).filter(
+        models.Emprestimo.notebook_id == notebook.id,
+        models.Emprestimo.status.in_(["Ativo", "Atrasado"])
+    ).first()
+    
+    if active_loan:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível excluir o notebook pois ele possui um empréstimo ativo."
+        )
+        
+    # Soft delete
+    notebook.excluido = True
+    notebook.status = "Disponível"
+    notebook.usuario_id = None
+    
+    # Cancelar empréstimos pendentes/reservados
+    pending_loans = db.query(models.Emprestimo).filter(
+        models.Emprestimo.notebook_id == notebook.id,
+        models.Emprestimo.status.in_(["Pendente", "Reservado"])
+    ).all()
+    for loan in pending_loans:
+        loan.status = "Cancelado"
+        
+    db_hist = models.Historico(
+        notebook_id=notebook.id,
+        responsavel_id=current_user.id,
+        tipo_movimentacao="CANCELAMENTO",
+        status_anterior=notebook.status,
+        status_novo="Excluído",
+        descricao=f"Notebook excluído logicamente (Soft Delete) por {current_user.nome}"
+    )
+    db.add(db_hist)
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar exclusão: {e}")
+        
+    stats = crud.get_dashboard_stats(db)
+    import asyncio
+    asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+    
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # ==================== ROTAS DE EMPRÉSTIMOS ====================
 
@@ -631,7 +770,7 @@ async def create_emprestimos_lote(
                     usuario_id=aluno.id,
                     responsavel_id=current_user.id,
                     data_prevista_devolucao=data_prevista,
-                    status="Pendente",
+                    status="Reservado",
                     observacao_saida="Pré-alocado (Aguardando Confirmação Aluno)",
                     motivo="Alocação em Lote"
                 )
@@ -639,6 +778,15 @@ async def create_emprestimos_lote(
                 notebook.usuario_id = aluno.id
                 db.add(db_emp)
                 db.flush()
+                
+                # Logs de Auditoria para Pedro Costa
+                if aluno.email == "pedro.costa@edu.df.senac.br" or aluno.matricula == "ALU003":
+                    print(f"\n--- [AUDITORIA - PEDRO COSTA] ---")
+                    print(f"Ação: Alocação em Lote criada para {aluno.nome} ({aluno.email})")
+                    print(f"Notebook: {notebook.patrimonio} ({notebook.modelo})")
+                    print(f"Status do Empréstimo: Reservado")
+                    print(f"Status do Ativo: Reservado")
+                    print(f"---------------------------------\n")
                 
                 # Registrar no histórico
                 db_hist = models.Historico(
@@ -722,9 +870,17 @@ async def confirmar_emprestimo(
         )
         
     # Verificar se já está confirmado
-    if emp.status != "Pendente":
+    if emp.status not in ["Pendente", "Reservado"]:
         return {"message": "Este empréstimo já foi confirmado ou não necessita de confirmação."}
         
+    if emp.usuario and (emp.usuario.email == "pedro.costa@edu.df.senac.br" or emp.usuario.matricula == "ALU003"):
+        print(f"\n--- [AUDITORIA - PEDRO COSTA] ---")
+        print(f"Ação: Confirmação de Retirada realizada por/para {emp.usuario.nome} ({emp.usuario.email})")
+        print(f"Notebook: {emp.notebook.patrimonio if emp.notebook else 'N/A'}")
+        print(f"Status do Empréstimo: {emp.status} -> Ativo")
+        print(f"Status do Ativo: {emp.notebook.status if emp.notebook else 'N/A'} -> Emprestado")
+        print(f"---------------------------------\n")
+
     emp.status = "Ativo"
     emp.observacao_saida = "Retirada Confirmada pelo Aluno"
     emp.data_emprestimo = get_brasilia_time()
@@ -1014,23 +1170,110 @@ async def create_reserva(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
+    import json
     
     turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == reserva.turmaId).first()
     if not turma_exists:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
         
-    db_reserva = models.Reserva(
-        turma_id=reserva.turmaId,
-        data=reserva.data,
-        turno=reserva.turno,
-        quantidade=reserva.quantidade,
-        status="Pendente",
-        usuario_id=current_user.id
-    )
-    db.add(db_reserva)
-    db.commit()
-    db.refresh(db_reserva)
-    
+    try:
+        # 1. Buscar notebooks disponíveis na transação com bloqueio
+        notebooks_disponiveis = db.query(models.Notebook).filter(
+            models.Notebook.status == "Disponível"
+        ).with_for_update().limit(reserva.quantidade).all()
+        
+        if len(notebooks_disponiveis) < reserva.quantidade:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quantidade solicitada de notebooks não disponível em estoque."
+            )
+            
+        # 2. Obter alunos ativos da turma
+        alunos = db.query(models.Usuario).filter(
+            models.Usuario.turma == reserva.turmaId,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).all()
+        
+        # 3. Criar registro de Reserva (Alocado / Pronto para Retirada)
+        db_reserva = models.Reserva(
+            turma_id=reserva.turmaId,
+            data=reserva.data,
+            turno=reserva.turno,
+            quantidade=reserva.quantidade,
+            status="Alocado / Pronto para Retirada",
+            usuario_id=current_user.id
+        )
+        db.add(db_reserva)
+        db.flush()
+        
+        # 4. Vincular notebooks aos alunos
+        data_prevista = get_brasilia_time() + timedelta(hours=4)
+        for i, notebook in enumerate(notebooks_disponiveis):
+            notebook.status = "Reservado"
+            
+            if i < len(alunos):
+                aluno = alunos[i]
+                notebook.usuario_id = aluno.id
+                
+                # Criar empréstimo pendente
+                db_emp = models.Emprestimo(
+                    notebook_id=notebook.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=current_user.id,
+                    data_prevista_devolucao=data_prevista,
+                    status="Reservado",
+                    observacao_saida="Reserva em Lote - Aguardando Confirmação",
+                    motivo="Reserva em Lote"
+                )
+                db.add(db_emp)
+                db.flush()
+                
+                # Logs de Auditoria para Pedro Costa
+                if aluno.email == "pedro.costa@edu.df.senac.br" or aluno.matricula == "ALU003":
+                    print(f"\n--- [AUDITORIA - PEDRO COSTA] ---")
+                    print(f"Ação: Reserva Manual criada para {aluno.nome} ({aluno.email})")
+                    print(f"Notebook: {notebook.patrimonio} ({notebook.modelo})")
+                    print(f"Status do Empréstimo: Reservado")
+                    print(f"Status do Ativo: Reservado")
+                    print(f"---------------------------------\n")
+                
+                # Histórico
+                db_hist = models.Historico(
+                    notebook_id=notebook.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=current_user.id,
+                    tipo_movimentacao="EMPRESTIMO",
+                    status_anterior="Disponível",
+                    status_novo="Reservado",
+                    descricao=f"Reserva em Lote para aluno {aluno.nome} (Reserva ID: {db_reserva.id})",
+                    informacoes_adicionais=json.dumps({"reserva_id": db_reserva.id, "batch": True})
+                )
+                db.add(db_hist)
+            else:
+                # Notebook extra reservado para a turma
+                db_hist = models.Historico(
+                    notebook_id=notebook.id,
+                    responsavel_id=current_user.id,
+                    tipo_movimentacao="RESERVA",
+                    status_anterior="Disponível",
+                    status_novo="Reservado",
+                    descricao=f"Notebook reservado em lote para a turma {reserva.turmaId} (extra, Reserva ID: {db_reserva.id})"
+                )
+                db.add(db_hist)
+                
+        db.commit()
+        db.refresh(db_reserva)
+    except HTTPException as he:
+        db.rollback()
+        raise he
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao processar reserva em lote: {str(e)}"
+        )
+        
     # Broadcast availability updates
     stats = crud.get_dashboard_stats(db)
     asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
@@ -1184,28 +1427,48 @@ def get_dashboard_aluno_route(
 ):
     require_role(["aluno", "ti"])(current_user)
     
-    emp = db.query(models.Emprestimo).options(
+    emp = db.query(models.Emprestimo).join(
+        models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id
+    ).join(
+        models.Notebook, models.Emprestimo.notebook_id == models.Notebook.id
+    ).options(
         joinedload(models.Emprestimo.notebook)
     ).filter(
-        models.Emprestimo.usuario_id == current_user.id,
-        models.Emprestimo.status.in_(["Pendente", "Ativo", "Atrasado"])
+        models.Usuario.id == current_user.id,
+        models.Emprestimo.status.in_(["Pendente", "Reservado", "Aguardando Retirada", "Ativo", "Atrasado"])
     ).first()
     
+    if current_user.email == "pedro.costa@edu.df.senac.br" or current_user.matricula == "ALU003":
+        print(f"\n--- [AUDITORIA - PEDRO COSTA] ---")
+        print(f"Ação: Busca do dashboard (/dashboard/aluno) por {current_user.nome} ({current_user.email})")
+        if emp:
+            print(f"Empréstimo Ativo/Reservado encontrado: ID {emp.id}")
+            print(f"Status do Empréstimo: {emp.status}")
+            print(f"Notebook: {emp.notebook.patrimonio if emp.notebook else 'N/A'} ({emp.notebook.modelo if emp.notebook else 'N/A'})")
+        else:
+            print("Nenhum empréstimo ativo/reservado encontrado.")
+        print(f"---------------------------------\n")
+        
     reserva_atual = None
     sem_disponibilidade_hoje = False
     historico_anterior = []
     
     if emp:
-        confirmacao_pendente = emp.status == "Pendente"
-        status_label = "Aguardando Confirmação" if confirmacao_pendente else ("Em uso" if emp.status == "Ativo" else "Atrasado")
+        confirmacao_pendente = emp.status in ["Pendente", "Reservado", "Aguardando Retirada"]
+        status_label = "Notebook Disponível" if confirmacao_pendente else ("Em uso" if emp.status == "Ativo" else "Atrasado")
+        
+        is_masked = emp.status == "Pendente"
+        patr_val = "******" if is_masked else (emp.notebook.patrimonio if emp.notebook else "N/A")
         
         reserva_atual = {
             "id": emp.id,
             "notebook_id": emp.notebook.id if emp.notebook else None,
-            "patrimonio": "******" if confirmacao_pendente else (emp.notebook.patrimonio if emp.notebook else "N/A"),
+            "patrimonio": patr_val,
             "modelo": emp.notebook.modelo if emp.notebook else "N/A",
+            "marca": emp.notebook.marca if emp.notebook else "N/A",
             "condicao": emp.notebook.condicao if emp.notebook else "Bom",
-            "equipamento": f"Notebook - ****** ({emp.notebook.modelo})" if (confirmacao_pendente and emp.notebook) else (f"Notebook - {emp.notebook.patrimonio} ({emp.notebook.modelo})" if emp.notebook else "Notebook"),
+            "observacoes": emp.notebook.observacoes if emp.notebook else "",
+            "equipamento": f"Notebook - {patr_val} ({emp.notebook.modelo})" if emp.notebook else "Notebook",
             "horario": f"Retirado em {emp.data_emprestimo.strftime('%d/%m/%Y %H:%M')}" if emp.data_emprestimo else "Data pendente",
             "status": status_label,
             "confirmacaoPendente": confirmacao_pendente

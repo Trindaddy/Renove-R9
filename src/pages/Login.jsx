@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/Button.jsx';
 import Input from '../components/Input.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WarningCircle, ShieldCheck } from '@phosphor-icons/react';
+import { WarningCircle, ShieldCheck, LockKey, X } from '@phosphor-icons/react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,6 +14,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+  const [suspendedModalMessage, setSuspendedModalMessage] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('suspended') === 'true') {
+      setSuspendedModalMessage('Esta conta está atualmente inativa. Por favor, entre em contato com o setor de TI para verificar o seu status e solicitar o desbloqueio.');
+      setShowSuspendedModal(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -29,7 +39,12 @@ export default function Login() {
     try {
       const result = await login(email, password);
       if (!result.ok) {
-        setError(result.message);
+        if (result.message && (result.message.includes('inativa') || result.message.includes('suspensa'))) {
+          setSuspendedModalMessage(result.message);
+          setShowSuspendedModal(true);
+        } else {
+          setError(result.message);
+        }
         return;
       }
       navigate('/');
@@ -117,6 +132,65 @@ export default function Login() {
           </div>
         </div>
       </motion.div>
+
+      {/* Modal Premium para Contas Inativas */}
+      <AnimatePresence>
+        {showSuspendedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            {/* Backdrop click to close */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0"
+              onClick={() => setShowSuspendedModal(false)}
+            />
+
+            {/* Modal Card content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', duration: 0.5 }}
+              className="relative w-full max-w-md overflow-hidden rounded-2xl border border-red-500/20 bg-gradient-to-br from-dark-800 to-dark-900 p-6 shadow-2xl z-10"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowSuspendedModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+
+              <div className="flex flex-col items-center text-center space-y-4 pt-2">
+                {/* Warning Lock Icon */}
+                <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+                  <LockKey weight="duotone" size={32} className="animate-pulse" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-slate-100 uppercase tracking-wider">Acesso Bloqueado</h3>
+                  <p className="text-xs text-red-400 font-mono tracking-widest uppercase">Conta Inativa</p>
+                </div>
+
+                <p className="text-sm text-slate-300 leading-relaxed font-medium bg-dark-900/60 p-4 rounded-xl border border-dark-600/40">
+                  {suspendedModalMessage}
+                </p>
+
+                <div className="w-full pt-2">
+                  <Button
+                    onClick={() => setShowSuspendedModal(false)}
+                    variant="danger"
+                    className="w-full py-3 text-xs tracking-wider uppercase font-bold"
+                  >
+                    Entendido
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

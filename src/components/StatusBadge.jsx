@@ -9,7 +9,10 @@ export default function StatusBadge({ status }) {
     'Disponível': 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
     'Emprestado': 'bg-primary/10 text-primary border-primary/20',
     'Em uso': 'bg-accent/10 text-accent border-accent/20',
-    'Manutenção': 'bg-red-500/10 text-red-400 border-red-500/20'
+    'Manutenção': 'bg-red-500/10 text-red-400 border-red-500/20',
+    'Reservado': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'Reservado (Em Lote)': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'Pendente': 'bg-amber-500/10 text-amber-400 border-amber-500/20'
   };
 
   const labels = {
@@ -20,7 +23,10 @@ export default function StatusBadge({ status }) {
     'Disponível': 'Disponível',
     'Emprestado': 'Em uso',
     'Em uso': 'Em uso',
-    'Manutenção': 'Manutenção'
+    'Manutenção': 'Manutenção',
+    'Reservado': 'Reservado',
+    'Reservado (Em Lote)': 'Reservado (Lote)',
+    'Pendente': 'Pendente'
   };
 
   // Se o status não for mapeado perfeitamente, cai no visual de cancelado (cinza neutro)

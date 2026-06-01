@@ -44,6 +44,10 @@ function normalizeDashboardWithAlerta() {
 
 export const getDashboardTi = normalizeDashboardWithAlerta();
 export const getDashboardProfessor = normalizeDashboardWithAlerta();
-export const getDashboardAluno = normalizeDashboardWithAlerta();
+
+export async function getDashboardAluno() {
+  const response = await api.get('/dashboard/aluno');
+  return response.data;
+}
 
 

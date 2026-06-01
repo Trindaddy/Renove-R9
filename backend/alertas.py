@@ -10,7 +10,7 @@ def obter_disponiveis_reais(db: Session) -> int:
     Retorna a quantidade de notebooks fisicamente disponíveis menos os que estão reservados
     mas ainda não foram retirados pelas turmas hoje.
     """
-    disponiveis_fisicos = db.query(Notebook).filter(Notebook.status == "Disponível").count()
+    disponiveis_fisicos = db.query(Notebook).filter(Notebook.status == "Disponível", Notebook.excluido == False).count()
     today_str = get_brasilia_time().strftime("%Y-%m-%d")
     
     reservas_hoje = db.query(Reserva).filter(
@@ -41,7 +41,7 @@ async def verificar_alerta_escassez(db: Session) -> Dict:
     Verifica se a quantidade de notebooks disponíveis está abaixo do limite configurado.
     Retorna um dicionário com informações do alerta.
     """
-    total = db.query(Notebook).count()
+    total = db.query(Notebook).filter(Notebook.excluido == False).count()
     disponiveis = obter_disponiveis_reais(db)
     
     config = db.query(Configuracao).filter(Configuracao.chave == "alerta_escassez_percentual").first()
@@ -71,7 +71,7 @@ async def verificar_alerta_escassez(db: Session) -> Dict:
 
 def verificar_alerta_escassez_sync(db: Session) -> Dict:
     """Versão síncrona para uso em endpoints HTTP"""
-    total = db.query(Notebook).count()
+    total = db.query(Notebook).filter(Notebook.excluido == False).count()
     disponiveis = obter_disponiveis_reais(db)
     
     config = db.query(Configuracao).filter(Configuracao.chave == "alerta_escassez_percentual").first()
