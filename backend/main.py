@@ -174,28 +174,15 @@ def list_usuarios(
 ):
     require_role(["ti", "professor"])(current_user)
     if current_user.role == "professor":
+        if role == "ti":
+            raise HTTPException(status_code=403, detail="Sem permissão para listar usuários de TI")
+        query = db.query(models.Usuario).filter(models.Usuario.role != "ti")
+        if role:
+            query = query.filter(models.Usuario.role == role)
         if turma:
-            turma_info = db.query(models.Turma).filter(models.Turma.codigo_turma == turma).first()
-            if not turma_info:
-                raise HTTPException(status_code=404, detail="Turma não encontrada")
-            if turma_info.instrutor != current_user.nome:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Listagem de alunos restrita ao instrutor da disciplina."
-                )
-        if role == "professor":
-            return crud.listar_usuarios(db, role=role, turma=turma)
-        else:
-            prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-            turma_ids = [t.codigo_turma for t in prof_turmas]
-            if turma:
-                return crud.listar_usuarios(db, role=role, turma=turma)
-            else:
-                return db.query(models.Usuario).filter(
-                    models.Usuario.turma.in_(turma_ids),
-                    models.Usuario.role == "aluno"
-                ).all()
-                
+            query = query.filter(models.Usuario.turma == turma)
+        return query.all()
+        
     return crud.listar_usuarios(db, role=role, turma=turma)
 
 @app.get("/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
@@ -210,11 +197,8 @@ def get_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
         
     if current_user.role == "professor":
-        if user.id != current_user.id:
-            prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-            turma_ids = [t.codigo_turma for t in prof_turmas]
-            if user.turma not in turma_ids:
-                raise HTTPException(status_code=403, detail="Acesso não autorizado aos dados deste usuário")
+        if user.id != current_user.id and user.role != "aluno":
+            raise HTTPException(status_code=403, detail="Acesso não autorizado aos dados deste usuário")
                 
     return user
 
@@ -605,22 +589,6 @@ def list_emprestimos(
     if current_user.role == "aluno":
         return crud.listar_emprestimos(db, status=status, usuario_id=current_user.id, skip=skip, limit=limit)
         
-    elif current_user.role == "professor":
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = [t.codigo_turma for t in prof_turmas]
-        
-        query = db.query(models.Emprestimo).join(models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id).options(
-            joinedload(models.Emprestimo.notebook),
-            joinedload(models.Emprestimo.usuario),
-            joinedload(models.Emprestimo.responsavel)
-        ).filter(models.Usuario.turma.in_(turma_ids))
-        
-        if status:
-            query = query.filter(models.Emprestimo.status == status)
-            
-        loans = query.order_by(models.Emprestimo.data_emprestimo.desc()).all()
-        return loans[skip : skip + limit]
-        
     return crud.listar_emprestimos(db, status=status, usuario_id=usuario_id, skip=skip, limit=limit)
 
 @app.get("/emprestimos/{emprestimo_id}", response_model=schemas.EmprestimoResponse)
@@ -635,12 +603,6 @@ def get_emprestimo(
     if current_user.role == "aluno" and emp.usuario_id != current_user.id:
         raise HTTPException(status_code=403, detail="Sem permissão")
         
-    if current_user.role == "professor":
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = [t.codigo_turma for t in prof_turmas]
-        if not emp.usuario or emp.usuario.turma not in turma_ids:
-            raise HTTPException(status_code=403, detail="Sem permissão para visualizar empréstimo de outra turma")
-            
     return emp
 
 @app.post("/emprestimos", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
@@ -955,15 +917,6 @@ async def devolver_emprestimo(
 ):
     require_role(["ti", "professor"])(current_user)
     
-    if current_user.role == "professor":
-        emp = crud.get_emprestimo(db, emprestimo_id)
-        if not emp:
-            raise HTTPException(status_code=404, detail="Empréstimo não encontrado")
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = [t.codigo_turma for t in prof_turmas]
-        if not emp.usuario or emp.usuario.turma not in turma_ids:
-            raise HTTPException(status_code=403, detail="Sem permissão para devolver notebook de outra turma")
-            
     try:
         result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id)
         
@@ -1018,24 +971,6 @@ def list_historico(
     
     if current_user.role == "aluno":
         return crud.get_historico(db, notebook_id=notebook_id, usuario_id=current_user.id, skip=skip, limit=limit)
-        
-    elif current_user.role == "professor":
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = [t.codigo_turma for t in prof_turmas]
-        
-        query = db.query(models.Historico).join(models.Usuario, models.Historico.usuario_id == models.Usuario.id).options(
-            joinedload(models.Historico.notebook),
-            joinedload(models.Historico.usuario),
-            joinedload(models.Historico.responsavel)
-        ).filter(models.Usuario.turma.in_(turma_ids))
-        
-        if notebook_id:
-            query = query.filter(models.Historico.notebook_id == notebook_id)
-        if usuario_id:
-            query = query.filter(models.Historico.usuario_id == usuario_id)
-            
-        records = query.order_by(models.Historico.created_at.desc()).all()
-        return records[skip : skip + limit]
         
     return crud.get_historico(db, notebook_id=notebook_id, usuario_id=usuario_id, skip=skip, limit=limit)
 
@@ -1164,12 +1099,7 @@ def list_reservas(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
-    if current_user.role == "professor":
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = [t.codigo_turma for t in prof_turmas]
-        db_reservas = db.query(models.Reserva).filter(models.Reserva.turma_id.in_(turma_ids)).all()
-    else:
-        db_reservas = db.query(models.Reserva).all()
+    db_reservas = db.query(models.Reserva).all()
         
     return [
         schemas.ReservaResponse(
@@ -1850,11 +1780,6 @@ def get_alocacoes_diarias(
             alocacoes_map[key]["patrimonios"].append(emp.notebook.patrimonio)
             
     res_list = list(alocacoes_map.values())
-    if current_user.role == "professor":
-        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_ids = {t.codigo_turma for t in prof_turmas}
-        return [aloc for aloc in res_list if aloc["turma"] in turma_ids]
-        
     return res_list
 
 # ==================== ROTAS DE SAÚDE ====================
