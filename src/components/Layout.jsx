@@ -84,6 +84,7 @@ export default function Layout({ children }) {
     navItems.push(
       { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
       { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> },
+      { to: '/alocacoes', label: 'Alocações', icon: <ChartBar weight="duotone" /> },
       { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> },
       { to: '/turmas', label: 'Turmas', icon: <Users weight="duotone" /> },
       { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }
