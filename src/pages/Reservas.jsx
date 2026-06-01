@@ -207,87 +207,89 @@ export default function Reservas() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <form
-          onSubmit={handleSubmit}
-          className="glass-card p-4 space-y-3 lg:col-span-1 h-fit"
-        >
-          <h2 className="text-sm font-semibold text-slate-200 mb-1">
-            {editingId ? `Editar reserva #${editingId}` : 'Nova reserva de lote'}
-          </h2>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-slate-300">Turma</span>
-            <select
-              name="turmaId"
-              value={form.turmaId}
-              onChange={handleChange}
-              className="tech-select w-full"
-              required
-            >
-              <option value="">Selecione uma turma</option>
-              {turmas.map((turma) => (
-                <option key={turma.id} value={turma.id}>
-                  {turma.id} - {turma.nome || turma.curso}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Data"
-              name="data"
-              type="date"
-              value={form.data}
-              onChange={handleChange}
-              required
-            />
+        {user?.role === 'ti' && (
+          <form
+            onSubmit={handleSubmit}
+            className="glass-card p-4 space-y-3 lg:col-span-1 h-fit"
+          >
+            <h2 className="text-sm font-semibold text-slate-205 mb-1">
+              {editingId ? `Editar reserva #${editingId}` : 'Nova reserva de lote'}
+            </h2>
 
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-xs text-slate-300">Turno</span>
+              <span className="text-xs text-slate-300">Turma</span>
               <select
-                name="turno"
-                value={form.turno}
+                name="turmaId"
+                value={form.turmaId}
                 onChange={handleChange}
                 className="tech-select w-full"
                 required
               >
-                <option value="">Selecione</option>
-                <option value="Manhã">Manhã</option>
-                <option value="Tarde">Tarde</option>
-                <option value="Noite">Noite</option>
+                <option value="">Selecione uma turma</option>
+                {turmas.map((turma) => (
+                  <option key={turma.id} value={turma.id}>
+                    {turma.id} - {turma.nome || turma.curso}
+                  </option>
+                ))}
               </select>
             </label>
-          </div>
 
-          <Input
-            label="Quantidade de notebooks"
-            name="quantidade"
-            type="number"
-            min={1}
-            value={form.quantidade}
-            onChange={handleChange}
-            required
-          />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Data"
+                name="data"
+                type="date"
+                value={form.data}
+                onChange={handleChange}
+                required
+              />
 
-          <div className="flex gap-2 mt-1">
-            <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? 'Processando...' : editingId ? 'Salvar' : 'Criar reserva'}
-            </Button>
-            {editingId && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleCancelEdit}
-                className="border border-dark-600 text-slate-300 hover:bg-dark-700/50"
-              >
-                Cancelar
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-xs text-slate-300">Turno</span>
+                <select
+                  name="turno"
+                  value={form.turno}
+                  onChange={handleChange}
+                  className="tech-select w-full"
+                  required
+                >
+                  <option value="">Selecione</option>
+                  <option value="Manhã">Manhã</option>
+                  <option value="Tarde">Tarde</option>
+                  <option value="Noite">Noite</option>
+                </select>
+              </label>
+            </div>
+
+            <Input
+              label="Quantidade de notebooks"
+              name="quantidade"
+              type="number"
+              min={1}
+              value={form.quantidade}
+              onChange={handleChange}
+              required
+            />
+
+            <div className="flex gap-2 mt-1">
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? 'Processando...' : editingId ? 'Salvar' : 'Criar reserva'}
               </Button>
-            )}
-          </div>
-        </form>
+              {editingId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleCancelEdit}
+                  className="border border-dark-600 text-slate-300 hover:bg-dark-700/50"
+                >
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
 
-        <div className="lg:col-span-2 glass-card overflow-hidden">
+        <div className={`${user?.role === 'ti' ? 'lg:col-span-2' : 'lg:col-span-3'} glass-card overflow-hidden`}>
           <div className="px-4 py-3 border-b border-dark-600/50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">
               Reservas recentes
@@ -357,20 +359,22 @@ export default function Reservas() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="inline-flex gap-1">
-                          <button
-                            onClick={() => handleEditClick(reserva)}
-                            className="px-2.5 py-1 text-[11px] rounded bg-cyan-dim text-cyan border border-cyan/20 hover:bg-cyan/20 transition-all font-semibold"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => confirmDelete(reserva.id)}
-                            className="px-2.5 py-1 text-[11px] rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-semibold"
-                          >
-                            Excluir
-                          </button>
-                        </div>
+                        {user?.role === 'ti' && (
+                          <div className="inline-flex gap-1">
+                            <button
+                              onClick={() => handleEditClick(reserva)}
+                              className="px-2.5 py-1 text-[11px] rounded bg-cyan-dim text-cyan border border-cyan/20 hover:bg-cyan/20 transition-all font-semibold"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => confirmDelete(reserva.id)}
+                              className="px-2.5 py-1 text-[11px] rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-semibold"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -435,20 +439,24 @@ export default function Reservas() {
               </div>
 
               <div className="flex flex-col gap-2 pt-3 border-t border-dark-600/50">
-                <Button
-                  variant="outline"
-                  className="w-full text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
-                  onClick={() => handleEditClick(selectedReserva)}
-                >
-                  Alterar Empréstimo
-                </Button>
-                <Button
-                  variant="danger"
-                  className="w-full text-xs py-2"
-                  onClick={() => confirmDelete(selectedReserva.id)}
-                >
-                  Excluir Empréstimo
-                </Button>
+                {user?.role === 'ti' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs py-2 bg-dark-700 hover:bg-dark-600 text-slate-200"
+                      onClick={() => handleEditClick(selectedReserva)}
+                    >
+                      Alterar Empréstimo
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="w-full text-xs py-2"
+                      onClick={() => confirmDelete(selectedReserva.id)}
+                    >
+                      Excluir Empréstimo
+                    </Button>
+                  </>
+                )}
                 <Button
                   type="button"
                   variant="ghost"

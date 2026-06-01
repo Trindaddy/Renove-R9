@@ -39,9 +39,18 @@ export default function Turmas() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [batchResult, setBatchResult] = useState(null);
 
+  const [accessRestricted, setAccessRestricted] = useState(false);
+
   // Handlers para alunos da turma
   async function handleOpenAlunosPanel(turma) {
     setSelectedTurmaForAlunos(turma);
+    const isInstructor = user?.role === 'ti' || turma.instrutor === user?.nome;
+    if (!isInstructor) {
+      setAccessRestricted(true);
+      setTurmaAlunos([]);
+      return;
+    }
+    setAccessRestricted(false);
     setLoadingAlunos(true);
     setAlunosError('');
     try {
@@ -654,7 +663,14 @@ export default function Turmas() {
               )}
 
               <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-                {loadingAlunos && turmaAlunos.length === 0 ? (
+                {accessRestricted ? (
+                  <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-5 text-center flex flex-col items-center gap-3">
+                    <WarningCircle size={36} className="text-red-400" weight="fill" />
+                    <p className="text-sm text-red-400 font-semibold leading-relaxed">
+                      Acesso Restrito: A listagem de alunos e dados acadêmicos desta turma é restrita ao instrutor responsável pela disciplina.
+                    </p>
+                  </div>
+                ) : loadingAlunos && turmaAlunos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
                     <div className="flex gap-1.5">
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
@@ -696,20 +712,24 @@ export default function Turmas() {
                                   >
                                     <ClockCounterClockwise size={14} />
                                   </button>
-                                  <button
-                                    onClick={() => handleEditStudent(aluno)}
-                                    className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
-                                    title="Editar Aluno"
-                                  >
-                                    <PencilSimple size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemoveStudentClick(aluno)}
-                                    className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-455 hover:bg-red-500/20 transition-all"
-                                    title="Remover da Turma"
-                                  >
-                                    <UserMinus size={14} />
-                                  </button>
+                                  {isTi && (
+                                    <>
+                                      <button
+                                        onClick={() => handleEditStudent(aluno)}
+                                        className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                                        title="Editar Aluno"
+                                      >
+                                        <PencilSimple size={14} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleRemoveStudentClick(aluno)}
+                                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-455 hover:bg-red-500/20 transition-all"
+                                        title="Remover da Turma"
+                                      >
+                                        <UserMinus size={14} />
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               </td>
                             </tr>

@@ -164,7 +164,11 @@ export default function Emprestimos() {
                 setShowBatchModal(true);
                 try {
                   const data = await listarTurmas();
-                  setTurmas(Array.isArray(data) ? data : []);
+                  let list = Array.isArray(data) ? data : [];
+                  if (user?.role === 'professor') {
+                    list = list.filter(t => t.instrutor === user.nome);
+                  }
+                  setTurmas(list);
                 } catch (err) {
                   setError('Erro ao carregar turmas.');
                 }
@@ -190,7 +194,7 @@ export default function Emprestimos() {
       </header>
 
       {/* Dashboard Cards */}
-      <DashboardCards stats={stats} alerta={alerta} />
+      {user?.role !== 'professor' && <DashboardCards stats={stats} alerta={alerta} />}
 
       {/* Alerts */}
       <AnimatePresence>
@@ -218,7 +222,7 @@ export default function Emprestimos() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Column - Form */}
-        {isProfessorOuTi && (
+        {user?.role === 'ti' && (
           <div className="xl:col-span-3 space-y-4">
             <div className="glass-card-primary p-5 scan-line sticky top-24">
               <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
@@ -228,7 +232,7 @@ export default function Emprestimos() {
         )}
 
         {/* Right Column - Table */}
-        <div className={`${isProfessorOuTi ? 'xl:col-span-9' : 'xl:col-span-12'}`}>
+        <div className={`${user?.role === 'ti' ? 'xl:col-span-9' : 'xl:col-span-12'}`}>
           <div className="glass-card overflow-hidden">
             {/* Table Header */}
             <div className="px-5 py-4 border-b border-dark-600 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-dark-900/30">
@@ -308,7 +312,7 @@ export default function Emprestimos() {
                         {formatDate(emp.data_prevista_devolucao)}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {emp.status === 'Ativo' && isProfessorOuTi && (
+                        {emp.status === 'Ativo' && user?.role === 'ti' && (
                           <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="success"

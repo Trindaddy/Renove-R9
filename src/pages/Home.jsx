@@ -93,6 +93,37 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
+      {/* Modal de bloqueio caso o professor não tenha turmas alocadas */}
+      <AnimatePresence>
+        {user.role === 'professor' && data && data.has_turmas === false && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 bg-dark-950/85 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="relative w-full max-w-lg rounded-2xl border border-red-500/30 bg-dark-850 p-6 shadow-2xl overflow-hidden z-10 text-slate-200"
+            >
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+                  <Warning weight="fill" className="text-2xl" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-100 tracking-tight">Acesso Restrito</h3>
+                  <p className="text-sm text-slate-300 mt-3 leading-relaxed">
+                    Prezado(a) Instrutor(a), não foram identificadas turmas alocadas para a realização de empréstimos. Notifique a Equipe de TI para a resolução do problema.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <DashboardHeader user={user} />
 
       {loading && <DashboardSkeleton />}
@@ -964,7 +995,6 @@ function DashboardProfessor({ data }) {
         <div className="space-y-2">
           <QuickLink to="/reservas" label="Nova Reserva" desc="Criar reserva de lote" />
           <QuickLink to="/emprestimos" label="Empréstimos" desc="Gerenciar retiradas" />
-          <QuickLink to="/solicitacoes" label="Solicitações" desc="Fila de alunos" />
           <QuickLink to="/historico" label="Histórico" desc="Log de operações" />
         </div>
       </Card>

@@ -173,6 +173,29 @@ def list_usuarios(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
+    if current_user.role == "professor":
+        if turma:
+            turma_info = db.query(models.Turma).filter(models.Turma.codigo_turma == turma).first()
+            if not turma_info:
+                raise HTTPException(status_code=404, detail="Turma não encontrada")
+            if turma_info.instrutor != current_user.nome:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Listagem de alunos restrita ao instrutor da disciplina."
+                )
+        if role == "professor":
+            return crud.listar_usuarios(db, role=role, turma=turma)
+        else:
+            prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+            turma_ids = [t.codigo_turma for t in prof_turmas]
+            if turma:
+                return crud.listar_usuarios(db, role=role, turma=turma)
+            else:
+                return db.query(models.Usuario).filter(
+                    models.Usuario.turma.in_(turma_ids),
+                    models.Usuario.role == "aluno"
+                ).all()
+                
     return crud.listar_usuarios(db, role=role, turma=turma)
 
 @app.get("/usuarios/{usuario_id}", response_model=schemas.UsuarioResponse)
@@ -185,6 +208,14 @@ def get_usuario(
     user = crud.get_usuario(db, usuario_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+    if current_user.role == "professor":
+        if user.id != current_user.id:
+            prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+            turma_ids = [t.codigo_turma for t in prof_turmas]
+            if user.turma not in turma_ids:
+                raise HTTPException(status_code=403, detail="Acesso não autorizado aos dados deste usuário")
+                
     return user
 
 @app.get("/usuarios/matricula/{matricula}", response_model=schemas.UsuarioResponse)
@@ -622,6 +653,13 @@ def get_emprestimo(
         raise HTTPException(status_code=404, detail="Empréstimo não encontrado")
     if current_user.role == "aluno" and emp.usuario_id != current_user.id:
         raise HTTPException(status_code=403, detail="Sem permissão")
+        
+    if current_user.role == "professor":
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_ids = [t.codigo_turma for t in prof_turmas]
+        if not emp.usuario or emp.usuario.turma not in turma_ids:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar empréstimo de outra turma")
+            
     return emp
 
 @app.post("/emprestimos", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
@@ -630,7 +668,7 @@ async def create_emprestimo(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     # Limpar atrasados antes
     crud.verificar_atrasos(db)
@@ -667,7 +705,7 @@ async def create_emprestimo_rapido(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor", "aluno"])(current_user)
+    require_role(["ti", "aluno"])(current_user)
     
     if current_user.role == "aluno":
         if dados.usuario_matricula != current_user.matricula:
@@ -712,6 +750,12 @@ async def create_emprestimos_lote(
     turma = db.query(models.Turma).filter(models.Turma.codigo_turma == turma_id).first()
     if not turma:
         raise HTTPException(status_code=404, detail=f"Turma {turma_id} não encontrada")
+        
+    if current_user.role == "professor" and turma.instrutor != current_user.nome:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode realizar empréstimos em lote para turmas de que é instrutor."
+        )
         
     # 2. Obter alunos ativos da turma
     alunos = db.query(models.Usuario).filter(
@@ -1149,7 +1193,13 @@ def list_reservas(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
-    db_reservas = db.query(models.Reserva).all()
+    if current_user.role == "professor":
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_ids = [t.codigo_turma for t in prof_turmas]
+        db_reservas = db.query(models.Reserva).filter(models.Reserva.turma_id.in_(turma_ids)).all()
+    else:
+        db_reservas = db.query(models.Reserva).all()
+        
     return [
         schemas.ReservaResponse(
             id=r.id,
@@ -1175,6 +1225,12 @@ async def create_reserva(
     turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == reserva.turmaId).first()
     if not turma_exists:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    if current_user.role == "professor" and turma_exists.instrutor != current_user.nome:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode criar reservas para turmas de que é instrutor."
+        )
         
     try:
         # 1. Buscar notebooks disponíveis na transação com bloqueio
@@ -1280,22 +1336,14 @@ async def create_reserva(
     
     return schemas.ReservaResponse(
         id=db_reserva.id,
-        turma=db_reserva.turma_id,
-        data=db_reserva.data,
-        turno=db_reserva.turno,
-        quantidade=db_reserva.quantidade,
-        status=db_reserva.status,
-        usuario=db_reserva.usuario
-    )
-
-@app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
+ @app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
 async def update_reserva(
     reserva_id: int,
     reserva_update: schemas.ReservaUpdate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     db_reserva = db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
     if not db_reserva:
@@ -1334,13 +1382,14 @@ async def update_reserva(
         usuario=db_reserva.usuario
     )
 
+
 @app.delete("/reservas/{reserva_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_reserva(
     reserva_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     db_reserva = db.query(models.Reserva).filter(models.Reserva.id == reserva_id).first()
     if not db_reserva:
@@ -1571,11 +1620,22 @@ def get_dashboard_professor_route(
             "status": r.status
         })
         
+    proximas_aulas = []
+    for t in prof_turmas:
+        proximas_aulas.append({
+            "id": t.codigo_turma,
+            "curso": t.nome_curso,
+            "data": t.regime_dias,
+            "turno": t.turno
+        })
+
     return {
+        "has_turmas": len(prof_turmas) > 0,
         "turmasHoje": turmas_hoje,
         "reservasAtivas": reservas_ativas,
         "alunosAguardandoNotebook": alunos_aguardando,
-        "lotes": lotes
+        "lotes": lotes,
+        "proximasAulas": proximas_aulas
     }
 
 # ==================== ROTAS DE IA PREDITIVA ====================
