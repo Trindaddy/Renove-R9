@@ -607,38 +607,19 @@ def list_emprestimos(
         
     elif current_user.role == "professor":
         prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_map = {t.codigo_turma: t.regime_dias for t in prof_turmas}
+        turma_ids = [t.codigo_turma for t in prof_turmas]
         
         query = db.query(models.Emprestimo).join(models.Usuario, models.Emprestimo.usuario_id == models.Usuario.id).options(
             joinedload(models.Emprestimo.notebook),
             joinedload(models.Emprestimo.usuario),
             joinedload(models.Emprestimo.responsavel)
-        ).filter(models.Usuario.turma.in_(list(turma_map.keys())))
+        ).filter(models.Usuario.turma.in_(turma_ids))
         
         if status:
             query = query.filter(models.Emprestimo.status == status)
             
         loans = query.order_by(models.Emprestimo.data_emprestimo.desc()).all()
-        
-        def date_matches_regime(dt: datetime, regime_dias: str) -> bool:
-            regime = regime_dias.lower()
-            wd = dt.weekday()
-            if wd == 0 and "2ª" in regime: return True
-            if wd == 1 and "3ª" in regime: return True
-            if wd == 2 and "4ª" in regime: return True
-            if wd == 3 and "5ª" in regime: return True
-            if wd == 4 and ("6ª" in regime or "sexta" in regime): return True
-            if wd == 5 and ("sabado" in regime or "sábado" in regime): return True
-            if wd == 6 and "domingo" in regime: return True
-            return False
-            
-        filtered = []
-        for emp in loans:
-            regime = turma_map.get(emp.usuario.turma)
-            if regime and date_matches_regime(emp.data_emprestimo, regime):
-                filtered.append(emp)
-                
-        return filtered[skip : skip + limit]
+        return loans[skip : skip + limit]
         
     return crud.listar_emprestimos(db, status=status, usuario_id=usuario_id, skip=skip, limit=limit)
 
@@ -972,8 +953,17 @@ async def devolver_emprestimo(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti"])(current_user)
+    require_role(["ti", "professor"])(current_user)
     
+    if current_user.role == "professor":
+        emp = crud.get_emprestimo(db, emprestimo_id)
+        if not emp:
+            raise HTTPException(status_code=404, detail="Empréstimo não encontrado")
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_ids = [t.codigo_turma for t in prof_turmas]
+        if not emp.usuario or emp.usuario.turma not in turma_ids:
+            raise HTTPException(status_code=403, detail="Sem permissão para devolver notebook de outra turma")
+            
     try:
         result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id)
         
@@ -1031,13 +1021,13 @@ def list_historico(
         
     elif current_user.role == "professor":
         prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
-        turma_map = {t.codigo_turma: t.regime_dias for t in prof_turmas}
+        turma_ids = [t.codigo_turma for t in prof_turmas]
         
         query = db.query(models.Historico).join(models.Usuario, models.Historico.usuario_id == models.Usuario.id).options(
             joinedload(models.Historico.notebook),
             joinedload(models.Historico.usuario),
             joinedload(models.Historico.responsavel)
-        ).filter(models.Usuario.turma.in_(list(turma_map.keys())))
+        ).filter(models.Usuario.turma.in_(turma_ids))
         
         if notebook_id:
             query = query.filter(models.Historico.notebook_id == notebook_id)
@@ -1045,26 +1035,7 @@ def list_historico(
             query = query.filter(models.Historico.usuario_id == usuario_id)
             
         records = query.order_by(models.Historico.created_at.desc()).all()
-        
-        def date_matches_regime(dt: datetime, regime_dias: str) -> bool:
-            regime = regime_dias.lower()
-            wd = dt.weekday()
-            if wd == 0 and "2ª" in regime: return True
-            if wd == 1 and "3ª" in regime: return True
-            if wd == 2 and "4ª" in regime: return True
-            if wd == 3 and "5ª" in regime: return True
-            if wd == 4 and ("6ª" in regime or "sexta" in regime): return True
-            if wd == 5 and ("sabado" in regime or "sábado" in regime): return True
-            if wd == 6 and "domingo" in regime: return True
-            return False
-            
-        filtered = []
-        for h in records:
-            regime = turma_map.get(h.usuario.turma)
-            if regime and date_matches_regime(h.created_at, regime):
-                filtered.append(h)
-                
-        return filtered[skip : skip + limit]
+        return records[skip : skip + limit]
         
     return crud.get_historico(db, notebook_id=notebook_id, usuario_id=usuario_id, skip=skip, limit=limit)
 
@@ -1336,7 +1307,15 @@ async def create_reserva(
     
     return schemas.ReservaResponse(
         id=db_reserva.id,
- @app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
+        turma=db_reserva.turma_id,
+        data=db_reserva.data,
+        turno=db_reserva.turno,
+        quantidade=db_reserva.quantidade,
+        status=db_reserva.status,
+        usuario=db_reserva.usuario
+    )
+
+@app.patch("/reservas/{reserva_id}", response_model=schemas.ReservaResponse)
 async def update_reserva(
     reserva_id: int,
     reserva_update: schemas.ReservaUpdate,
@@ -1802,7 +1781,7 @@ def get_alocacoes_diarias(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti"])(current_user)
+    require_role(["ti", "professor"])(current_user)
     
     if not data:
         data = get_brasilia_time().strftime("%Y-%m-%d")
@@ -1870,7 +1849,13 @@ def get_alocacoes_diarias(
         if emp.notebook and emp.notebook.patrimonio not in alocacoes_map[key]["patrimonios"]:
             alocacoes_map[key]["patrimonios"].append(emp.notebook.patrimonio)
             
-    return list(alocacoes_map.values())
+    res_list = list(alocacoes_map.values())
+    if current_user.role == "professor":
+        prof_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        turma_ids = {t.codigo_turma for t in prof_turmas}
+        return [aloc for aloc in res_list if aloc["turma"] in turma_ids]
+        
+    return res_list
 
 # ==================== ROTAS DE SAÚDE ====================
 

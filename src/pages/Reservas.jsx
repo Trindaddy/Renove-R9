@@ -207,7 +207,7 @@ export default function Reservas() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {user?.role === 'ti' && (
+        {(user?.role === 'ti' || user?.role === 'professor') && (
           <form
             onSubmit={handleSubmit}
             className="glass-card p-4 space-y-3 lg:col-span-1 h-fit"
@@ -289,7 +289,7 @@ export default function Reservas() {
           </form>
         )}
 
-        <div className={`${user?.role === 'ti' ? 'lg:col-span-2' : 'lg:col-span-3'} glass-card overflow-hidden`}>
+        <div className={`${(user?.role === 'ti' || user?.role === 'professor') ? 'lg:col-span-2' : 'lg:col-span-3'} glass-card overflow-hidden`}>
           <div className="px-4 py-3 border-b border-dark-600/50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-200">
               Reservas recentes

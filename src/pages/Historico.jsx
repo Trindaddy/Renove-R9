@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getHistorico, listarNotebooks } from '../services/emprestimosService';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function Historico() {
   const [historico, setHistorico] = useState([]);
@@ -7,6 +8,8 @@ export default function Historico() {
   const [notebookSelecionado, setNotebookSelecionado] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { lastMessage } = useWebSocket();
 
   useEffect(() => {
     async function loadNotebooks() {
@@ -20,22 +23,29 @@ export default function Historico() {
     loadNotebooks();
   }, []);
 
-  useEffect(() => {
-    async function loadHistorico() {
-      try {
-        setLoading(true);
-        setError('');
-        const id = notebookSelecionado ? parseInt(notebookSelecionado) : undefined;
-        const data = await getHistorico(id);
-        setHistorico(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError('Erro ao carregar histórico');
-      } finally {
-        setLoading(false);
-      }
+  const loadHistorico = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const id = notebookSelecionado ? parseInt(notebookSelecionado) : undefined;
+      const data = await getHistorico(id);
+      setHistorico(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError('Erro ao carregar histórico');
+    } finally {
+      setLoading(false);
     }
-    loadHistorico();
   }, [notebookSelecionado]);
+
+  useEffect(() => {
+    loadHistorico();
+  }, [loadHistorico]);
+
+  useEffect(() => {
+    if (lastMessage?.type === 'emprestimo_realizado' || lastMessage?.type === 'devolucao_realizada') {
+      loadHistorico();
+    }
+  }, [lastMessage, loadHistorico]);
 
   return (
     <div className="space-y-6">
