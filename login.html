@@ -867,6 +867,102 @@
         text-align: center;
       }
     }
+
+    /* CUSTOM MODAL OVERLAY */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(1, 10, 22, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .custom-modal {
+      width: 90%;
+      max-width: 420px;
+      background: rgba(6, 18, 36, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 20px;
+      padding: 3rem 2rem 2.5rem;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.65), var(--glow-blue);
+      text-align: center;
+      transform: scale(0.9) translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modal-overlay.active .custom-modal {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-status-icon {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      color: var(--accent-turquoise);
+      filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.35));
+    }
+
+    .modal-status-icon svg {
+      width: 32px;
+      height: 32px;
+      fill: currentColor;
+    }
+
+    .modal-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      color: var(--text-white);
+      letter-spacing: -0.01em;
+    }
+
+    .modal-message {
+      font-size: 0.9rem;
+      color: var(--text-gray);
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .btn-modal-close {
+      background: linear-gradient(135deg, var(--accent-turquoise), var(--accent-orange));
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      color: var(--text-white);
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 0.9rem 2.5rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 15px rgba(255, 140, 0, 0.2);
+    }
+
+    .btn-modal-close:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(255, 140, 0, 0.45);
+    }
   </style>
 </head>
 <body>
@@ -1038,6 +1134,36 @@
     </div>
   </footer>
 
+  <!-- CUSTOM SUCCESS/WARNING MODAL -->
+  <div class="modal-overlay" id="customModalOverlay">
+    <div class="custom-modal">
+      <!-- Gold corner tech ornaments inside the modal -->
+      <div class="circuit-trim trim-top-left">
+        <svg viewBox="0 0 100 100">
+          <path d="M 5,95 L 5,5 L 95,5 M 25,95 L 25,25 L 95,25" />
+          <circle cx="95" cy="5" r="4" fill="#ffc800" />
+          <circle cx="95" cy="25" r="4" fill="#ffc800" />
+        </svg>
+      </div>
+      <div class="circuit-trim trim-bottom-right">
+        <svg viewBox="0 0 100 100">
+          <path d="M 5,95 L 5,5 L 95,5 M 25,95 L 25,25 L 95,25" />
+          <circle cx="95" cy="5" r="4" fill="#ffc800" />
+          <circle cx="95" cy="25" r="4" fill="#ffc800" />
+        </svg>
+      </div>
+
+      <div class="modal-status-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+      </div>
+      <h3 class="modal-title" id="modalTitle">Acesso Autorizado</h3>
+      <p class="modal-message" id="modalMessage">Sua autenticação foi efetuada com sucesso. Iniciando a sincronização de notebooks do Senac com o sistema R9...</p>
+      <button class="btn-modal-close" id="closeModalBtn">Prosseguir</button>
+    </div>
+  </div>
+
   <!-- SIMPLE SCRIPT FOR UI LOGIC -->
   <script>
     const passwordInput = document.getElementById('password');
@@ -1061,6 +1187,9 @@
     });
 
     // Handle form submit (mock connection)
+    const modalOverlay = document.getElementById('customModalOverlay');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+
     document.getElementById('signInForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value;
@@ -1084,7 +1213,9 @@
       }
 
       setTimeout(() => {
-        alert('Credenciais enviadas! Iniciando sincronização R9...');
+        // Show beautiful custom modal
+        modalOverlay.classList.add('active');
+
         submitBtn.innerHTML = `
           Entrar no Sistema Renove
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1094,6 +1225,10 @@
         submitBtn.style.opacity = '1';
         submitBtn.disabled = false;
       }, 1500);
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+      modalOverlay.classList.remove('active');
     });
   </script>
 </body>
