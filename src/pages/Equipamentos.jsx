@@ -4,7 +4,7 @@ import Button from '../components/Button.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { listarEquipamentos, atualizarEquipamento, cadastrarEquipamento, forcarDevolucaoEquipamento, excluirEquipamento } from '../services/equipamentosService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise } from '@phosphor-icons/react';
+import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise, PencilSimple } from '@phosphor-icons/react';
 
 export default function Equipamentos() {
   const [busca, setBusca] = useState('');
@@ -20,6 +20,8 @@ export default function Equipamentos() {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [showForceReturnModal, setShowForceReturnModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditConditionModal, setShowEditConditionModal] = useState(false);
+  const [editCondition, setEditCondition] = useState('Bom');
   const [selectedEq, setSelectedEq] = useState(null);
 
   // Form de Cadastro
@@ -42,7 +44,11 @@ export default function Equipamentos() {
       setLoading(true);
       setError('');
       const data = await listarEquipamentos();
-      setEquipamentos(Array.isArray(data) ? data : []);
+      const formatados = (Array.isArray(data) ? data : []).map(eq => ({
+        ...eq,
+        condicao: eq.condicao || 'Bom'
+      }));
+      setEquipamentos(formatados);
     } catch (err) {
       setError('Não foi possível carregar os equipamentos. Verifique a API.');
     } finally {
@@ -210,6 +216,47 @@ export default function Equipamentos() {
     }
   }
 
+  async function handleSaveCondition(e) {
+    e.preventDefault();
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await atualizarEquipamento(selectedEq.id, { condicao: editCondition });
+      setSuccess(`Condição do notebook ${selectedEq.patrimonio} atualizada para ${editCondition}.`);
+      setShowEditConditionModal(false);
+      setSelectedEq(null);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao atualizar a condição do equipamento.');
+      setShowEditConditionModal(false);
+      setSelectedEq(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getConditionBadgeClass(condicao) {
+    const cond = (condicao || 'Bom').toLowerCase();
+    switch (cond) {
+      case 'excelente':
+        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      case 'bom':
+        return 'bg-green-500/10 text-green-400 border border-green-500/20';
+      case 'regular':
+        return 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20';
+      case 'ruim':
+        return 'bg-orange-500/10 text-orange-400 border border-orange-500/20';
+      case 'danificado':
+        return 'bg-red-500/10 text-red-400 border border-red-500/20';
+      case 'obsoleto':
+        return 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
+      default:
+        return 'bg-slate-500/10 text-slate-400 border border-slate-500/20';
+    }
+  }
+
   const filtrados = equipamentos.filter((eq) => {
     const patrimonioStr = (eq?.patrimonio ?? '').toString().toLowerCase();
     const q = (busca ?? '').toLowerCase();
@@ -289,7 +336,7 @@ export default function Equipamentos() {
               <tr>
                 <th className="text-left px-5 py-3">Patrimônio</th>
                 <th className="text-left px-5 py-3">Modelo</th>
-                <th className="text-left px-5 py-3">Local</th>
+                <th className="text-left px-5 py-3">Condição</th>
                 <th className="text-left px-5 py-3">Status</th>
                 <th className="text-right px-5 py-3">Ações</th>
               </tr>
@@ -321,7 +368,32 @@ export default function Equipamentos() {
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-slate-400">{eq.local}</td>
+                    <td className="px-5 py-3.5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span 
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setEditCondition(eq.condicao || 'Bom');
+                            setShowEditConditionModal(true);
+                          }}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:scale-105 active:scale-95 transition-all ${getConditionBadgeClass(eq.condicao)}`}
+                          title="Clique para editar a condição"
+                        >
+                          {eq.condicao || 'Bom'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setEditCondition(eq.condicao || 'Bom');
+                            setShowEditConditionModal(true);
+                          }}
+                          className="p-1 rounded text-slate-450 hover:text-primary hover:bg-dark-600/50 transition-all"
+                          title="Editar Condição"
+                        >
+                          <PencilSimple size={13} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={eq.status} />
                     </td>
@@ -457,8 +529,31 @@ export default function Equipamentos() {
                 
                 <div className="grid grid-cols-1 gap-2 text-xs border-t border-dark-600/50 pt-3">
                   <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-slate-500">Local</span>
-                    <span className="text-slate-300">{eq.local}</span>
+                    <span className="block text-[10px] uppercase tracking-wider text-slate-500">Condição</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span 
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setEditCondition(eq.condicao || 'Bom');
+                          setShowEditConditionModal(true);
+                        }}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:scale-105 active:scale-95 transition-all ${getConditionBadgeClass(eq.condicao)}`}
+                        title="Clique para editar a condição"
+                      >
+                        {eq.condicao || 'Bom'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setEditCondition(eq.condicao || 'Bom');
+                          setShowEditConditionModal(true);
+                        }}
+                        className="p-1 rounded bg-dark-600/50 border border-dark-500/30 text-slate-300 hover:text-primary hover:bg-dark-600 transition-all"
+                        title="Editar Condição"
+                      >
+                        <PencilSimple size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -622,29 +717,21 @@ export default function Equipamentos() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-xs text-slate-300">Condição</span>
-                  <select
-                    value={newNotebook.condicao}
-                    onChange={(e) => setNewNotebook(prev => ({ ...prev, condicao: e.target.value }))}
-                    className="tech-select text-xs"
-                  >
-                    <option value="Novo">Novo</option>
-                    <option value="Bom">Bom</option>
-                    <option value="Regular">Regular</option>
-                    <option value="Ruim">Ruim</option>
-                  </select>
-                </label>
-
-                <Input
-                  label="Local"
-                  name="local"
-                  value={newNotebook.local}
-                  onChange={(e) => setNewNotebook(prev => ({ ...prev, local: e.target.value }))}
-                  required
-                />
-              </div>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-xs text-slate-300">Condição</span>
+                <select
+                  value={newNotebook.condicao}
+                  onChange={(e) => setNewNotebook(prev => ({ ...prev, condicao: e.target.value }))}
+                  className="tech-select text-xs"
+                >
+                  <option value="Excelente">Excelente</option>
+                  <option value="Bom">Bom</option>
+                  <option value="Regular">Regular</option>
+                  <option value="Ruim">Ruim</option>
+                  <option value="Danificado">Danificado</option>
+                  <option value="Obsoleto">Obsoleto</option>
+                </select>
+              </label>
 
               <label className="flex flex-col gap-1 text-sm">
                 <span className="text-xs text-slate-300">Observações</span>
@@ -797,6 +884,74 @@ export default function Equipamentos() {
                 </Button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Editar Condição */}
+      {showEditConditionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 border-dark-600 bg-gradient-to-br from-dark-800 to-dark-900">
+            <button
+              onClick={() => {
+                setShowEditConditionModal(false);
+                setSelectedEq(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+            <form onSubmit={handleSaveCondition} className="space-y-4">
+              <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <PencilSimple weight="duotone" size={32} />
+                </div>
+                
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-100 uppercase tracking-wider">Editar Condição</h3>
+                  <p className="text-[10px] text-primary font-mono tracking-widest uppercase">{selectedEq?.patrimonio}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Nova Condição</label>
+                <select
+                  value={editCondition}
+                  onChange={(e) => setEditCondition(e.target.value)}
+                  className="tech-select w-full py-2.5 text-xs"
+                  required
+                >
+                  <option value="Excelente">Excelente</option>
+                  <option value="Bom">Bom</option>
+                  <option value="Regular">Regular</option>
+                  <option value="Ruim">Ruim</option>
+                  <option value="Danificado">Danificado</option>
+                  <option value="Obsoleto">Obsoleto</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 w-full pt-2">
+                <Button
+                  onClick={() => {
+                    setShowEditConditionModal(false);
+                    setSelectedEq(null);
+                  }}
+                  variant="outline"
+                  type="button"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold bg-dark-700 hover:bg-dark-600 text-slate-200"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="success"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold"
+                >
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

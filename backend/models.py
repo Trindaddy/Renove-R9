@@ -44,7 +44,7 @@ class Notebook(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado', 'Reservado (Em Lote)')", name="check_notebook_status"),
-        CheckConstraint("condicao IN ('Novo', 'Bom', 'Regular', 'Ruim')", name="check_notebook_condicao"),
+        CheckConstraint("condicao IN ('Excelente', 'Bom', 'Regular', 'Ruim', 'Danificado', 'Obsoleto')", name="check_notebook_condicao"),
     )
 
 class Emprestimo(Base):

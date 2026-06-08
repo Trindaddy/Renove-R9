@@ -1186,13 +1186,17 @@
       }
     });
 
-    // Handle form submit (mock connection)
+    // Handle form submit (mock connection & real token exchange)
     const modalOverlay = document.getElementById('customModalOverlay');
     const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    const modalIconDiv = document.querySelector('.modal-status-icon');
 
-    document.getElementById('signInForm').addEventListener('submit', (e) => {
+    document.getElementById('signInForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('email').value;
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
       const submitBtn = e.target.querySelector('.btn-submit');
       
       submitBtn.innerHTML = `
@@ -1212,10 +1216,85 @@
         document.head.appendChild(style);
       }
 
-      setTimeout(() => {
-        // Show beautiful custom modal
+      try {
+        const params = new URLSearchParams();
+        params.append('username', email);
+        params.append('password', password);
+
+        const response = await fetch('http://localhost:8000/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || 'E-mail ou senha incorretos.');
+        }
+
+        const tokenData = await response.json();
+
+        // Get user details
+        const meResponse = await fetch('http://localhost:8000/auth/me', {
+          headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+        });
+
+        if (!meResponse.ok) {
+          throw new Error('Falha ao sincronizar perfil do usuário.');
+        }
+
+        const me = await meResponse.json();
+
+        // Store user in localstorage for the React system
+        const loggedUser = {
+          id: me.id,
+          nome: me.nome,
+          role: me.role,
+          email: me.email,
+          token: tokenData.access_token
+        };
+        localStorage.setItem('r9:user', JSON.stringify(loggedUser));
+
+        // Display Success Modal
+        modalIconDiv.style.color = 'var(--accent-turquoise)';
+        modalIconDiv.style.borderColor = 'rgba(0, 240, 255, 0.3)';
+        modalIconDiv.style.filter = 'drop-shadow(0 0 10px rgba(0, 240, 255, 0.35))';
+        modalIconDiv.innerHTML = `
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        `;
+        modalTitle.textContent = "Acesso Autorizado";
+        modalTitle.style.color = "var(--text-white)";
+        modalMessage.textContent = `Seja bem-vindo(a), ${me.nome}! Autenticação bem-sucedida. Clique abaixo para carregar o Painel de Notebooks R9.`;
+        closeModalBtn.textContent = "Prosseguir";
         modalOverlay.classList.add('active');
 
+        // Redirect on click
+        closeModalBtn.onclick = () => {
+          window.location.href = "http://localhost:5173/";
+        };
+
+      } catch (err) {
+        // Display Warning/Error Modal
+        modalIconDiv.style.color = 'var(--accent-orange)';
+        modalIconDiv.style.borderColor = 'rgba(255, 140, 0, 0.3)';
+        modalIconDiv.style.filter = 'drop-shadow(0 0 10px rgba(255, 140, 0, 0.35))';
+        modalIconDiv.innerHTML = `
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+        `;
+        modalTitle.textContent = "Falha de Acesso";
+        modalTitle.style.color = "var(--accent-orange)";
+        modalMessage.textContent = err.message || "Erro de conexão. Verifique se o servidor backend está online.";
+        closeModalBtn.textContent = "Tentar Novamente";
+        modalOverlay.classList.add('active');
+
+        closeModalBtn.onclick = () => {
+          modalOverlay.classList.remove('active');
+        };
+      } finally {
         submitBtn.innerHTML = `
           Entrar no Sistema Renove
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1224,11 +1303,7 @@
         `;
         submitBtn.style.opacity = '1';
         submitBtn.disabled = false;
-      }, 1500);
-    });
-
-    closeModalBtn.addEventListener('click', () => {
-      modalOverlay.classList.remove('active');
+      }
     });
   </script>
 </body>

@@ -17,10 +17,13 @@ class NotebookStatus(str, Enum):
     reservado_lote = "Reservado (Em Lote)"
 
 class NotebookCondicao(str, Enum):
-    novo = "Novo"
+    excelente = "Excelente"
     bom = "Bom"
     regular = "Regular"
     ruim = "Ruim"
+    danificado = "Danificado"
+    obsoleto = "Obsoleto"
+
 
 class EmprestimoStatus(str, Enum):
     pendente = "Pendente"
