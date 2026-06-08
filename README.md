@@ -1,6 +1,6 @@
 # R9 - Renove: Sistema de Gestão de Notebooks
 
-Sistema completo para gerenciamento de empréstimo de notebooks do Senac, com backend Python/FastAPI, banco SQL e interface React no estilo **Dark Tech Profissional**.
+Sistema completo para gerenciamento de empréstimo de notebooks do Senac, com backend Python/FastAPI, banco de dados SQLite e interface React no estilo **Dark Tech Premium**.
 
 ---
 
@@ -9,74 +9,57 @@ Sistema completo para gerenciamento de empréstimo de notebooks do Senac, com ba
 ```
 Renove-R9/
 ├── backend/                    # API Python (FastAPI)
-│   ├── main.py                 # Aplicação principal
-│   ├── database.py             # Conexão SQLAlchemy
-│   ├── models.py               # Modelos ORM
+│   ├── main.py                 # Aplicação principal e rotas
+│   ├── database.py             # Conexão SQLAlchemy & Session
+│   ├── models.py               # Modelos ORM (SQLite)
 │   ├── schemas.py              # Validação Pydantic
-│   ├── crud.py                 # Regras de negócio
-│   ├── alertas.py              # Alerta de escassez
-│   ├── websocket.py            # Tempo real (WebSocket)
-│   ├── seed.py                 # Dados de teste
-│   ├── requirements.txt        # Dependências
-│   ├── .env.example            # Configurações
-│   └── sql/
-│       └── ddl.sql             # Esquema completo
+│   ├── crud.py                 # Regras de negócio e transações
+│   ├── alertas.py              # Monitoramento de escassez
+│   ├── websocket.py            # Comunicação em tempo real
+│   ├── seed.py                 # Seed dos dados principais
+│   ├── requirements.txt        # Dependências do Python
+│   ├── .env.example            # Exemplo de configurações de ambiente
+│   └── r9_notebooks.db         # Banco de dados SQLite de produção local
 │
-├── src/                        # Frontend React
-│   ├── components/             # Componentes reutilizáveis
-│   │   ├── Button.jsx
-│   │   ├── DashboardCards.jsx
-│   │   ├── EmprestimoForm.jsx
-│   │   ├── IAWidget.jsx
-│   │   ├── Input.jsx
-│   │   └── Layout.jsx
-│   ├── pages/                  # Páginas
-│   │   ├── Emprestimos.jsx     # Dashboard principal
-│   │   ├── Historico.jsx       # Log de movimentações
-│   │   ├── Home.jsx
-│   │   ├── Login.jsx
-│   │   ├── Equipamentos.jsx
-│   │   ├── Reservas.jsx
-│   │   ├── Solicitacoes.jsx
-│   │   └── Turmas.jsx
-│   ├── services/               # API clients
-│   │   ├── api.js
-│   │   ├── emprestimosService.js
+├── src/                        # Frontend React (Vite)
+│   ├── components/             # Componentes reutilizáveis (Input, Button, Badges)
+│   ├── pages/                  # Páginas da aplicação
+│   │   ├── Home.jsx            # Dashboard principal com atalhos de TI
+│   │   ├── Login.jsx           # Tela de login e fluxo de recuperação reativo
+│   │   ├── Equipamentos.jsx    # Inventário e controle de condições
+│   │   ├── Usuarios.jsx        # Controle de usuários (exclusivo TI)
+│   │   ├── Alocacoes.jsx       # Reservas e Alocações diárias
+│   │   ├── Historico.jsx       # Log completo de movimentações
 │   │   └── ...
-│   ├── hooks/
-│   │   └── useWebSocket.js     # Hook para tempo real
-│   ├── enums/                  # Enums JavaScript
-│   │   ├── EquipmentStatus.js
-│   │   ├── SolicitacaoStatus.js
-│   │   ├── Turno.js
-│   │   └── index.js
-│   ├── context/
-│   ├── routes/
-│   └── styles/
-│
-├── tailwind.config.js          # Config Tech (Navy/Cyan/Alert)
-├── package.json
-└── README.md
+│   ├── services/               # API clients (axios / endpoints)
+│   ├── styles/                 # Estilização (Tailwind CSS)
+│   └── ...
 ```
 
 ---
 
-## 🎨 Design System: Dark Tech Profissional
+## 🎨 Design System: Dark Tech Premium
 
-| Elemento | Valor |
-|----------|-------|
-| Fundo | `#0a192f` (Deep Navy) |
-| Cartões | `#172a45` com glassmorphism |
-| Destaque | `#64ffda` (Cyan/Aqua) |
-| Alerta/CTA | `#ff9f43` (Laranja-Queimado) |
-| Fonte | Inter + Fira Code |
-| Efeitos | Glow, scan lines, glassmorphism |
+O sistema utiliza a estética **Glassmorphism** com gradientes neon sobre fundo escuro:
+
+| Elemento | Valor | Rótulo/Uso |
+|----------|-------|------------|
+| Fundo Principal | `#0a192f` | Deep Navy |
+| Cartões / Painéis | `#172a45` | Glassmorphism translúcido |
+| Rótulo Destaque | `#64ffda` | Cyan / Aqua Neon |
+| Chamada (CTA) | `#ff9f43` | Laranja-Queimado |
+| Excelente | `#10b981` (Cyan/Verde) | Badge Condição |
+| Bom | `#22c55e` (Verde) | Badge Condição |
+| Regular | `#eab308` (Amarelo) | Badge Condição |
+| Ruim | `#f97316` (Laranja) | Badge Condição |
+| Danificado | `#ef4444` (Vermelho) | Badge Condição |
+| Obsoleto | `#a855f7` (Roxo) | Badge Condição |
 
 ---
 
 ## 🚀 Inicialização
 
-### 1. Backend
+### 1. Backend (FastAPI)
 
 ```bash
 cd backend
@@ -88,17 +71,14 @@ venv\Scripts\activate
 # Instalar dependências
 pip install -r requirements.txt
 
-# Criar banco e dados de teste
-python seed.py
-
 # Iniciar servidor
-uvicorn main:app --reload
+python -m uvicorn main:app --reload --port 8000
 ```
 
-API disponível em: `http://localhost:8000`
-Documentação: `http://localhost:8000/docs`
+* API disponível em: `http://localhost:8000`
+* Documentação OpenAPI: `http://localhost:8000/docs`
 
-### 2. Frontend
+### 2. Frontend (React + Vite)
 
 ```bash
 # Na raiz do projeto
@@ -106,76 +86,66 @@ npm install
 npm run dev
 ```
 
-Frontend disponível em: `http://localhost:5173`
+* Interface disponível em: `http://localhost:5173`
 
 ---
 
-## 📊 Funcionalidades
+## 📊 Principais Recursos Implementados
 
-### Backend
-- ✅ **Disponibilidade em tempo real** via WebSocket
-- ✅ **Alerta de Escassez** automático (< 10% disponíveis)
-- ✅ **Tabelas:** Usuarios, Notebooks, Emprestimos, Historico, Configuracoes
-- ✅ **Autenticação JWT** com roles (aluno, professor, ti)
-- ✅ **Log completo** de movimentações por equipamento
-- ✅ **Preparado para IA** (endpoint de previsão estruturado)
+### 🔒 1. Fluxo de Recuperação de Senha Reativo
+* Implementação de uma **Máquina de Estados** completa no card de login (`Login.jsx`).
+* Permite alternar dinamicamente e sem redirecionamento de páginas:
+  - **Estado 0**: Login padrão.
+  - **Estado 1**: Solicitação de OTP via e-mail institucional.
+  - **Estado 2**: Validação do código OTP enviado (gerado no log do backend).
+  - **Estado 3**: Cadastro de nova senha segura.
+* Validação rígida de domínios institucionais: `@df.senac.br` para TI/Professores e `@edu.df.senac.br` para alunos.
 
-### Frontend
-- ✅ **Dashboard Tech** com KPIs e barra de disponibilidade
-- ✅ **Empréstimo Rápido** (Patrimônio + Matrícula)
-- ✅ **Tabela de Movimentações** com filtros e ações
-- ✅ **Widget de IA Previsiva** (placeholder para ML)
-- ✅ **WebSocket** para atualizações em tempo real
-- ✅ **Interface adaptativa** por perfil (Aluno/Professor/TI)
+### ⚙️ 2. Edição Dinâmica de Condições (6 Estados)
+* Padronização de todos os notebooks ativos com a condição inicial **Bom**.
+* Suporte total a 6 classificações de estado: *Excelente*, *Bom*, *Regular*, *Ruim*, *Danificado*, e *Obsoleto* com badges coloridos personalizados.
+* **Gatilhos Duplos na UI**: Abertura do modal de alteração clicando tanto diretamente no Badge de Condição quanto no ícone de Lápis (visibilidade otimizada para toque/mobile).
+* **Validação no Banco**: Restrição de integridade a nível de banco de dados (`CHECK constraint` no SQLite) e validação através do Pydantic Enum no FastAPI.
+
+### 🧠 3. IA Predita (Insights de Operação)
+* Módulo de análise preditiva real através do endpoint `/ia/insights`.
+* Gera insights analíticos baseados nos dados históricos de empréstimos e manutenções:
+  - Previsão de dias com picos de alta demanda.
+  - Alerta de taxa de avarias elevada por modelo de notebook.
+  - Identificação de unidades ociosas (sem movimentação nos últimos 30 dias).
+  - Definições de remanejamento preventivo de estoque.
+
+### 👥 4. Painel de Controle de Usuários (TI)
+* Tela exclusiva para o grupo de TI (`Usuarios.jsx`) para cadastrar novos usuários, gerenciar o status de ativação/inativação de contas e redefinir senhas esquecidas de alunos e professores em tempo real.
 
 ---
 
-## 🔐 Credenciais de Teste
+## 🔐 Credenciais de Teste Homologadas
 
-| Perfil | E-mail | Senha |
-|--------|--------|-------|
-| TI | ti@senac.br | senha123 |
-| Professor | professor@senac.br | senha123 |
-| Aluno | aluno@senac.br | senha123 |
+O banco de dados SQLite (`backend/r9_notebooks.db`) conta com os seguintes logins pré-configurados:
 
----
-
-## 🔮 Integração Futura com IA
-
-O sistema está preparado para receber um modelo de ML:
-
-1. **Endpoint já estruturado:** `/dashboard/previsao-demanda`
-2. **Widget IA:** `src/components/IAWidget.jsx` (placeholder)
-3. **Dados históricos:** Tabela `historico` com metadata JSON
-4. **Alertas preditivos:** Módulo `alertas.py` pronto para extensão
-
-Exemplo de implementação futura:
-```python
-# Previsão de demanda usando Prophet/Scikit-Learn
-@app.get("/dashboard/previsao-demanda")
-def prever_demanda(db: Session = Depends(get_db)):
-    dados = crud.get_historico_emprestimos_por_dia(db)
-    modelo = carregar_modelo_ia()  # .pkl ou API externa
-    previsao = modelo.predict(dados)
-    return {"previsao": previsao, "confianca": 0.85}
-```
+| Perfil | E-mail Institucional | Senha | Acesso |
+|--------|----------------------|-------|--------|
+| **TI (Administrador)** | `ti@df.senac.br` | `senha123` | Acesso total, inventário, usuários, IA e alocações |
+| **Professor** | `alysson@df.senac.br` | `senha123` | Empréstimos, histórico, reservas e IA |
+| **Aluno** | `pedro.costa@edu.df.senac.br` | `senha123` | Visualização e solicitações básicas |
 
 ---
 
 ## 📡 API Endpoints Principais
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| POST | `/auth/login` | Login JWT |
-| GET | `/dashboard/stats` | Estatísticas do inventário |
-| GET | `/dashboard/alerta-escassez` | Verificar alerta |
-| GET | `/notebooks` | Listar notebooks |
-| POST | `/emprestimos/rapido` | Empréstimo rápido |
-| POST | `/emprestimos/{id}/devolver` | Registrar devolução |
-| GET | `/historico` | Log de movimentações |
-| WS | `/ws` | WebSocket tempo real |
+| Método | Endpoint | Função / Acesso |
+|--------|----------|-----------------|
+| POST | `/auth/login` | Login e geração de Token JWT |
+| GET | `/notebooks` | Lista completa do inventário de computadores |
+| PATCH | `/notebooks/{id}` | Atualização de notebook (Condição, Status, Manutenção) |
+| POST | `/notebooks/{id}/forcar-devolucao` | Contingência de liberação de notebook travado |
+| GET | `/ia/insights` | insights preditivos gerados pelo motor analítico |
+| GET | `/usuarios` | Listagem de usuários (apenas TI) |
+| PATCH | `/usuarios/{id}` | Ativação/inativação de usuário |
+| PATCH | `/usuarios/{id}/senha` | Redefinição administrativa de senha |
+| WS | `/ws` | Conexão WebSocket para estatísticas em tempo real |
 
 ---
 
-Desenvolvido para o Projeto Renove (R9) - Senac
-
+Desenvolvido para o Projeto Renove (R9) - Senac.
