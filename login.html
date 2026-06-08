@@ -20,8 +20,8 @@
       --text-white: #f8fafc;
       --text-gray: #94a3b8;
       
-      --glass-bg: rgba(6, 18, 36, 0.45);
-      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-bg: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.15);
       --glow-blue: 0 0 20px rgba(0, 240, 255, 0.25);
       --glow-orange: 0 0 25px rgba(255, 140, 0, 0.3);
       --glow-gold: 0 0 15px rgba(255, 200, 0, 0.25);
@@ -389,8 +389,8 @@
       width: 100%;
       max-width: 430px;
       background: var(--glass-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--glass-border);
       border-radius: 20px;
       padding: 3rem 2.5rem;
@@ -648,7 +648,7 @@
       width: 100%;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      background: linear-gradient(135deg, var(--primary-blue), var(--accent-orange));
+      background: linear-gradient(135deg, var(--accent-turquoise), var(--accent-orange));
       color: var(--text-white);
       padding: 1rem;
       font-size: 0.95rem;
@@ -661,7 +661,7 @@
       justify-content: center;
       gap: 0.75rem;
       transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: var(--glow-orange);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.25), var(--glow-orange);
       position: relative;
       overflow: hidden;
     }
@@ -679,8 +679,8 @@
 
     .btn-submit:hover {
       transform: scale(1.02);
-      box-shadow: 0 0 30px rgba(255, 140, 0, 0.45);
-      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.45), 0 0 35px rgba(255, 140, 0, 0.45);
+      border-color: rgba(255, 255, 255, 0.25);
     }
 
     .btn-submit:hover::before {
@@ -924,13 +924,13 @@
         <div class="tooltip-card tooltip-1">
           <div class="tooltip-icon icon-blue">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
             </svg>
           </div>
           <div class="tooltip-content">
-            <span class="tooltip-label">Status do Hardware</span>
+            <span class="tooltip-label">Notebook Disponível</span>
             <span class="tooltip-value">
-              Notebook Disponível <span class="status-dot-green"></span>
+              Dispositivo Pronto <span class="status-dot-green"></span>
             </span>
           </div>
         </div>
@@ -938,12 +938,12 @@
         <div class="tooltip-card tooltip-2">
           <div class="tooltip-icon icon-orange">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+              <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
             </svg>
           </div>
           <div class="tooltip-content">
-            <span class="tooltip-label">Sistema R9</span>
-            <span class="tooltip-value">Conexão Segura SSL</span>
+            <span class="tooltip-label">Patrimônio Vinculado</span>
+            <span class="tooltip-value">Inventário R9</span>
           </div>
         </div>
       </div>
