@@ -268,7 +268,8 @@ function UsuariosPanel() {
 
             {/* Table */}
             <div className="glass-card overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Layout para Desktop */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="tech-table-header">
                     <tr>
@@ -353,6 +354,73 @@ function UsuariosPanel() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Layout para Mobile (Cards) */}
+              <div className="block md:hidden">
+                {loading && (
+                  <div className="px-5 py-10 text-center text-xs text-slate-500">Carregando...</div>
+                )}
+                {!loading && filteredUsuarios.map(u => (
+                  <div key={u.id} className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${roleColors[u.role]}`}>
+                        {roleLabels[u.role] || u.role}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        u.ativo ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                      }`}>
+                        {u.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-dark-600/50 flex items-center justify-center font-bold text-xs text-slate-300 border border-dark-650 shrink-0">
+                        {u.nome ? u.nome.charAt(0) : 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-slate-200 truncate">{u.nome}</div>
+                        <div className="text-xs text-slate-400 truncate">{u.email}</div>
+                        <div className="font-mono text-[10px] text-slate-550 mt-0.5">
+                          Matrícula: {u.matricula || '—'} • Turma: {u.turma || '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex gap-2 w-full">
+                      <button
+                        onClick={() => { setResetUser(u); setNewPassword(''); setError(''); }}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-xs font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all"
+                      >
+                        <LockKey weight="fill" size={14} />
+                        Redefinir Senha
+                      </button>
+                      {u.id !== user.id && (
+                        <button
+                          onClick={() => handleToggleUserActive(u)}
+                          className={`px-4 py-3 rounded-lg text-xs font-bold border transition-all ${
+                            u.ativo 
+                              ? 'bg-amber-500/10 text-amber-450 border-amber-500/20 hover:bg-amber-500/20' 
+                              : 'bg-emerald-500/10 text-emerald-450 border-emerald-500/20 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          {u.ativo ? 'Inativar' : 'Ativar'}
+                        </button>
+                      )}
+                      {u.id !== user.id && (
+                        <button
+                          onClick={() => { setDeleteUser(u); setError(''); setSuccess(''); }}
+                          className="px-3 py-3 rounded-lg bg-red-500/10 text-red-450 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center justify-center shrink-0"
+                        >
+                          <Warning weight="fill" size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!loading && filteredUsuarios.length === 0 && (
+                  <div className="px-5 py-10 text-center text-xs text-slate-500">Nenhum usuário encontrado.</div>
+                )}
               </div>
               <div className="px-5 py-3 border-t border-dark-600/50 text-[11px] text-slate-500">
                 {filteredUsuarios.length} de {usuarios.length} usuário(s)

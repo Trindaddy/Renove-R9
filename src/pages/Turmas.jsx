@@ -322,7 +322,8 @@ export default function Turmas() {
         )}
       </AnimatePresence>
 
-      <div className="glass-card overflow-hidden">
+      {/* Layout para Desktop */}
+      <div className="hidden md:block glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="tech-table-header">
@@ -339,7 +340,7 @@ export default function Turmas() {
             <tbody>
               {loading && turmas.length === 0 && (
                 <tr>
-                  <td colSpan={isTi ? 6 : 5} className="px-5 py-10 text-center">
+                  <td colSpan={isTi ? 7 : 6} className="px-5 py-10 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
@@ -400,7 +401,7 @@ export default function Turmas() {
                               setEditingTurmaId(turma.id);
                               setNewInstructorVal(turma.instrutor);
                             }}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all opacity-0 group-hover:opacity-100"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
                           >
                             Alterar
                           </button>
@@ -437,7 +438,7 @@ export default function Turmas() {
 
               {!loading && turmas.length === 0 && (
                 <tr>
-                  <td colSpan={isTi ? 6 : 5} className="px-5 py-10 text-center text-xs text-slate-500 font-mono">
+                  <td colSpan={isTi ? 7 : 6} className="px-5 py-10 text-center text-xs text-slate-500 font-mono">
                     Nenhuma turma cadastrada no sistema.
                   </td>
                 </tr>
@@ -445,6 +446,115 @@ export default function Turmas() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Layout para Mobile (Cards) */}
+      <div className="block md:hidden">
+        {loading && turmas.length === 0 && (
+          <div className="px-5 py-10 text-center text-xs text-slate-500">Buscando turmas...</div>
+        )}
+        {!loading && turmas.map((turma) => (
+          <div key={turma.id} className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-dark-800 border border-dark-600 text-slate-350">
+                {turma.turno}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-dark-600/50 flex items-center justify-center shrink-0">
+                <Users className="text-primary text-lg" weight="duotone" />
+              </div>
+              <div className="min-w-0 pr-16">
+                <div className="font-mono text-xs text-primary/85 font-semibold">{turma.id}</div>
+                <div className="text-sm font-bold text-slate-200 truncate">{turma.curso}</div>
+              </div>
+            </div>
+
+            <div className="border-t border-dark-600/30 pt-3 flex flex-col gap-1.5 text-xs">
+              <div>
+                <span className="text-slate-555 uppercase tracking-wider text-[9px] block">Professor Responsável</span>
+                {editingTurmaId === turma.id ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <select
+                      value={newInstructorVal}
+                      onChange={(e) => setNewInstructorVal(e.target.value)}
+                      className="tech-select text-[11px] py-1.5 px-2 flex-1"
+                    >
+                      <option value="">Selecione o Professor</option>
+                      {professores.map((p) => (
+                        <option key={p.id} value={p.nome}>
+                          {p.nome}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleUpdateInstructor(turma.id, newInstructorVal)}
+                      className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 shrink-0"
+                      title="Confirmar alteração"
+                    >
+                      <Check size={12} weight="bold" />
+                    </button>
+                    <button
+                      onClick={() => setEditingTurmaId(null)}
+                      className="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 shrink-0"
+                      title="Cancelar"
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfessor(turma.instrutor)}
+                      className="text-xs text-slate-350 font-bold underline hover:text-primary transition-colors text-left"
+                    >
+                      {turma.instrutor}
+                    </button>
+                    {isTi && (
+                      <button
+                        onClick={() => {
+                          setEditingTurmaId(turma.id);
+                          setNewInstructorVal(turma.instrutor);
+                        }}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                      >
+                        Alterar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="mt-1 flex justify-between items-center">
+                <span className="text-slate-555 uppercase tracking-wider text-[9px]">Regime de Dias</span>
+                <span className="text-slate-350 font-mono font-medium">{turma.regime_dias}</span>
+              </div>
+            </div>
+
+            <div className="mt-2 flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => handleOpenAlunosPanel(turma)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-xs text-primary border border-primary/20 bg-primary/5 hover:bg-primary/15 font-bold transition-colors"
+              >
+                <Users size={16} />
+                <span>Ver Alunos</span>
+              </button>
+              {isTi && (
+                <button
+                  onClick={() => handleDeleteTurmaClick(turma.id)}
+                  className="px-3.5 py-3 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center shrink-0"
+                >
+                  <Trash size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {!loading && turmas.length === 0 && (
+          <div className="px-5 py-10 text-center text-xs text-slate-500">Nenhuma turma cadastrada.</div>
+        )}
       </div>
 
       {/* MODAL: Cadastrar Nova Turma */}
@@ -684,60 +794,104 @@ export default function Turmas() {
                     Nenhum aluno matriculado nesta turma.
                   </div>
                 ) : (
-                  <div className="glass-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="tech-table-header">
-                          <tr>
-                            <th className="text-left px-4 py-2.5">Matrícula</th>
-                            <th className="text-left px-4 py-2.5">Nome</th>
-                            <th className="text-left px-4 py-2.5">E-mail</th>
-                            <th className="text-right px-4 py-2.5">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {turmaAlunos.map((aluno) => (
-                            <tr key={aluno.id} className="tech-table-row group">
-                              <td className="px-4 py-3 font-mono text-primary/80">{aluno.matricula}</td>
-                              <td className="px-4 py-3 font-bold text-slate-200">{aluno.nome}</td>
-                              <td className="px-4 py-3 text-slate-450 font-mono text-[10px] max-w-[170px] truncate" title={aluno.email}>
-                                {aluno.email}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => handleViewHistory(aluno)}
-                                    className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
-                                    title="Histórico de Empréstimos"
-                                  >
-                                    <ClockCounterClockwise size={14} />
-                                  </button>
-                                  {isTi && (
-                                    <>
-                                      <button
-                                        onClick={() => handleEditStudent(aluno)}
-                                        className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
-                                        title="Editar Aluno"
-                                      >
-                                        <PencilSimple size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleRemoveStudentClick(aluno)}
-                                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-455 hover:bg-red-500/20 transition-all"
-                                        title="Remover da Turma"
-                                      >
-                                        <UserMinus size={14} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
+                  <>
+                    {/* Layout para Desktop */}
+                    <div className="hidden sm:block glass-card overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="tech-table-header">
+                            <tr>
+                              <th className="text-left px-4 py-2.5">Matrícula</th>
+                              <th className="text-left px-4 py-2.5">Nome</th>
+                              <th className="text-left px-4 py-2.5">E-mail</th>
+                              <th className="text-right px-4 py-2.5">Ações</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {turmaAlunos.map((aluno) => (
+                              <tr key={aluno.id} className="tech-table-row group">
+                                <td className="px-4 py-3 font-mono text-primary/80">{aluno.matricula}</td>
+                                <td className="px-4 py-3 font-bold text-slate-200">{aluno.nome}</td>
+                                <td className="px-4 py-3 text-slate-450 font-mono text-[10px] max-w-[170px] truncate" title={aluno.email}>
+                                  {aluno.email}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => handleViewHistory(aluno)}
+                                      className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                                      title="Histórico de Empréstimos"
+                                    >
+                                      <ClockCounterClockwise size={14} />
+                                    </button>
+                                    {isTi && (
+                                      <>
+                                        <button
+                                          onClick={() => handleEditStudent(aluno)}
+                                          className="p-1.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                                          title="Editar Aluno"
+                                        >
+                                          <PencilSimple size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleRemoveStudentClick(aluno)}
+                                          className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-455 hover:bg-red-500/20 transition-all"
+                                          title="Remover da Turma"
+                                        >
+                                          <UserMinus size={14} />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Layout para Mobile (Cards) */}
+                    <div className="block sm:hidden space-y-3">
+                      {turmaAlunos.map((aluno) => (
+                        <div key={aluno.id} className="bg-dark-800/40 border border-dark-600 p-4 rounded-xl flex flex-col gap-2 relative">
+                          <div>
+                            <p className="font-bold text-sm text-slate-200">{aluno.nome}</p>
+                            <p className="font-mono text-[10px] text-primary/85 mt-0.5">Matrícula: {aluno.matricula}</p>
+                            <p className="text-[11px] text-slate-450 font-mono mt-0.5 truncate">{aluno.email}</p>
+                          </div>
+                          
+                          <div className="flex justify-end gap-2 border-t border-dark-600/30 pt-2.5 mt-1">
+                            <button
+                              onClick={() => handleViewHistory(aluno)}
+                              className="p-2.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-350 hover:text-primary flex items-center justify-center"
+                              title="Histórico de Empréstimos"
+                            >
+                              <ClockCounterClockwise size={16} />
+                            </button>
+                            {isTi && (
+                              <>
+                                <button
+                                  onClick={() => handleEditStudent(aluno)}
+                                  className="p-2.5 rounded-lg bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-355 hover:text-primary flex items-center justify-center"
+                                  title="Editar Aluno"
+                                >
+                                  <PencilSimple size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveStudentClick(aluno)}
+                                  className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:bg-red-500/20 flex items-center justify-center"
+                                  title="Remover da Turma"
+                                >
+                                  <UserMinus size={16} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </motion.div>

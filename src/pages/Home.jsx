@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
   getDashboardAluno,
@@ -11,10 +11,16 @@ import Input from '../components/Input.jsx';
 import Button from '../components/Button.jsx';
 import IAWidget from '../components/IAWidget.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Laptop, Users, Warning, CheckCircle, Clock, Check, X } from '@phosphor-icons/react';
+import { ArrowRight, Laptop, Users, Warning, CheckCircle, Clock, Check, X, SignOut } from '@phosphor-icons/react';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate('/login');
+  }
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -112,11 +118,20 @@ export default function Home() {
                 <div className="h-12 w-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
                   <Warning weight="fill" className="text-2xl" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="text-lg font-black text-slate-100 tracking-tight">Acesso Restrito</h3>
                   <p className="text-sm text-slate-300 mt-3 leading-relaxed">
                     Prezado(a) Instrutor(a), não foram identificadas turmas alocadas para a realização de empréstimos. Notifique a Equipe de TI para a resolução do problema.
                   </p>
+                  <div className="mt-5 flex justify-end">
+                    <button
+                      onClick={handleLogout}
+                      className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/45 text-xs font-semibold text-red-400 hover:text-red-300 transition-all flex items-center gap-1.5"
+                    >
+                      <SignOut weight="bold" />
+                      Voltar ao Login
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

@@ -53,6 +53,7 @@ class UsuarioBase(BaseModel):
     curso: Optional[str] = None
     turma: Optional[str] = None
     ativo: bool = True
+    primeiro_acesso: bool = True
 
 class UsuarioCreate(UsuarioBase):
     senha: str = Field(..., min_length=6)
@@ -72,6 +73,7 @@ class UsuarioUpdate(BaseModel):
     curso: Optional[str] = None
     turma: Optional[str] = None
     ativo: Optional[bool] = None
+    primeiro_acesso: Optional[bool] = None
 
 class NotebookBase(BaseModel):
     patrimonio: str = Field(..., min_length=3, max_length=30)
@@ -190,6 +192,20 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     senha: str
+
+
+class PrimeiroAcessoVerificar(BaseModel):
+    email: str
+
+class PrimeiroAcessoValidar(BaseModel):
+    email: str
+    senha_padrao: str
+
+class PrimeiroAcessoDefinir(BaseModel):
+    email: str
+    senha_padrao: str
+    nova_senha: str
+    confirmar_senha: str
 
 
 class TurmaCreate(BaseModel):

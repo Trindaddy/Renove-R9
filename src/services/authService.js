@@ -18,3 +18,23 @@ export async function getMeRequest() {
   return response.data;
 }
 
+export async function verificarEmailPrimeiroAcesso(email) {
+  const response = await api.post('/auth/primeiro-acesso/verificar-email', { email });
+  return response.data;
+}
+
+export async function validarSenhaPadraoPrimeiroAcesso(email, senhaPadrao) {
+  const response = await api.post('/auth/primeiro-acesso/validar', { email, senha_padrao: senhaPadrao });
+  return response.data;
+}
+
+export async function definirSenhaDefinitivaPrimeiroAcesso(email, senhaPadrao, novaSenha, confirmarSenha) {
+  const response = await api.post('/auth/primeiro-acesso/definir-senha', {
+    email,
+    senha_padrao: senhaPadrao,
+    nova_senha: novaSenha,
+    confirmar_senha: confirmarSenha
+  });
+  return response.data;
+}
+

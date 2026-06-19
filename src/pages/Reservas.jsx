@@ -82,10 +82,18 @@ export default function Reservas() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const restantes = stats ? stats.disponiveis : 0;
     
-    if (form.quantidade > restantes && !editingId) {
-      setError(`Quantidade indisponível. Restam apenas ${restantes} notebooks para novas reservas.`);
+    // Validar data no passado
+    const hojeLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local format
+    if (form.data < hojeLocal) {
+      setError('Não é possível criar ou editar reservas em datas passadas.');
+      return;
+    }
+    
+    const restantes = stats ? stats.disponiveis : 0;
+    // Só validar estoque se for reserva para hoje
+    if (form.data === hojeLocal && form.quantidade > restantes && !editingId) {
+      setError(`Quantidade indisponível. Restam apenas ${restantes} notebooks para reservas de hoje.`);
       return;
     }
 
@@ -296,7 +304,8 @@ export default function Reservas() {
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Layout para Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="tech-table-header">
                 <tr>
@@ -391,6 +400,90 @@ export default function Reservas() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Layout para Mobile (Cards) */}
+          <div className="block md:hidden">
+            {loadingReservas && (
+              <div className="px-4 py-8 text-center text-xs text-slate-400">Carregando reservas...</div>
+            )}
+
+            {!loadingReservas &&
+              reservas.map((reserva) => (
+                <div 
+                  key={reserva.id} 
+                  className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden"
+                  onClick={() => {
+                    if (reserva.status === 'Pendente') {
+                      setSelectedReserva(reserva);
+                    }
+                  }}
+                >
+                  <div className="absolute top-0 right-0 p-3">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        reserva.status === 'Aprovada'
+                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+                          : reserva.status === 'Pendente'
+                          ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/40'
+                          : 'bg-slate-500/10 text-slate-300 border border-slate-500/40'
+                      }`}
+                    >
+                      {reserva.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-dark-600/50 flex items-center justify-center font-mono text-xs text-primary font-bold border border-dark-650 shrink-0">
+                      #{reserva.id}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-200 truncate">{reserva.turma}</div>
+                      <div className="text-xs text-slate-400">
+                        Qtd: <span className="font-semibold text-slate-200">{reserva.quantidade} un.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-dark-600/30 pt-3 flex flex-col gap-1.5 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Data</span>
+                        <p className="text-slate-300 font-medium">{reserva.data}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Turno</span>
+                        <p className="text-slate-300 font-medium">{reserva.turno}</p>
+                      </div>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Solicitante</span>
+                      <p className="text-slate-350">{reserva.usuario?.nome || '-'}</p>
+                    </div>
+                  </div>
+
+                  {user?.role === 'ti' && (
+                    <div className="mt-2 flex gap-2 w-full">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditClick(reserva); }}
+                        className="flex-1 px-3 py-3 text-xs rounded bg-cyan-dim text-cyan border border-cyan/20 hover:bg-cyan/20 transition-all font-semibold"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); confirmDelete(reserva.id); }}
+                        className="px-4 py-3 text-xs rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-semibold"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+            {!loadingReservas && reservas.length === 0 && !error && (
+              <div className="px-4 py-8 text-center text-xs text-slate-400">Nenhuma reserva encontrada.</div>
+            )}
           </div>
         </div>
       </div>

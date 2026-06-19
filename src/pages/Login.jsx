@@ -5,6 +5,7 @@ import Button from '../components/Button.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WarningCircle, LockKey, X } from '@phosphor-icons/react';
 import studentsTechImage from '../../students_tech.png';
+import { verificarEmailPrimeiroAcesso, validarSenhaPadraoPrimeiroAcesso, definirSenhaDefinitivaPrimeiroAcesso } from '../services/authService';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -17,6 +18,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
   const [suspendedModalMessage, setSuspendedModalMessage] = useState('');
+
+  // Estados do Primeiro Acesso
+  const [step, setStep] = useState(0); // 0 = login normal, 1 = e-mail, 2 = senha padrão, 3 = senha definitiva
+  const [tempPassword, setTempPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showTempPassword, setShowTempPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -51,6 +61,83 @@ export default function Login() {
       navigate('/');
     } catch (err) {
       setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyEmail(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await verificarEmailPrimeiroAcesso(email);
+      setStep(2);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setError('E-mail não encontrado. Entre em contato com o administrador.');
+      } else {
+        setError(err.response?.data?.detail || 'E-mail não cadastrado ou erro ao verificar.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleValidateTempPassword(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    if (tempPassword !== 'SNC@1234') {
+      setError('A senha padrão inicial deve ser exatamente SNC@1234.');
+      setLoading(false);
+      return;
+    }
+    try {
+      await validarSenhaPadraoPrimeiroAcesso(email, tempPassword);
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Senha padrão inválida.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDefineNewPassword(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    if (newPassword !== confirmNewPassword) {
+      setError('A nova senha e a confirmação não coincidem.');
+      setLoading(false);
+      return;
+    }
+    if (newPassword === 'SNC@1234') {
+      setError('A nova senha definitiva deve ser diferente da senha padrão SNC@1234.');
+      setLoading(false);
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('A nova senha deve ter no mínimo 6 caracteres.');
+      setLoading(false);
+      return;
+    }
+    try {
+      await definirSenhaDefinitivaPrimeiroAcesso(
+        email,
+        tempPassword,
+        newPassword,
+        confirmNewPassword
+      );
+      
+      const loginResult = await login(email, newPassword);
+      if (loginResult.ok) {
+        navigate('/');
+      } else {
+        setError(loginResult.message || 'Erro ao efetuar login após redefinir a senha.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao salvar redefinição de senha.');
     } finally {
       setLoading(false);
     }
@@ -880,94 +967,352 @@ export default function Login() {
                 </svg>
               </div>
 
-              {/* Header */}
-              <div className="card-header">
-                <div className="r9-logo-circle">
-                  <span>R9</span>
-                </div>
-                <h2 className="card-title">Portal de Acesso</h2>
-                <p className="card-subtitle">Insira suas credenciais institucionais</p>
-              </div>
+              <AnimatePresence mode="wait">
+                {step === 0 && (
+                  <motion.div
+                    key="step0"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Header */}
+                    <div className="card-header">
+                      <div className="r9-logo-circle">
+                        <span>R9</span>
+                      </div>
+                      <h2 className="card-title">Portal de Acesso</h2>
+                      <p className="card-subtitle">Insira suas credenciais institucionais</p>
+                    </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label className="input-label" htmlFor="email">E-mail Institucional</label>
-                  <div className="input-wrapper">
-                    <input 
-                      className="input-field" 
-                      type="email" 
-                      id="email" 
-                      placeholder="nome@df.senac.br" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required 
-                    />
-                    <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                  </div>
-                </div>
+                    {/* Form */}
+                    <form onSubmit={handleSubmit}>
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="email">E-mail Institucional</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type="email" 
+                            id="email" 
+                            placeholder="nome@df.senac.br" 
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                        </div>
+                      </div>
 
-                <div className="form-group">
-                  <label className="input-label" htmlFor="password">Senha de Acesso</label>
-                  <div className="input-wrapper">
-                    <input 
-                      className="input-field" 
-                      type={showPassword ? "text" : "password"} 
-                      id="password" 
-                      placeholder="••••••••" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required 
-                    />
-                    <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                    </svg>
-                    <button 
-                      type="button" 
-                      className="btn-toggle-pass" 
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label="Visualizar senha"
-                    >
-                      {showPassword ? (
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-11C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 13c-3.03 0-5.74-1.68-7.16-4.14C6.26 10.42 8.97 8.8 12 8.8s5.74 1.62 7.16 4.06C17.74 15.32 15.03 17 12 17z"/>
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="password">Senha de Acesso</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type={showPassword ? "text" : "password"} 
+                            id="password" 
+                            placeholder="••••••••" 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                          </svg>
+                          <button 
+                            type="button" 
+                            className="btn-toggle-pass" 
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label="Visualizar senha"
+                          >
+                            {showPassword ? (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-11C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 13c-3.03 0-5.74-1.68-7.16-4.14C6.26 10.42 8.97 8.8 12 8.8s5.74 1.62 7.16 4.06C17.74 15.32 15.03 17 12 17z"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
 
-                <div className="form-options">
-                  <label className="checkbox-container">
-                    <input type="checkbox" id="rememberMe" />
-                    <span className="custom-checkbox"></span>
-                    Lembrar de mim
-                  </label>
-                  <a href="#" className="forgot-link">Esqueceu a senha?</a>
-                </div>
+                      <div className="form-options">
+                        <label className="checkbox-container">
+                          <input type="checkbox" id="rememberMe" />
+                          <span className="custom-checkbox"></span>
+                          Lembrar de mim
+                        </label>
+                        <a href="#" className="forgot-link" onClick={(e) => { e.preventDefault(); setStep(1); setError(''); }}>Primeiro acesso? Ative sua conta</a>
+                      </div>
 
-                <button className="btn-submit-premium" type="submit" disabled={loading}>
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
-                      Autenticando...
-                    </span>
-                  ) : (
-                    <>
-                      Entrar no Sistema Renove
-                      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                      </svg>
-                    </>
-                  )}
-                </button>
-              </form>
+                      <button className="btn-submit-premium" type="submit" disabled={loading}>
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
+                            Autenticando...
+                          </span>
+                        ) : (
+                          <>
+                            Entrar no Sistema Renove
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+
+                {step === 1 && (
+                  <motion.div
+                    key="step1"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Header */}
+                    <div className="card-header">
+                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
+                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      </div>
+                      <h2 className="card-title">Primeiro Acesso</h2>
+                      <p className="card-subtitle">Informe seu e-mail para ativar sua conta</p>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleVerifyEmail}>
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="emailPrimeiro">E-mail Institucional</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type="email" 
+                            id="emailPrimeiro" 
+                            placeholder="nome@df.senac.br" 
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="form-options" style={{ justifyContent: 'center' }}>
+                        <a href="#" className="forgot-link" onClick={(e) => { e.preventDefault(); setStep(0); setError(''); }}>Voltar ao Login</a>
+                      </div>
+
+                      <button className="btn-submit-premium" type="submit" disabled={loading}>
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
+                            Verificando...
+                          </span>
+                        ) : (
+                          <>
+                            Verificar E-mail
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+
+                {step === 2 && (
+                  <motion.div
+                    key="step2"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Header */}
+                    <div className="card-header">
+                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
+                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      </div>
+                      <h2 className="card-title">Senha Provisória</h2>
+                      <p className="card-subtitle">Insira a senha padrão para validação</p>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleValidateTempPassword}>
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="tempPassword">Senha Padrão (SNC@1234)</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type={showTempPassword ? "text" : "password"} 
+                            id="tempPassword" 
+                            placeholder="SNC@1234" 
+                            value={tempPassword}
+                            onChange={(e) => setTempPassword(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                          </svg>
+                          <button 
+                            type="button" 
+                            className="btn-toggle-pass" 
+                            onClick={() => setShowTempPassword(!showTempPassword)}
+                            aria-label="Visualizar senha"
+                          >
+                            {showTempPassword ? (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-11C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 13c-3.03 0-5.74-1.68-7.16-4.14C6.26 10.42 8.97 8.8 12 8.8s5.74 1.62 7.16 4.06C17.74 15.32 15.03 17 12 17z"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="form-options" style={{ justifyContent: 'center' }}>
+                        <a href="#" className="forgot-link" onClick={(e) => { e.preventDefault(); setStep(1); setError(''); }}>Voltar</a>
+                      </div>
+
+                      <button className="btn-submit-premium" type="submit" disabled={loading}>
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
+                            Validando...
+                          </span>
+                        ) : (
+                          <>
+                            Validar Senha
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+
+                {step === 3 && (
+                  <motion.div
+                    key="step3"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Header */}
+                    <div className="card-header">
+                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
+                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      </div>
+                      <h2 className="card-title">Senha Definitiva</h2>
+                      <p className="card-subtitle">Cadastre sua nova senha de acesso</p>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleDefineNewPassword}>
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="newPassword">Nova Senha (min. 6 caracteres)</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type={showNewPassword ? "text" : "password"} 
+                            id="newPassword" 
+                            placeholder="Sua nova senha" 
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                          </svg>
+                          <button 
+                            type="button" 
+                            className="btn-toggle-pass" 
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            aria-label="Visualizar senha"
+                          >
+                            {showNewPassword ? (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-11C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 13c-3.03 0-5.74-1.68-7.16-4.14C6.26 10.42 8.97 8.8 12 8.8s5.74 1.62 7.16 4.06C17.74 15.32 15.03 17 12 17z"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="input-label" htmlFor="confirmNewPassword">Confirmar Nova Senha</label>
+                        <div className="input-wrapper">
+                          <input 
+                            className="input-field" 
+                            type={showConfirmNewPassword ? "text" : "password"} 
+                            id="confirmNewPassword" 
+                            placeholder="Repita sua nova senha" 
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            required 
+                          />
+                          <svg className="field-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                          </svg>
+                          <button 
+                            type="button" 
+                            className="btn-toggle-pass" 
+                            onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                            aria-label="Visualizar senha"
+                          >
+                            {showConfirmNewPassword ? (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-11C7 4 2.73 7.11 1 11.5 2.73 15.89 7 19 12 19s9.27-3.11 11-7.5C21.27 7.11 17 4 12 4zm0 13c-3.03 0-5.74-1.68-7.16-4.14C6.26 10.42 8.97 8.8 12 8.8s5.74 1.62 7.16 4.06C17.74 15.32 15.03 17 12 17z"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="form-options" style={{ justifyContent: 'center' }}>
+                        <a href="#" className="forgot-link" onClick={(e) => { e.preventDefault(); setStep(2); setError(''); }}>Voltar</a>
+                      </div>
+
+                      <button className="btn-submit-premium" type="submit" disabled={loading}>
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-slate-100/30 border-t-slate-100 rounded-full animate-spin" />
+                            Salvando...
+                          </span>
+                        ) : (
+                          <>
+                            Ativar Conta e Entrar
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </section>
         </main>

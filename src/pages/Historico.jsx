@@ -94,8 +94,8 @@ export default function Historico() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="glass-card overflow-hidden">
+      {/* Layout para Desktop */}
+      <div className="hidden md:block glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="tech-table-header">
@@ -170,6 +170,58 @@ export default function Historico() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Layout para Mobile (Cards) */}
+      <div className="block md:hidden glass-card overflow-hidden">
+        {loading && (
+          <div className="px-5 py-8 text-center text-xs text-slate-500">Carregando registros...</div>
+        )}
+        {!loading && historico.map((h) => (
+          <div key={h.id} className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-[10px] text-slate-400 font-mono">
+                {new Date(h.created_at).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              <TipoBadge tipo={h.tipo_movimentacao} />
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-550 font-medium">Notebook</span>
+                <span className="font-mono text-cyan/85 font-bold">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-550 font-medium">Transição</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400">{h.status_anterior || '—'}</span>
+                  <span className="text-cyan/40">→</span>
+                  <span className="text-cyan/80 font-semibold">{h.status_novo || '—'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-dark-600/30 pt-3 text-xs space-y-1.5">
+              <div>
+                <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Descrição</span>
+                <p className="text-slate-300 leading-relaxed">{h.descricao || '—'}</p>
+              </div>
+              <div className="pt-1.5 flex justify-between items-center">
+                <span className="text-slate-500 uppercase tracking-wider text-[9px]">Responsável</span>
+                <span className="text-slate-400 font-semibold">{h.usuario?.nome || 'Sistema'}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {!loading && historico.length === 0 && (
+          <div className="px-5 py-10 text-center text-xs text-slate-500">Nenhum registro encontrado.</div>
+        )}
       </div>
     </div>
   );

@@ -115,6 +115,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Esta conta está atualmente inativa. Por favor, entre em contato com o setor de TI para verificar o seu status e solicitar o desbloqueio."
         )
+    if user.primeiro_acesso:
+        raise HTTPException(
+            status_code=400,
+            detail="Primeiro acesso pendente. Por favor, use a opção 'Primeiro Acesso' para ativar sua conta."
+        )
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -126,6 +131,132 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @app.get("/auth/me", response_model=schemas.UsuarioResponse)
 def me(current_user: schemas.UsuarioResponse = Depends(get_current_user)):
     return current_user
+
+# ==================== ROTAS DE PRIMEIRO ACESSO ====================
+
+@app.post("/auth/primeiro-acesso/verificar-email")
+def primeiro_acesso_verificar_email(
+    payload: schemas.PrimeiroAcessoVerificar,
+    db: Session = Depends(get_db)
+):
+    user = crud.get_usuario_by_email(db, payload.email.strip().lower())
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="E-mail não encontrado. Entre em contato com o administrador."
+        )
+    if not user.ativo:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta está inativa. Entre em contato com a TI."
+        )
+    if not user.primeiro_acesso:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta já foi ativada. Faça login utilizando sua senha definitiva na tela inicial."
+        )
+    return {"message": "E-mail validado com sucesso. Prossiga para a validação da senha padrão."}
+
+
+@app.post("/auth/primeiro-acesso/validar")
+def primeiro_acesso_validar(
+    payload: schemas.PrimeiroAcessoValidar,
+    db: Session = Depends(get_db)
+):
+    user = crud.get_usuario_by_email(db, payload.email.strip().lower())
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="E-mail não encontrado. Entre em contato com o administrador."
+        )
+    if not user.ativo:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta está inativa. Entre em contato com a TI."
+        )
+    if not user.primeiro_acesso:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta já foi ativada. Faça login utilizando sua senha definitiva na tela inicial."
+        )
+    
+    # Valida senha padrão obrigatória "SNC@1234"
+    if payload.senha_padrao != "SNC@1234":
+        raise HTTPException(
+            status_code=400,
+            detail="A senha padrão inicial deve ser exatamente SNC@1234."
+        )
+        
+    if not verify_password(payload.senha_padrao, user.senha_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="Senha padrão incorreta. Caso já tenha ativado sua conta, use o login normal."
+        )
+        
+    return {"message": "Senha padrão inicial validada com sucesso. Prossiga para definir sua senha definitiva."}
+
+
+@app.post("/auth/primeiro-acesso/definir-senha", response_model=schemas.Token)
+def primeiro_acesso_definir_senha(
+    payload: schemas.PrimeiroAcessoDefinir,
+    db: Session = Depends(get_db)
+):
+    if payload.nova_senha != payload.confirmar_senha:
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha e a confirmação não coincidem."
+        )
+        
+    if payload.nova_senha == "SNC@1234":
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha definitiva deve ser diferente da senha padrão SNC@1234."
+        )
+        
+    if len(payload.nova_senha) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha deve ter no mínimo 6 caracteres."
+        )
+
+    user = crud.get_usuario_by_email(db, payload.email.strip().lower())
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="E-mail não encontrado. Entre em contato com o administrador."
+        )
+    if not user.ativo:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta está inativa. Entre em contato com a TI."
+        )
+    if not user.primeiro_acesso:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta conta já foi ativada. Faça login utilizando sua senha definitiva na tela inicial."
+        )
+        
+    # Verify old password is still the default one
+    if payload.senha_padrao != "SNC@1234" or not verify_password(payload.senha_padrao, user.senha_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="Senha padrão inicial inválida."
+        )
+        
+    # Update password
+    user.senha_hash = get_password_hash(payload.nova_senha)
+    user.primeiro_acesso = False
+    
+    db.commit()
+    db.refresh(user)
+    
+    # Automatically log the user in
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role},
+        expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # ==================== ROTAS DE USUÁRIOS ====================
 
@@ -1122,6 +1253,7 @@ async def create_reserva(
 ):
     require_role(["ti", "professor"])(current_user)
     import json
+    import re
     
     turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == reserva.turmaId).first()
     if not turma_exists:
@@ -1131,6 +1263,41 @@ async def create_reserva(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Você só pode criar reservas para turmas de que é instrutor."
+        )
+        
+    hoje_str = get_brasilia_time().strftime("%Y-%m-%d")
+    if reserva.data < hoje_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível criar reservas em datas passadas."
+        )
+        
+    is_future = reserva.data > hoje_str
+    
+    if is_future:
+        db_reserva = models.Reserva(
+            turma_id=reserva.turmaId,
+            data=reserva.data,
+            turno=reserva.turno,
+            quantidade=reserva.quantidade,
+            status="Agendado",
+            usuario_id=current_user.id
+        )
+        db.add(db_reserva)
+        db.commit()
+        db.refresh(db_reserva)
+        
+        stats = crud.get_dashboard_stats(db)
+        asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+        
+        return schemas.ReservaResponse(
+            id=db_reserva.id,
+            turma=db_reserva.turma_id,
+            data=db_reserva.data,
+            turno=db_reserva.turno,
+            quantidade=db_reserva.quantidade,
+            status=db_reserva.status,
+            usuario=db_reserva.usuario
         )
         
     try:
@@ -1215,7 +1382,8 @@ async def create_reserva(
                     tipo_movimentacao="RESERVA",
                     status_anterior="Disponível",
                     status_novo="Reservado",
-                    descricao=f"Notebook reservado em lote para a turma {reserva.turmaId} (extra, Reserva ID: {db_reserva.id})"
+                    descricao=f"Notebook reservado em lote para a turma {reserva.turmaId} (extra, Reserva ID: {db_reserva.id})",
+                    informacoes_adicionais=json.dumps({"reserva_id": db_reserva.id, "extra": True})
                 )
                 db.add(db_hist)
                 
@@ -1266,6 +1434,12 @@ async def update_reserva(
         db_reserva.turma_id = update_data["turmaId"]
         
     if "data" in update_data:
+        hoje_str = get_brasilia_time().strftime("%Y-%m-%d")
+        if update_data["data"] < hoje_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é possível alterar reservas para datas passadas."
+            )
         db_reserva.data = update_data["data"]
     if "turno" in update_data:
         db_reserva.turno = update_data["turno"]
@@ -1304,6 +1478,53 @@ async def delete_reserva(
     if not db_reserva:
         raise HTTPException(status_code=404, detail="Reserva não encontrada")
         
+    # 1. Identificar os notebooks da reserva que estão atualmente reservados
+    import re
+    import json
+    reserved_notebooks = db.query(models.Notebook).filter(
+        models.Notebook.status.in_(["Reservado", "Reservado (Em Lote)"])
+    ).all()
+    
+    notebook_ids = set()
+    for nb in reserved_notebooks:
+        # Buscar o histórico mais recente deste notebook para confirmar se pertence a esta reserva
+        latest_hist = db.query(models.Historico).filter(
+            models.Historico.notebook_id == nb.id
+        ).order_by(models.Historico.created_at.desc()).first()
+        
+        if latest_hist:
+            res_id_found = None
+            if latest_hist.informacoes_adicionais:
+                try:
+                    info = json.loads(latest_hist.informacoes_adicionais)
+                    if "reserva_id" in info:
+                        res_id_found = int(info["reserva_id"])
+                except Exception:
+                    pass
+            if res_id_found is None:
+                match = re.search(r"Reserva ID:\s*(\d+)", latest_hist.descricao)
+                if match:
+                    res_id_found = int(match.group(1))
+            
+            if res_id_found == reserva_id:
+                notebook_ids.add(nb.id)
+            
+    # 2. Liberar todos os notebooks identificados
+    for nb_id in notebook_ids:
+        notebook = db.query(models.Notebook).filter(models.Notebook.id == nb_id).first()
+        if notebook and notebook.status in ["Reservado", "Reservado (Em Lote)"]:
+            notebook.status = "Disponível"
+            notebook.usuario_id = None
+            
+    # 3. Deletar empréstimos provisórios vinculados a esses notebooks
+    if notebook_ids:
+        db_emps = db.query(models.Emprestimo).filter(
+            models.Emprestimo.notebook_id.in_(list(notebook_ids)),
+            models.Emprestimo.status == "Reservado"
+        ).all()
+        for emp in db_emps:
+            db.delete(emp)
+            
     db.delete(db_reserva)
     db.commit()
     
@@ -1740,9 +1961,13 @@ def get_alocacoes_diarias(
     # Processar reservas
     for r in reservas:
         key = (r.turma_id, r.turno)
+        # Buscar instrutor da turma para ser o solicitante (Professor Responsável)
+        turma_info = db.query(models.Turma).filter(models.Turma.codigo_turma == r.turma_id).first()
+        solicitante = turma_info.instrutor if turma_info else (r.usuario.nome if r.usuario else "Sistema")
+        
         alocacoes_map[key] = {
             "turma": r.turma_id,
-            "solicitante": r.usuario.nome if r.usuario else "Sistema",
+            "solicitante": solicitante,
             "turno": r.turno,
             "quantidade_solicitada": r.quantidade,
             "quantidade_retirada": 0,

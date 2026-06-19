@@ -15,6 +15,7 @@ class Usuario(Base):
     curso = Column(String(100))
     turma = Column(String(20))
     ativo = Column(Boolean, default=True)
+    primeiro_acesso = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
     updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
 

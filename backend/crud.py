@@ -30,7 +30,8 @@ def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
         role=usuario.role,
         curso=usuario.curso,
         turma=usuario.turma,
-        ativo=usuario.ativo
+        ativo=usuario.ativo,
+        primeiro_acesso=getattr(usuario, 'primeiro_acesso', True)
     )
     try:
         db.add(db_usuario)
@@ -469,6 +470,89 @@ def verificar_e_notificar_escassez(db: Session):
             ))
     return alerta
 
+def processar_agendamentos_ativos(db: Session):
+    """Ativa agendamentos cuja data de agendamento chegou ou passou (data <= hoje)"""
+    hoje_str = get_brasilia_time().strftime("%Y-%m-%d")
+    
+    # Buscar reservas agendadas pendentes de ativação
+    reservas_ativas = db.query(models.Reserva).filter(
+        models.Reserva.status == "Agendado",
+        models.Reserva.data <= hoje_str
+    ).all()
+    
+    if not reservas_ativas:
+        return
+        
+    for res in reservas_ativas:
+        try:
+            # Buscar notebooks disponíveis
+            notebooks_disponiveis = db.query(models.Notebook).filter(
+                models.Notebook.status == "Disponível",
+                models.Notebook.excluido == False
+            ).limit(res.quantidade).all()
+            
+            # Se não houver notebooks suficientes disponíveis, alocar o máximo possível
+            qtd_a_alocar = min(len(notebooks_disponiveis), res.quantidade)
+            if qtd_a_alocar == 0:
+                continue
+                
+            # Obter alunos ativos da turma
+            alunos = db.query(models.Usuario).filter(
+                models.Usuario.turma == res.turma_id,
+                models.Usuario.role == "aluno",
+                models.Usuario.ativo == True
+            ).all()
+            
+            data_prevista = get_brasilia_time() + timedelta(hours=4)
+            for i in range(qtd_a_alocar):
+                notebook = notebooks_disponiveis[i]
+                notebook.status = "Reservado"
+                
+                if i < len(alunos):
+                    aluno = alunos[i]
+                    notebook.usuario_id = aluno.id
+                    
+                    db_emp = models.Emprestimo(
+                        notebook_id=notebook.id,
+                        usuario_id=aluno.id,
+                        responsavel_id=res.usuario_id,
+                        data_prevista_devolucao=data_prevista,
+                        status="Reservado",
+                        observacao_saida="Reserva em Lote - Aguardando Confirmação",
+                        motivo="Reserva em Lote"
+                    )
+                    db.add(db_emp)
+                    db.flush()
+                    
+                    db_hist = models.Historico(
+                        notebook_id=notebook.id,
+                        usuario_id=aluno.id,
+                        responsavel_id=res.usuario_id,
+                        tipo_movimentacao="EMPRESTIMO",
+                        status_anterior="Disponível",
+                        status_novo="Reservado",
+                        descricao=f"Reserva em Lote para aluno {aluno.nome} (Reserva ID: {res.id})",
+                        informacoes_adicionais=json.dumps({"reserva_id": res.id, "batch": True})
+                    )
+                    db.add(db_hist)
+                else:
+                    db_hist = models.Historico(
+                        notebook_id=notebook.id,
+                        responsavel_id=res.usuario_id,
+                        tipo_movimentacao="RESERVA",
+                        status_anterior="Disponível",
+                        status_novo="Reservado",
+                        descricao=f"Notebook reservado em lote para a turma {res.turma_id} (extra, Reserva ID: {res.id})",
+                        informacoes_adicionais=json.dumps({"reserva_id": res.id, "extra": True})
+                    )
+                    db.add(db_hist)
+            
+            res.status = "Alocado / Pronto para Retirada"
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Erro ao processar agendamento {res.id}: {e}")
+
 def verificar_atrasos(db: Session):
     """Verifica empréstimos atrasados e atualiza status"""
     atrasados = db.query(models.Emprestimo).filter(
@@ -480,6 +564,10 @@ def verificar_atrasos(db: Session):
         emp.status = "Atrasado"
     
     db.commit()
+    
+    # Ativar agendamentos que atingiram a data atual
+    processar_agendamentos_ativos(db)
+    
     return len(atrasados)
 
 def listar_usuarios(db: Session, role: Optional[str] = None, turma: Optional[str] = None):

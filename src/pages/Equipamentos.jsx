@@ -4,10 +4,11 @@ import Button from '../components/Button.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { listarEquipamentos, atualizarEquipamento, cadastrarEquipamento, forcarDevolucaoEquipamento, excluirEquipamento } from '../services/equipamentosService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise, PencilSimple } from '@phosphor-icons/react';
+import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise, PencilSimple, CheckCircle, Warning } from '@phosphor-icons/react';
 
 export default function Equipamentos() {
   const [busca, setBusca] = useState('');
+  const [activeDashboard, setActiveDashboard] = useState('status'); // 'status' ou 'condicao'
   const [equipamentos, setEquipamentos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -265,6 +266,19 @@ export default function Equipamentos() {
 
   const paginated = filtrados.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
+  // Métricas do Dashboard 1 (Status Geral)
+  const disponiveisCount = equipamentos.filter(eq => eq.status === 'Disponível').length;
+  const manutencaoCount = equipamentos.filter(eq => eq.status === 'Manutenção').length;
+  const emprestadosCount = equipamentos.filter(eq => eq.status === 'Emprestado' || eq.status === 'Em uso').length;
+
+  // Métricas do Dashboard 2 (Condições Físicas)
+  const excelenteCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'excelente').length;
+  const bomCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'bom').length;
+  const regularCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'regular').length;
+  const ruimCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'ruim').length;
+  const danificadoCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'danificado').length;
+  const obsoletoCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'obsoleto').length;
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -327,6 +341,146 @@ export default function Equipamentos() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* SEÇÃO DE RELATÓRIOS VISUAIS (DASHBOARD COMPARTILHADO COM TRANSIÇÕES) */}
+      <div className="relative glass-card p-5 border border-dark-600/50 bg-dark-850/30 overflow-hidden flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        {/* Decorative background glow that updates dynamically */}
+        <div className={`absolute -right-20 -top-20 w-48 h-48 rounded-full blur-[80px] opacity-15 pointer-events-none transition-all duration-500 ${
+          activeDashboard === 'status' ? 'bg-primary' : 'bg-amber-500'
+        }`} />
+
+        <div className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            {activeDashboard === 'status' ? (
+              <motion.div
+                key="db-status"
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 15 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+              >
+                {/* Card 1: Disponíveis */}
+                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 hover:border-emerald-500/25 transition-all flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                    <CheckCircle weight="duotone" size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Disponíveis</span>
+                    <h3 className="text-xl font-black text-slate-100 mt-0.5">{disponiveisCount}</h3>
+                  </div>
+                </div>
+
+                {/* Card 2: Emprestados */}
+                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 hover:border-amber-500/25 transition-all flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 shrink-0">
+                    <Laptop weight="duotone" size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Emprestados</span>
+                    <h3 className="text-xl font-black text-slate-100 mt-0.5">{emprestadosCount}</h3>
+                  </div>
+                </div>
+
+                {/* Card 3: Em Manutenção */}
+                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/25 transition-all flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 shrink-0">
+                    <Warning weight="duotone" size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Manutenção</span>
+                    <h3 className="text-xl font-black text-slate-100 mt-0.5">{manutencaoCount}</h3>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="db-condicao"
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -15 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
+              >
+                {/* Excelente */}
+                <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 hover:border-emerald-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Excelente</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{excelenteCount}</h3>
+                </div>
+
+                {/* Bom */}
+                <div className="p-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:border-green-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Bom</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{bomCount}</h3>
+                </div>
+
+                {/* Regular */}
+                <div className="p-3 rounded-2xl bg-yellow-500/5 border border-yellow-500/10 hover:border-yellow-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Regular</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{regularCount}</h3>
+                </div>
+
+                {/* Ruim */}
+                <div className="p-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:border-orange-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-orange-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Ruim</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{ruimCount}</h3>
+                </div>
+
+                {/* Danificado */}
+                <div className="p-3 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Danificado</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{danificadoCount}</h3>
+                </div>
+
+                {/* Obsoleto */}
+                <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:border-purple-500/20 transition-all">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-purple-500" />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Obsoleto</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-100 mt-1">{obsoletoCount}</h3>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Minimalist Toggle Seta Button */}
+        <div className="flex items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-dark-600/40 pt-4 md:pt-0 md:pl-5">
+          <button
+            type="button"
+            onClick={() => setActiveDashboard(prev => prev === 'status' ? 'condicao' : 'status')}
+            className="h-10 w-10 rounded-xl bg-dark-700/50 border border-dark-600 hover:border-primary/40 hover:bg-primary/5 text-slate-400 hover:text-primary transition-all flex items-center justify-center group"
+            title={activeDashboard === 'status' ? "Ver Condições Físicas" : "Ver Métricas Gerais"}
+          >
+            <motion.div
+              animate={{ rotate: activeDashboard === 'status' ? 0 : 180 }}
+              transition={{ duration: 0.3 }}
+              className="flex items-center justify-center"
+            >
+              <svg className="h-5 w-5 stroke-current fill-none stroke-2 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </motion.div>
+          </button>
+        </div>
+      </div>
 
       <div className="glass-card overflow-hidden">
         {/* Table layout para Desktop */}

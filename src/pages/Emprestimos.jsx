@@ -254,8 +254,8 @@ export default function Emprestimos() {
               </select>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
+            {/* Layout para Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="tech-table-header">
                   <tr>
@@ -305,7 +305,7 @@ export default function Emprestimos() {
                         {formatDate(emp.data_prevista_devolucao)}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {emp.status === 'Ativo' && (user?.role === 'ti' || user?.role === 'professor') && (
+                        {(emp.status === 'Ativo' || emp.status === 'Atrasado') && (user?.role === 'ti' || user?.role === 'professor') && (
                           <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="success"
@@ -343,6 +343,84 @@ export default function Emprestimos() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Layout para Mobile (Cards) */}
+            <div className="block md:hidden">
+              {loading && (
+                <div className="flex items-center justify-center gap-2 py-8">
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
+                </div>
+              )}
+
+              {!loading && emprestimos.map((emp) => (
+                <div key={emp.id} className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-3">
+                    <StatusBadge status={emp.status} />
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-dark-600/50 flex items-center justify-center shrink-0">
+                      <Laptop className="text-primary text-xl" weight="duotone" />
+                    </div>
+                    <div>
+                      <div className="font-mono text-xs text-primary/85 font-semibold">
+                        #{emp.id?.toString().padStart(4, '0')} • {emp.notebook?.patrimonio}
+                      </div>
+                      <div className="text-sm font-bold text-slate-200">{emp.notebook?.modelo}</div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-dark-600/30 pt-3 flex flex-col gap-1.5 text-xs">
+                    <div>
+                      <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Beneficiário</span>
+                      <p className="text-slate-200 font-semibold">{emp.usuario?.nome} ({emp.usuario?.matricula})</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Retirada</span>
+                        <p className="text-slate-350 font-mono text-[11px]">{formatDate(emp.data_emprestimo)}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Devolução Prevista</span>
+                        <p className="text-slate-350 font-mono text-[11px]">{formatDate(emp.data_prevista_devolucao)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(emp.status === 'Ativo' || emp.status === 'Atrasado') && (user?.role === 'ti' || user?.role === 'professor') && (
+                    <div className="mt-2 flex gap-2 w-full">
+                      <Button
+                        variant="success"
+                        className="flex-1 text-xs py-3 font-bold uppercase tracking-wider"
+                        onClick={() => setConfirmDevolucaoId(emp.id)}
+                        disabled={loadingAction}
+                      >
+                        Devolver
+                      </Button>
+                      {user?.role === 'ti' && (
+                        <Button
+                          variant="danger"
+                          className="px-4 py-3 text-xs font-bold uppercase bg-red-650/15 border border-red-500/20 text-red-400"
+                          onClick={() => setConfirmCancelarId(emp.id)}
+                          disabled={loadingAction}
+                        >
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {!loading && emprestimos.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-10">
+                  <span className="text-3xl opacity-20 text-slate-500"><Swap weight="duotone" /></span>
+                  <p className="text-xs text-slate-500">Nenhum empréstimo encontrado.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
