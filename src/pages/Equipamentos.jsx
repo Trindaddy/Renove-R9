@@ -22,6 +22,8 @@ export default function Equipamentos() {
   const [showForceReturnModal, setShowForceReturnModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditConditionModal, setShowEditConditionModal] = useState(false);
+  const [showEditDescriptionModal, setShowEditDescriptionModal] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
   const [editCondition, setEditCondition] = useState('Bom');
   const [selectedEq, setSelectedEq] = useState(null);
 
@@ -233,6 +235,51 @@ export default function Equipamentos() {
       setError(err.response?.data?.detail || 'Erro ao atualizar a condição do equipamento.');
       setShowEditConditionModal(false);
       setSelectedEq(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveDescription(e) {
+    e.preventDefault();
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await atualizarEquipamento(selectedEq.id, { observacoes: editDescription || null });
+      setSuccess(`Descrição do notebook ${selectedEq.patrimonio} atualizada com sucesso.`);
+      setShowEditDescriptionModal(false);
+      setSelectedEq(null);
+      setEditDescription('');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao atualizar a descrição do equipamento.');
+      setShowEditDescriptionModal(false);
+      setSelectedEq(null);
+      setEditDescription('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteDescription() {
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await atualizarEquipamento(selectedEq.id, { observacoes: null });
+      setSuccess(`Descrição do notebook ${selectedEq.patrimonio} removida com sucesso.`);
+      setShowEditDescriptionModal(false);
+      setSelectedEq(null);
+      setEditDescription('');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao excluir a descrição do equipamento.');
+      setShowEditDescriptionModal(false);
+      setSelectedEq(null);
+      setEditDescription('');
     } finally {
       setLoading(false);
     }
@@ -515,10 +562,34 @@ export default function Equipamentos() {
                   <tr key={eq.id} className="tech-table-row group">
                     <td className="px-5 py-3.5 font-mono text-xs text-primary/80">{eq.patrimonio}</td>
                     <td className="px-5 py-3.5 text-xs text-slate-200">
-                      <div>{eq.modelo}</div>
-                      {eq.observacoes && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold">{eq.modelo}</span>
+                        <button
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setEditDescription(eq.observacoes || '');
+                            setShowEditDescriptionModal(true);
+                          }}
+                          className="p-1 rounded text-slate-450 hover:text-primary hover:bg-dark-600/50 transition-all flex items-center justify-center"
+                          title="Editar Descrição"
+                        >
+                          <PencilSimple size={13} />
+                        </button>
+                      </div>
+                      {eq.observacoes ? (
                         <div className="text-[10px] text-slate-450 italic mt-0.5">
                           {eq.observacoes}
+                        </div>
+                      ) : (
+                        <div 
+                          className="text-[10px] text-slate-600 hover:text-primary mt-0.5 cursor-pointer inline-block transition-colors"
+                          onClick={() => {
+                            setSelectedEq(eq);
+                            setEditDescription('');
+                            setShowEditDescriptionModal(true);
+                          }}
+                        >
+                          + Adicionar descrição
                         </div>
                       )}
                       {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
@@ -676,10 +747,34 @@ export default function Equipamentos() {
                   </div>
                   <div className="flex-1">
                     <div className="font-mono text-xs text-primary/80">{eq.patrimonio}</div>
-                    <div className="text-sm font-bold text-slate-200">{eq.modelo}</div>
-                    {eq.observacoes && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-sm font-bold text-slate-200">{eq.modelo}</div>
+                      <button
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setEditDescription(eq.observacoes || '');
+                          setShowEditDescriptionModal(true);
+                        }}
+                        className="p-1 rounded text-slate-450 hover:text-primary hover:bg-dark-600/50 transition-all flex items-center justify-center"
+                        title="Editar Descrição"
+                      >
+                        <PencilSimple size={13} />
+                      </button>
+                    </div>
+                    {eq.observacoes ? (
                       <div className="text-[10px] text-slate-450 italic mt-1">
                         {eq.observacoes}
+                      </div>
+                    ) : (
+                      <div 
+                        className="text-[10px] text-slate-600 hover:text-primary mt-1 cursor-pointer inline-block transition-colors"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setEditDescription('');
+                          setShowEditDescriptionModal(true);
+                        }}
+                      >
+                        + Adicionar descrição
                       </div>
                     )}
                     {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
@@ -1114,6 +1209,83 @@ export default function Equipamentos() {
                 >
                   {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Editar Descrição */}
+      {showEditDescriptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 border-dark-600 bg-gradient-to-br from-dark-800 to-dark-900">
+            <button
+              onClick={() => {
+                setShowEditDescriptionModal(false);
+                setSelectedEq(null);
+                setEditDescription('');
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+            <form onSubmit={handleSaveDescription} className="space-y-4">
+              <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <PencilSimple weight="duotone" size={32} />
+                </div>
+                
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-100 uppercase tracking-wider">Editar Descrição</h3>
+                  <p className="text-[10px] text-primary font-mono tracking-widest uppercase">{selectedEq?.patrimonio}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Descrição / Observações</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Insira detalhes sobre o notebook (ex: carregador danificado, sem bateria, etc.)"
+                  className="tech-input w-full p-3 text-xs bg-dark-900 border border-dark-600 text-slate-100 rounded-xl focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex gap-3 w-full">
+                  <Button
+                    onClick={() => {
+                      setShowEditDescriptionModal(false);
+                      setSelectedEq(null);
+                      setEditDescription('');
+                    }}
+                    variant="outline"
+                    type="button"
+                    className="flex-1 py-2.5 text-xs tracking-wider uppercase font-bold bg-dark-700 hover:bg-dark-600 text-slate-200"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    variant="success"
+                    className="flex-1 py-2.5 text-xs tracking-wider uppercase font-bold"
+                  >
+                    {loading ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </div>
+                {selectedEq?.observacoes && (
+                  <Button
+                    onClick={handleDeleteDescription}
+                    disabled={loading}
+                    variant="danger"
+                    type="button"
+                    className="w-full py-2.5 text-xs tracking-wider uppercase font-bold bg-red-950/20 hover:bg-red-900/30 text-red-400 border border-red-900/20"
+                  >
+                    Excluir Descrição
+                  </Button>
+                )}
               </div>
             </form>
           </div>
