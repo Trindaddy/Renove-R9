@@ -516,16 +516,11 @@ export default function Equipamentos() {
                     <td className="px-5 py-3.5 font-mono text-xs text-primary/80">{eq.patrimonio}</td>
                     <td className="px-5 py-3.5 text-xs text-slate-200">
                       <div>{eq.modelo}</div>
-                      <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
-                        <span className="px-1.5 py-0.5 rounded bg-dark-700/50 border border-dark-600/50 text-slate-300 font-medium">
-                          {eq.local || 'Estoque'}
-                        </span>
-                        {eq.observacoes && (
-                          <span className="text-slate-450 italic">
-                            • {eq.observacoes}
-                          </span>
-                        )}
-                      </div>
+                      {eq.observacoes && (
+                        <div className="text-[10px] text-slate-450 italic mt-0.5">
+                          {eq.observacoes}
+                        </div>
+                      )}
                       {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
                         <div className="text-[10px] text-amber-500 mt-1.5 font-medium">
                           Motivo: {eq.justificativa_manutencao} • Autor: {eq.autor_manutencao || 'N/A'}
@@ -682,16 +677,11 @@ export default function Equipamentos() {
                   <div className="flex-1">
                     <div className="font-mono text-xs text-primary/80">{eq.patrimonio}</div>
                     <div className="text-sm font-bold text-slate-200">{eq.modelo}</div>
-                    <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span className="px-1.5 py-0.5 rounded bg-dark-700/50 border border-dark-600/50 text-slate-300 font-medium">
-                        {eq.local || 'Estoque'}
-                      </span>
-                      {eq.observacoes && (
-                        <span className="text-slate-450 italic">
-                          • {eq.observacoes}
-                        </span>
-                      )}
-                    </div>
+                    {eq.observacoes && (
+                      <div className="text-[10px] text-slate-450 italic mt-1">
+                        {eq.observacoes}
+                      </div>
+                    )}
                     {eq.status === 'Manutenção' && eq.justificativa_manutencao && (
                       <div className="text-[10px] text-amber-500 mt-1.5 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 font-medium">
                         <strong>Motivo:</strong> {eq.justificativa_manutencao}<br/>
