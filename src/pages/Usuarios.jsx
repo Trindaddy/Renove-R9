@@ -35,6 +35,7 @@ function UsuariosPanel() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('todos');
 
   // Formulário de cadastro
   const [form, setForm] = useState({
@@ -183,12 +184,15 @@ function UsuariosPanel() {
 
   const roleLabels = { ti: 'TI', professor: 'Professor', aluno: 'Aluno' };
 
-  const filteredUsuarios = usuarios.filter(u =>
-    (u.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.matricula || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsuarios = usuarios.filter(u => {
+    if (roleFilter !== 'todos' && u.role !== roleFilter) return false;
+    return (
+      (u.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.matricula || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -249,21 +253,46 @@ function UsuariosPanel() {
       <AnimatePresence mode="wait">
         {activeTab === 'lista' && (
           <motion.div key="lista" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {/* Search */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-1">
-                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome, e-mail, matrícula ou cargo..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="tech-input w-full pl-9"
-                />
+            {/* Search and Filters */}
+            <div className="space-y-3 mb-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, e-mail, matrícula ou cargo..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="tech-input w-full pl-9"
+                  />
+                </div>
+                <Button onClick={() => setActiveTab('cadastro')} className="flex items-center justify-center gap-2 text-xs py-2 px-4 shrink-0">
+                  <Plus weight="bold" /> Novo Usuário
+                </Button>
               </div>
-              <Button onClick={() => setActiveTab('cadastro')} className="flex items-center gap-2 text-xs py-2">
-                <Plus weight="bold" /> Novo Usuário
-              </Button>
+
+              {/* Role Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-400 font-semibold mr-1">Filtrar Perfil:</span>
+                {[
+                  { id: 'todos', label: 'Todos' },
+                  { id: 'ti', label: 'TI' },
+                  { id: 'professor', label: 'Professores' },
+                  { id: 'aluno', label: 'Alunos' }
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setRoleFilter(item.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                      roleFilter === item.id
+                        ? 'bg-primary/10 text-primary border-primary/30 shadow-[0_0_12px_rgba(0,242,254,0.15)]'
+                        : 'bg-dark-700/40 text-slate-400 border-dark-600 hover:border-dark-500 hover:text-slate-200'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Table */}
