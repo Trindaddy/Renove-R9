@@ -47,6 +47,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware de cabeçalhos de segurança HTTP (CSP, Clickjacking, nosniff)
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
+        "img-src 'self' data:; "
+        "connect-src 'self' ws: wss: http: https:; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # ==================== CONTROLE DE TAXA (RATE LIMITING) ====================
 import time
 from collections import defaultdict
