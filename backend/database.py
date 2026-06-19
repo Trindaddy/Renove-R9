@@ -45,6 +45,8 @@ def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor.close()
 
 def run_db_migrations():
+    if not DATABASE_URL.startswith("sqlite"):
+        return
     from sqlalchemy import text
     try:
         with engine.connect() as conn:

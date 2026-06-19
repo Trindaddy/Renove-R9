@@ -19,14 +19,16 @@ def get_usuario_by_matricula(db: Session, matricula: str):
     return db.query(models.Usuario).filter(models.Usuario.matricula == matricula).first()
 
 def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    import bcrypt
+    pwd_bytes = usuario.senha.encode('utf-8')
+    salt = bcrypt.gensalt()
+    senha_hash = bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
     
     db_usuario = models.Usuario(
         matricula=usuario.matricula,
         nome=usuario.nome,
         email=usuario.email,
-        senha_hash=pwd_context.hash(usuario.senha),
+        senha_hash=senha_hash,
         role=usuario.role,
         curso=usuario.curso,
         turma=usuario.turma,

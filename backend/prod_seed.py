@@ -5,15 +5,17 @@ Execute: python prod_seed.py
 """
 import os
 import sys
-from passlib.context import CryptContext
+import bcrypt
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import SessionLocal, engine, Base
 from models import Usuario, Configuracao, Turma
 
-# Usar contexto idêntico ao do main.py
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def seed_prod():
     # Garantir criação das tabelas no Postgres do contêiner
@@ -32,7 +34,7 @@ def seed_prod():
                 matricula=admin_matricula,
                 nome=admin_nome,
                 email=admin_email,
-                senha_hash=pwd_context.hash(admin_password),
+                senha_hash=hash_password(admin_password),
                 role="ti",
                 ativo=True
             )

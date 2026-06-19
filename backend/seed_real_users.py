@@ -1,14 +1,16 @@
 import os
 import sys
-from passlib.context import CryptContext
+import bcrypt
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, engine, Base
 from models import Usuario, Turma
 
-# Contexto de hash do main.py
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def seed_real_users():
     # Garantir criação das tabelas no Postgres
@@ -37,7 +39,7 @@ def seed_real_users():
                 user.role = data["role"]
                 user.matricula = data["matricula"]
                 user.turma = data["turma"]
-                user.senha_hash = pwd_context.hash("Senac@2025")
+                user.senha_hash = hash_password("Senac@2025")
                 user.ativo = True
             else:
                 print(f"[INSERT] Criando conta: {data['email']}")
@@ -47,7 +49,7 @@ def seed_real_users():
                     role=data["role"],
                     matricula=data["matricula"],
                     turma=data["turma"],
-                    senha_hash=pwd_context.hash("Senac@2025"),
+                    senha_hash=hash_password("Senac@2025"),
                     ativo=True
                 )
                 db.add(new_user)
@@ -77,7 +79,7 @@ def seed_real_users():
                     matricula=p_info["matricula"],
                     nome=p_info["nome"],
                     email=p_info["email"],
-                    senha_hash=pwd_context.hash("Senac@2025"),
+                    senha_hash=hash_password("Senac@2025"),
                     role="professor",
                     ativo=True
                 )
