@@ -3,7 +3,7 @@ R9 - Renove: Sistema de Gestão de Notebooks
 Backend FastAPI - Módulo de Empréstimo
 """
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Response
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
@@ -47,12 +47,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ==================== CONTROLE DE TAXA (RATE LIMITING) ====================
+import time
+from collections import defaultdict
+
+class InMemoryRateLimiter:
+    def __init__(self, requests_limit: int, window_seconds: int):
+        self.requests_limit = requests_limit
+        self.window_seconds = window_seconds
+        self.history = defaultdict(list)
+
+    def check_limit(self, client_ip: str) -> bool:
+        now = time.time()
+        # Filtrar requisições fora da janela de tempo atual
+        self.history[client_ip] = [
+            t for t in self.history[client_ip]
+            if now - t < self.window_seconds
+        ]
+        
+        if len(self.history[client_ip]) >= self.requests_limit:
+            return False
+            
+        self.history[client_ip].append(now)
+        return True
+
+# Limite para endpoints de auth: no máximo 5 tentativas por minuto por IP
+auth_rate_limiter = InMemoryRateLimiter(requests_limit=5, window_seconds=60)
+
+def rate_limit_auth(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not auth_rate_limiter.check_limit(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de autenticação consecutivas. Por favor, aguarde 60 segundos e tente novamente."
+        )
+
 # Configurações de segurança
 SECRET_KEY = os.getenv("SECRET_KEY", "SNC@1234")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+# Validar que a SECRET_KEY não é a padrão se estiver em produção
+db_url = os.getenv("DATABASE_URL", "")
+is_production = bool(db_url and not db_url.startswith("sqlite"))
+if SECRET_KEY == "SNC@1234" and is_production:
+    raise RuntimeError(
+        "CRITICAL ERROR: A SECRET_KEY padrão 'SNC@1234' não é permitida em ambiente de produção. "
+        "Por favor, defina a variável de ambiente SECRET_KEY com um valor robusto."
+    )
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ==================== UTILITÁRIOS DE AUTENTICAÇÃO ====================
@@ -106,7 +150,7 @@ def require_role(roles: List[str]):
 # ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 @app.post("/auth/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), _rate_limit = Depends(rate_limit_auth)):
     user = crud.get_usuario_by_email(db, form_data.username)
     if not user or not verify_password(form_data.password, user.senha_hash):
         raise HTTPException(status_code=400, detail="Email ou senha incorretos")
@@ -137,7 +181,8 @@ def me(current_user: schemas.UsuarioResponse = Depends(get_current_user)):
 @app.post("/auth/primeiro-acesso/verificar-email")
 def primeiro_acesso_verificar_email(
     payload: schemas.PrimeiroAcessoVerificar,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(rate_limit_auth)
 ):
     user = crud.get_usuario_by_email(db, payload.email.strip().lower())
     if not user:
@@ -161,7 +206,8 @@ def primeiro_acesso_verificar_email(
 @app.post("/auth/primeiro-acesso/validar")
 def primeiro_acesso_validar(
     payload: schemas.PrimeiroAcessoValidar,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(rate_limit_auth)
 ):
     user = crud.get_usuario_by_email(db, payload.email.strip().lower())
     if not user:
@@ -199,7 +245,8 @@ def primeiro_acesso_validar(
 @app.post("/auth/primeiro-acesso/definir-senha", response_model=schemas.Token)
 def primeiro_acesso_definir_senha(
     payload: schemas.PrimeiroAcessoDefinir,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _rate_limit = Depends(rate_limit_auth)
 ):
     if payload.nova_senha != payload.confirmar_senha:
         raise HTTPException(
@@ -348,39 +395,25 @@ def get_usuario_by_matricula(
 @app.patch("/usuarios/{usuario_id}/senha", status_code=status.HTTP_200_OK)
 def reset_senha_usuario(
     usuario_id: int,
-    body: dict,
+    payload: schemas.UsuarioResetSenha,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     """Redefine a senha de um usuário. Exclusivo para TI."""
     require_role(["ti"])(current_user)
     
-    nova_senha = body.get("nova_senha", "")
-    if not nova_senha or len(nova_senha) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A nova senha deve ter pelo menos 6 caracteres"
-        )
+    nova_senha = payload.nova_senha
     
     user = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    # Obter um notebook ID válido para evitar erro de FK no histórico
-    first_nb = db.query(models.Notebook).first()
-    if not first_nb:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nenhum notebook cadastrado no sistema. Não é possível registrar alteração de senha no histórico."
-        )
-    
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+    # Atualizar hash de senha utilizando o context global (bcrypt)
     user.senha_hash = pwd_context.hash(nova_senha)
     
-    # Adicionar histórico log na mesma transação
+    # Adicionar histórico log de segurança (notebook_id=None é permitido agora)
     db_hist = models.Historico(
-        notebook_id=first_nb.id,
+        notebook_id=None,
         usuario_id=user.id,
         responsavel_id=current_user.id,
         tipo_movimentacao="ATUALIZACAO",
@@ -1919,11 +1952,43 @@ def get_ia_insights(
 # ==================== ROTAS DE WEBSOCKET ====================
 
 @app.websocket("/ws")
-async def websocket_route(websocket: WebSocket):
-    await websocket_endpoint(websocket)
+async def websocket_route(websocket: WebSocket, token: Optional[str] = None):
+    if not token:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token de autenticação obrigatório")
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            await websocket.accept()
+            await websocket.close(code=1008, reason="Token inválido")
+            return
+    except JWTError:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token expirado ou inválido")
+        return
+        
+    await websocket_endpoint(websocket, user_id=int(user_id))
 
 @app.websocket("/ws/{user_id}")
-async def websocket_user_route(websocket: WebSocket, user_id: int):
+async def websocket_user_route(websocket: WebSocket, user_id: int, token: Optional[str] = None):
+    if not token:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token de autenticação obrigatório")
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub_id = payload.get("sub")
+        if not sub_id or int(sub_id) != user_id:
+            await websocket.accept()
+            await websocket.close(code=1008, reason="Acesso negado ao canal do usuário")
+            return
+    except JWTError:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token expirado ou inválido")
+        return
+        
     await websocket_endpoint(websocket, user_id=user_id)
 
 @app.get("/alocacoes/diarias")

@@ -19,12 +19,12 @@ function PrivateRoute({ allowedRoles }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-navy-900 text-cyan">
+      <div className="min-h-screen flex items-center justify-center bg-dark-900 text-primary">
         <div className="flex items-center gap-3">
-          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
-          <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
-          <span className="text-sm font-mono tracking-wider">INICIALIZANDO SISTEMA...</span>
+          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
+          <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
+          <span className="text-sm font-mono tracking-wider uppercase">Inicializando Sistema...</span>
         </div>
       </div>
     );

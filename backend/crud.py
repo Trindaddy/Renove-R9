@@ -20,7 +20,7 @@ def get_usuario_by_matricula(db: Session, matricula: str):
 
 def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
     from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     
     db_usuario = models.Usuario(
         matricula=usuario.matricula,

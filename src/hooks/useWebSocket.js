@@ -2,11 +2,29 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 const getWsUrl = () => {
   const envUrl = import.meta.env.VITE_WS_URL;
-  if (envUrl) return envUrl;
-  
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-  return `${protocol}//${host}/ws`;
+  let url = '';
+  if (envUrl) {
+    url = envUrl;
+  } else {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    url = `${protocol}//${host}/ws`;
+  }
+
+  try {
+    const storedUser = localStorage.getItem('r9:user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (parsed.token) {
+        const separator = url.includes('?') ? '&' : '?';
+        url = `${url}${separator}token=${encodeURIComponent(parsed.token)}`;
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao buscar token para WebSocket:', err);
+  }
+
+  return url;
 };
 
 export function useWebSocket() {

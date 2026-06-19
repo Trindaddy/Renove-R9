@@ -75,7 +75,7 @@ class Historico(Base):
     __tablename__ = "historico"
 
     id = Column(Integer, primary_key=True, index=True)
-    notebook_id = Column(Integer, ForeignKey("notebooks.id", ondelete="RESTRICT"), nullable=False)
+    notebook_id = Column(Integer, ForeignKey("notebooks.id", ondelete="RESTRICT"), nullable=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"))
     responsavel_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"))
 

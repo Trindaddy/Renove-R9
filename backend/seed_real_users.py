@@ -4,30 +4,34 @@ from passlib.context import CryptContext
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from database import SessionLocal
+from database import SessionLocal, engine, Base
 from models import Usuario, Turma
 
 # Contexto de hash do main.py
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def seed_real_users():
+    # Garantir criação das tabelas no Postgres
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         print("=== INICIANDO SEED DE USUARIOS REAIS (SEM QUEBRA DE FK) ===")
         
         # 1. Atualizar contas de teste/fictícias existentes in-place
-        updates = {
-            1: {"email": "ti@df.senac.br", "nome": "Administrador TI", "role": "ti", "matricula": "TI001", "turma": None},
-            2: {"email": "alysson@df.senac.br", "nome": "Alysson Santos", "role": "professor", "matricula": "PROF002", "turma": None},
-            3: {"email": "joao.pereira@edu.df.senac.br", "nome": "João Pereira", "role": "aluno", "matricula": "ALU001", "turma": "2026.09.55"},
-            4: {"email": "maria.santos@edu.df.senac.br", "nome": "Maria Santos", "role": "aluno", "matricula": "ALU002", "turma": "2026.09.55"},
-            5: {"email": "pedro.costa@edu.df.senac.br", "nome": "Pedro Costa", "role": "aluno", "matricula": "ALU003", "turma": "2025.09.53"},
-        }
+        updates = [
+            {"email": "ti@df.senac.br", "nome": "Administrador TI", "role": "ti", "matricula": "TI001", "turma": None},
+            {"email": "alysson@df.senac.br", "nome": "Alysson Santos", "role": "professor", "matricula": "PROF002", "turma": None},
+            {"email": "joao.pereira@edu.df.senac.br", "nome": "João Pereira", "role": "aluno", "matricula": "ALU001", "turma": "2026.09.55"},
+            {"email": "maria.santos@edu.df.senac.br", "nome": "Maria Santos", "role": "aluno", "matricula": "ALU002", "turma": "2026.09.55"},
+            {"email": "pedro.costa@edu.df.senac.br", "nome": "Pedro Costa", "role": "aluno", "matricula": "ALU003", "turma": "2025.09.53"},
+        ]
         
-        for uid, data in updates.items():
-            user = db.query(Usuario).filter(Usuario.id == uid).first()
+        for data in updates:
+            user = db.query(Usuario).filter(
+                (Usuario.email == data["email"]) | (Usuario.matricula == data["matricula"])
+            ).first()
             if user:
-                print(f"[UPDATE] Atualizando ID {uid}: {user.email} -> {data['email']}")
+                print(f"[UPDATE] Atualizando conta: {user.email}")
                 user.email = data["email"]
                 user.nome = data["nome"]
                 user.role = data["role"]
@@ -35,6 +39,18 @@ def seed_real_users():
                 user.turma = data["turma"]
                 user.senha_hash = pwd_context.hash("Senac@2025")
                 user.ativo = True
+            else:
+                print(f"[INSERT] Criando conta: {data['email']}")
+                new_user = Usuario(
+                    email=data["email"],
+                    nome=data["nome"],
+                    role=data["role"],
+                    matricula=data["matricula"],
+                    turma=data["turma"],
+                    senha_hash=pwd_context.hash("Senac@2025"),
+                    ativo=True
+                )
+                db.add(new_user)
         db.commit()
 
         # 2. Cadastro dos outros Professores Reais se não existirem

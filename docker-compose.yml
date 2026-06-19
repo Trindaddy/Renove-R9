@@ -6,15 +6,15 @@ services:
     container_name: renove_db
     restart: always
     environment:
-      POSTGRES_USER: renove_user
-      POSTGRES_PASSWORD: renove_password_prod_123
-      POSTGRES_DB: renove_production
+      POSTGRES_USER: ${POSTGRES_USER:-renove_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-renove_production}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U renove_user -d renove_production"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-renove_user} -d $${POSTGRES_DB:-renove_production}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,18 +28,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://renove_user:renove_password_prod_123@db:5432/renove_production
-      - SECRET_KEY=37d4f9bf30be347cd3ad0c2f8bb0d6e6ab9e5c941d46b7e512411e74f174241e
-      - ALGORITHM=HS256
-      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-      - CREATE_TABLES_ON_STARTUP=false
-      - ADMIN_EMAIL=ti@senac.br
-      - ADMIN_PASSWORD=SenhaAdminSuperSegura123
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-renove_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-renove_production}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      - CREATE_TABLES_ON_STARTUP=${CREATE_TABLES_ON_STARTUP:-true}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-ti@senac.br}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
     # Executa migrações pendentes com Alembic antes de inicializar o servidor de produção
-    command: sh -c "alembic upgrade head && python prod_seed.py && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000"
+    command: sh -c "alembic upgrade head && python prod_seed.py && python seed_real_users.py && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000"
 
 volumes:
   postgres_data:

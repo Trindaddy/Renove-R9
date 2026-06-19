@@ -9,13 +9,15 @@ from passlib.context import CryptContext
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import SessionLocal
+from database import SessionLocal, engine, Base
 from models import Usuario, Configuracao, Turma
 
 # Usar contexto idêntico ao do main.py
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def seed_prod():
+    # Garantir criação das tabelas no Postgres do contêiner
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         # 1. Configurar administrador de TI padrão

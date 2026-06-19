@@ -17,7 +17,8 @@ import {
   CheckCircle,
   Warning,
   List,
-  X
+  X,
+  Info
 } from '@phosphor-icons/react';
 
 export default function Layout({ children }) {
@@ -372,7 +373,7 @@ export default function Layout({ children }) {
                 {t.type === 'success' && <CheckCircle weight="fill" />}
                 {t.type === 'danger' && <Warning weight="fill" />}
                 {t.type === 'warning' && <Warning weight="fill" />}
-                {t.type === 'info' && <SquaresFour weight="fill" />}
+                {t.type === 'info' && <Info weight="fill" />}
               </div>
               <div className="flex-1">
                 {t.title && <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wide mb-1">{t.title}</h4>}

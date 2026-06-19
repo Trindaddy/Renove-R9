@@ -34,11 +34,11 @@ export default function Alocacoes() {
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-dark-600/50">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="h-px w-8 bg-gradient-to-r from-cyan to-transparent" />
-            <span className="text-[10px] uppercase tracking-[0.3em] text-cyan/60 font-medium">Controle de TI</span>
+            <div className="h-px w-8 bg-gradient-to-r from-primary to-transparent" />
+            <span className="text-[10px] uppercase tracking-[0.3em] text-primary/60 font-medium">Controle de TI</span>
           </div>
           <h1 className="text-2xl font-black text-slate-100 tracking-tight">
-            Painel Geral de <span className="text-cyan glow-text-cyan">Alocações</span>
+            Painel Geral de <span className="text-primary glow-text-primary">Alocações</span>
           </h1>
           <p className="text-sm text-slate-400 mt-1">
             Acompanhe em tempo real a retirada de notebooks por turma e turno.
@@ -86,9 +86,9 @@ export default function Alocacoes() {
                 <tr>
                   <td colSpan={4} className="px-5 py-10 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
-                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-75" />
-                      <div className="h-2 w-2 rounded-full bg-cyan animate-pulse delay-150" />
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
+                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
                       <span className="text-xs text-slate-500 ml-2 font-mono">Sincronizando alocações...</span>
                     </div>
                   </td>

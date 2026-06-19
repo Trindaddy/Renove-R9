@@ -1,7 +1,7 @@
 import sqlite3
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 db_path = 'C:/Users/calebe.carvalho/OneDrive - SERVICO NACIONAL DE APRENDIZAGEM COMERCIAL DN-7170257-SENAC - DF/Documentos/Renove/Renove-R9/backend/r9_notebooks.db'
 
 def run_migration():

@@ -140,7 +140,7 @@ class EmprestimoResponse(BaseModel):
         from_attributes = True
 
 class HistoricoBase(BaseModel):
-    notebook_id: int
+    notebook_id: Optional[int] = None
     tipo_movimentacao: TipoMovimentacao
     status_anterior: Optional[str] = None
     status_novo: Optional[str] = None
@@ -192,6 +192,11 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     senha: str
+
+
+class UsuarioResetSenha(BaseModel):
+    nova_senha: str = Field(..., min_length=6)
+
 
 
 class PrimeiroAcessoVerificar(BaseModel):

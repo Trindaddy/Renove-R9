@@ -702,7 +702,7 @@ function DashboardAluno({ data, user, onRefresh }) {
                     <button 
                       onClick={handleConfirmRetirada} 
                       disabled={confirmLoading}
-                      className="w-full lg:w-auto px-8 py-4 font-black text-sm tracking-wider uppercase rounded-xl bg-gradient-to-r from-cyan-500 via-primary to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.35)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 group"
+                      className="w-full lg:w-auto px-8 py-4 font-black text-sm tracking-wider uppercase rounded-xl bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white shadow-[0_0_20px_rgba(244,121,32,0.25)] hover:shadow-[0_0_30px_rgba(244,121,32,0.5)] transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 group"
                     >
                       {confirmLoading ? (
                         <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -798,7 +798,7 @@ function DashboardAluno({ data, user, onRefresh }) {
                   {success && <p className="text-xs text-emerald-400 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
                   <Button 
                     type="submit" 
-                    variant="cyan" 
+                    variant="primary" 
                     className="w-full text-xs py-2.5 uppercase font-bold tracking-wider font-mono" 
                     disabled={loading}
                   >
