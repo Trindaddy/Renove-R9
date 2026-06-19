@@ -127,8 +127,7 @@ export default function Equipamentos() {
       const reasonDetail = maintenanceNotes ? `${maintenanceReason} - ${maintenanceNotes}` : maintenanceReason;
       await atualizarEquipamento(selectedEq.id, { 
         status: 'Manutenção',
-        justificativa_manutencao: reasonDetail,
-        observacoes: reasonDetail
+        justificativa_manutencao: reasonDetail
       });
       setSuccess('Equipamento enviado para manutenção.');
       setShowMaintenanceModal(false);
@@ -149,8 +148,7 @@ export default function Equipamentos() {
       setError('');
       setSuccess('');
       await atualizarEquipamento(id, { 
-        status: 'Disponível',
-        observacoes: 'Retornou da manutenção'
+        status: 'Disponível'
       });
       setSuccess('Equipamento liberado e disponível para uso.');
       await load();
@@ -167,8 +165,7 @@ export default function Equipamentos() {
       setError('');
       setSuccess('');
       await atualizarEquipamento(id, { 
-        status: newStatus,
-        observacoes: newStatus === 'Disponível' ? 'Reserva cancelada administrativamente' : 'Empréstimo confirmado administrativamente'
+        status: newStatus
       });
       setSuccess(newStatus === 'Disponível' ? 'Reserva cancelada com sucesso.' : 'Retirada física confirmada com sucesso.');
       await load();
