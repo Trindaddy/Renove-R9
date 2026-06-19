@@ -28,10 +28,15 @@ if os.getenv("CREATE_TABLES_ON_STARTUP", "true").lower() == "true":
     Base.metadata.create_all(bind=engine)
     run_db_migrations()
 
+_db_url = os.getenv("DATABASE_URL", "")
+is_production = bool(_db_url and not _db_url.startswith("sqlite"))
+
 app = FastAPI(
     title="R9 - Gestão de Notebooks",
     description="API para gerenciamento de empréstimo de notebooks",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc"
 )
 
 # CORS — permitir origem do frontend em produção
@@ -56,12 +61,14 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "font-src 'self' data:; "
         "img-src 'self' data:; "
-        "connect-src 'self' ws: wss: http: https:; "
-        "frame-ancestors 'none';"
+        "connect-src 'self' ws://localhost:8000 ws://127.0.0.1:8000; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self';"
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
