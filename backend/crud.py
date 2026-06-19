@@ -49,10 +49,11 @@ def get_notebook_by_patrimonio(db: Session, patrimonio: str):
     return db.query(models.Notebook).filter(models.Notebook.patrimonio == patrimonio, models.Notebook.excluido == False).first()
 
 def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, limit: int = 1000):
+    from sqlalchemy import cast, Integer
     query = db.query(models.Notebook).filter(models.Notebook.excluido == False)
     if status:
         query = query.filter(models.Notebook.status == status)
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(cast(models.Notebook.patrimonio, Integer).asc()).offset(skip).limit(limit).all()
 
 def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_id: Optional[int] = None):
     db_notebook = models.Notebook(**notebook.model_dump())
