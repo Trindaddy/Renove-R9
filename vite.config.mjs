@@ -23,6 +23,18 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  build: {
+    sourcemap: false, // Desativa sourcemaps para dificultar engenharia reversa no cliente
+    minify: 'terser', // Utiliza Terser para otimização e ofuscação de nível de produção
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove chamadas console.log em produção
+        drop_debugger: true, // Remove debuggers do fluxo
+      },
+      format: {
+        comments: false, // Remove comentários do código minificado
+      }
+    }
   }
 });
-

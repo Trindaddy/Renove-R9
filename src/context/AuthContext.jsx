@@ -1,29 +1,54 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loginRequest, getMeRequest } from '../services/authService';
-import { setAuthToken } from '../services/api';
+import api, { setAuthToken, registerUnauthorizedCallback } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null); // JWT armazenado apenas em estado de memória
   const [loading, setLoading] = useState(true);
+
+  // Função centralizada de logout
+  function logout() {
+    setUser(null);
+    setToken(null);
+    setAuthToken(null);
+    localStorage.removeItem('r9:user');
+  }
 
   useEffect(() => {
     async function init() {
+      // Registra o callback do Axios para deslogar automaticamente em erros 401/403
+      registerUnauthorizedCallback((detail) => {
+        logout();
+        if (
+          detail === 'Conta suspensa/inativa' || 
+          detail === 'Esta conta está inativa/suspensa. Entre em contato com o administrador.'
+        ) {
+          window.location.href = '/login?suspended=true';
+        } else {
+          window.location.href = '/login?expired=true';
+        }
+      });
+
       const storedUser = localStorage.getItem('r9:user');
       if (storedUser) {
         try {
-          const parsed = JSON.parse(storedUser);
-          if (parsed.token) {
-            setAuthToken(parsed.token);
-            // Verify token is still valid by fetching user
-            const me = await getMeRequest();
-            setUser({ ...parsed, ...me });
-          }
+          // Em um modelo Zero Trust (BFF / HttpOnly), ao recarregar a página,
+          // o cookie seguro envia a sessão e obtemos os dados de perfil
+          const me = await getMeRequest();
+          
+          setUser({
+            id: me.id,
+            nome: me.nome,
+            role: me.role,
+            email: me.email,
+            primeiro_acesso: me.primeiro_acesso
+          });
         } catch (err) {
-          // Token expired or invalid
-          localStorage.removeItem('r9:user');
-          setAuthToken(null);
+          // Token expirado ou sem cookie de sessão ativo
+          logout();
         }
       }
       setLoading(false);
@@ -34,23 +59,29 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     try {
       const tokenData = await loginRequest(email, password);
+      
+      // Armazena o token na memória (React State + api.js local variable)
+      setToken(tokenData.access_token);
       setAuthToken(tokenData.access_token);
 
-      // Fetch user details
+      // Busca dados de perfil do usuário
       const me = await getMeRequest();
+      
       const loggedUser = {
         id: me.id,
         nome: me.nome,
         role: me.role,
         email: me.email,
-        token: tokenData.access_token
+        primeiro_acesso: me.primeiro_acesso
       };
 
       setUser(loggedUser);
+      
+      // Salva apenas metadados no localStorage (SEM TOKEN)
       localStorage.setItem('r9:user', JSON.stringify(loggedUser));
       return { ok: true };
     } catch (error) {
-      setAuthToken(null);
+      logout();
       return {
         ok: false,
         message:
@@ -60,14 +91,9 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function logout() {
-    setUser(null);
-    localStorage.removeItem('r9:user');
-    setAuthToken(null);
-  }
-
   const value = {
     user,
+    token,
     loading,
     login,
     logout,
@@ -84,4 +110,3 @@ export function useAuth() {
   }
   return ctx;
 }
-
