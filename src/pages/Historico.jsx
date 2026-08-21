@@ -124,7 +124,7 @@ export default function Historico() {
 
               {!loading && historico.map((h) => (
                 <tr key={h.id} className="tech-table-row group">
-                  <td className="px-5 py-3.5 text-xs text-slate-400 font-mono whitespace-nowrap">
+                  <td className="px-5 py-3.5 text-[11px] text-slate-400 font-mono whitespace-nowrap">
                     {new Date(h.created_at).toLocaleString('pt-BR', {
                       day: '2-digit',
                       month: '2-digit',
@@ -134,7 +134,7 @@ export default function Historico() {
                     })}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="font-mono text-xs text-cyan/80">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
+                    <span className="font-mono text-xs text-primary font-bold">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
                   </td>
                   <td className="px-5 py-3.5">
                     <TipoBadge tipo={h.tipo_movimentacao} />
@@ -142,17 +142,17 @@ export default function Historico() {
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-slate-500">{h.status_anterior || '—'}</span>
-                      <svg className="w-3 h-3 text-cyan/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 text-primary/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-cyan/80">{h.status_novo || '—'}</span>
+                      <span className="text-primary font-semibold">{h.status_novo || '—'}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-300 max-w-xs truncate" title={h.descricao}>
+                  <td className="px-5 py-3.5 text-[13px] text-slate-200 font-medium max-w-md whitespace-pre-wrap leading-relaxed">
                     {h.descricao || '—'}
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-400">
-                    {h.usuario?.nome || 'Sistema'}
+                  <td className="px-5 py-3.5 text-xs text-slate-300 font-semibold">
+                    {h.responsavel?.nome || 'Sistema'}
                   </td>
                 </tr>
               ))}
@@ -194,15 +194,15 @@ export default function Historico() {
 
             <div className="flex flex-col gap-1.5 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-slate-550 font-medium">Notebook</span>
-                <span className="font-mono text-cyan/85 font-bold">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
+                <span className="text-slate-450 font-medium">Notebook</span>
+                <span className="font-mono text-primary font-bold">{h.notebook?.patrimonio || `#${h.notebook_id}`}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-550 font-medium">Transição</span>
+                <span className="text-slate-450 font-medium">Transição</span>
                 <div className="flex items-center gap-1">
                   <span className="text-slate-400">{h.status_anterior || '—'}</span>
-                  <span className="text-cyan/40">→</span>
-                  <span className="text-cyan/80 font-semibold">{h.status_novo || '—'}</span>
+                  <span className="text-primary/40">→</span>
+                  <span className="text-primary font-semibold">{h.status_novo || '—'}</span>
                 </div>
               </div>
             </div>
@@ -210,11 +210,11 @@ export default function Historico() {
             <div className="border-t border-dark-600/30 pt-3 text-xs space-y-1.5">
               <div>
                 <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Descrição</span>
-                <p className="text-slate-300 leading-relaxed">{h.descricao || '—'}</p>
+                <p className="text-slate-200 text-[13px] font-medium leading-relaxed mt-0.5">{h.descricao || '—'}</p>
               </div>
               <div className="pt-1.5 flex justify-between items-center">
                 <span className="text-slate-500 uppercase tracking-wider text-[9px]">Responsável</span>
-                <span className="text-slate-400 font-semibold">{h.usuario?.nome || 'Sistema'}</span>
+                <span className="text-slate-300 font-bold">{h.responsavel?.nome || 'Sistema'}</span>
               </div>
             </div>
           </div>

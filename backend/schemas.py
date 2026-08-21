@@ -158,6 +158,9 @@ class HistoricoResponse(HistoricoBase):
     usuario_id: Optional[int] = None
     responsavel_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    notebook: Optional[NotebookResponse] = None
+    usuario: Optional[UsuarioResponse] = None
+    responsavel: Optional[UsuarioResponse] = None
 
     class Config:
         from_attributes = True

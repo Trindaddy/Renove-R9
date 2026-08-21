@@ -32,6 +32,7 @@ export default function Reservas() {
   const [selectedReserva, setSelectedReserva] = useState(null);
   const [stats, setStats] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [blockingAlert, setBlockingAlert] = useState(null);
 
   const { user } = useAuth();
   const { lastMessage } = useWebSocket();
@@ -95,7 +96,10 @@ export default function Reservas() {
     if (selectedTurmaObj) {
       const maxAlunos = selectedTurmaObj.alunos_count ?? 0;
       if (form.quantidade > maxAlunos) {
-        setError("Não é possível realizar este empréstimo: a quantidade de notebooks solicitada excede o número de alunos da turma.");
+        setBlockingAlert({
+          requested: form.quantidade,
+          max: maxAlunos
+        });
         return;
       }
     }
@@ -127,7 +131,15 @@ export default function Reservas() {
       setEditingId(null);
       await loadReservas();
     } catch (err) {
-      setError(err.response?.data?.detail || `Não foi possível ${editingId ? 'atualizar' : 'criar'} a reserva. Verifique a API.`);
+      const apiErrorMsg = err.response?.data?.detail;
+      if (apiErrorMsg && apiErrorMsg.includes("excede o número de alunos")) {
+        setBlockingAlert({
+          requested: form.quantidade,
+          max: selectedTurmaObj ? (selectedTurmaObj.alunos_count ?? 0) : 0
+        });
+      } else {
+        setError(apiErrorMsg || `Não foi possível ${editingId ? 'atualizar' : 'criar'} a reserva. Verifique a API.`);
+      }
     } finally {
       setLoading(false);
     }
@@ -608,6 +620,42 @@ export default function Reservas() {
                   onClick={executeDelete}
                 >
                   Confirmar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {blockingAlert && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-red-500/30 rounded-xl p-6 w-full max-w-sm shadow-2xl relative mx-4 text-center"
+            >
+              <div className="h-12 w-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4 text-red-400 text-2xl animate-bounce">
+                <WarningCircle weight="fill" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-2">
+                Bloqueio de Empréstimo
+              </h3>
+              <p className="text-xs text-slate-300 mb-4 leading-relaxed font-medium">
+                Não é possível realizar este empréstimo: a quantidade de notebooks solicitada excede o número de alunos da turma.
+              </p>
+              
+              <div className="bg-dark-950/60 p-3 rounded-lg border border-dark-600/50 mb-5 text-[11px] font-mono text-red-400">
+                Notebooks solicitados: {blockingAlert.requested} | Alunos na turma: {blockingAlert.max}
+              </div>
+
+              <div className="flex w-full">
+                <Button
+                  variant="danger"
+                  className="w-full text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white border border-red-500 font-bold"
+                  onClick={() => setBlockingAlert(null)}
+                >
+                  Entendi
                 </Button>
               </div>
             </motion.div>
