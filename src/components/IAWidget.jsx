@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, TrendUp, Warning, Users, Package, CheckCircle, ArrowsClockwise } from '@phosphor-icons/react';
 
 const PRIORITY_CONFIG = {
-  critica: { color: 'text-red-400', bg: 'bg-red-950/30 border-red-800/30', dot: 'bg-red-500', label: 'Crítico' },
-  alta:    { color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/30', dot: 'bg-amber-500', label: 'Alto' },
-  media:   { color: 'text-primary', bg: 'bg-primary/5 border-primary/20', dot: 'bg-primary', label: 'Médio' },
-  baixa:   { color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/30', dot: 'bg-emerald-500', label: 'Normal' },
+  critica: { color: 'text-priority-critical', bg: 'bg-priority-critical border', dot: 'bg-red-500', label: 'Crítico' },
+  alta:    { color: 'text-priority-high', bg: 'bg-priority-high border', dot: 'bg-amber-500', label: 'Alto' },
+  media:   { color: 'text-primary', bg: 'bg-primary/5 border border-primary/20', dot: 'bg-primary', label: 'Médio' },
+  baixa:   { color: 'text-priority-low', bg: 'bg-priority-low border', dot: 'bg-emerald-500', label: 'Normal' },
 };
 
 const ICON_MAP = {

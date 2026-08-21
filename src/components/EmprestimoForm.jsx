@@ -21,7 +21,7 @@ export default function EmprestimoForm({ onSubmit, loading }) {
     setErro('');
 
     if (!form.notebook_patrimonio.trim() || !form.usuario_matricula.trim()) {
-      setErro('Preencha o patrimônio do notebook e a matrícula do aluno');
+      setErro('Preencha o patrimônio do notebook e o e-mail do usuário');
       return;
     }
 
@@ -77,12 +77,12 @@ export default function EmprestimoForm({ onSubmit, loading }) {
 
         <div>
           <label className="block text-[10px] uppercase tracking-[0.2em] text-cyan/60 mb-1.5">
-            Matrícula do Aluno/Servidor
+            E-mail do Aluno/Servidor
           </label>
           <input
             type="text"
             name="usuario_matricula"
-            placeholder="Ex: ALU001"
+            placeholder="Ex: nome@edu.df.senac.br"
             value={form.usuario_matricula}
             onChange={handleChange}
             className="tech-input w-full font-mono"

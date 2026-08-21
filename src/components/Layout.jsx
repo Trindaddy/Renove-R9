@@ -211,8 +211,10 @@ export default function Layout({ children }) {
           </button>
         )}
 
+
+
         {/* Mobile Logo */}
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-3">
           <div className="h-8 px-2.5 rounded-md bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center shadow-md">
             <span className="text-xs font-black text-white uppercase tracking-wider">Senac</span>
           </div>
@@ -252,11 +254,11 @@ export default function Layout({ children }) {
             >
               {/* Header inside drawer */}
               <div className="h-16 flex items-center justify-between px-6 border-b border-dark-600/30 bg-dark-950/20">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 px-2.5 rounded-md bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center">
-                    <span className="text-xs font-black text-white uppercase">Senac</span>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 px-2.5 rounded-md bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center shadow-md">
+                    <span className="text-xs font-black text-white uppercase tracking-wider">Senac</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-100 uppercase">Renove</span>
+                  <span className="text-xs font-black tracking-widest text-slate-100 uppercase mt-0.5">Renove</span>
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}

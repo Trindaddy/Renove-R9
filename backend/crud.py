@@ -20,12 +20,15 @@ def get_usuario_by_matricula(db: Session, matricula: str):
 
 def create_usuario(db: Session, usuario: schemas.UsuarioCreate):
     import bcrypt
+    import uuid
     pwd_bytes = usuario.senha.encode('utf-8')
     salt = bcrypt.gensalt()
     senha_hash = bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
     
+    matricula_automatica = f"DEP-{uuid.uuid4().hex[:10].upper()}"
+    
     db_usuario = models.Usuario(
-        matricula=usuario.matricula,
+        matricula=matricula_automatica,
         nome=usuario.nome,
         email=usuario.email,
         senha_hash=senha_hash,

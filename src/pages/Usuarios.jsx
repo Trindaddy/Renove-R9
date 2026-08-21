@@ -39,7 +39,7 @@ function UsuariosPanel() {
 
   // Formulário de cadastro
   const [form, setForm] = useState({
-    matricula: '', nome: '', email: '', role: 'aluno',
+    nome: '', email: '', role: 'aluno',
     curso: '', turma: '', senha: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -109,7 +109,7 @@ function UsuariosPanel() {
       setLoading(true);
       await api.post('/usuarios', form);
       setSuccess('Usuário cadastrado com sucesso!');
-      setForm({ matricula: '', nome: '', email: '', role: 'aluno', curso: '', turma: '', senha: '' });
+      setForm({ nome: '', email: '', role: 'aluno', curso: '', turma: '', senha: '' });
       await loadData();
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
@@ -189,7 +189,6 @@ function UsuariosPanel() {
     return (
       (u.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.matricula || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
@@ -303,7 +302,6 @@ function UsuariosPanel() {
                   <thead className="tech-table-header">
                     <tr>
                       <th className="text-left px-5 py-3">Nome</th>
-                      <th className="text-left px-5 py-3">Matrícula</th>
                       <th className="text-left px-5 py-3">E-mail</th>
                       <th className="text-center px-5 py-3">Perfil</th>
                       <th className="text-center px-5 py-3">Turma</th>
@@ -313,15 +311,12 @@ function UsuariosPanel() {
                   </thead>
                   <tbody>
                     {loading && (
-                      <tr><td colSpan={7} className="px-5 py-10 text-center text-xs text-slate-500">Carregando...</td></tr>
+                      <tr><td colSpan={6} className="px-5 py-10 text-center text-xs text-slate-500">Carregando...</td></tr>
                     )}
                     {!loading && filteredUsuarios.map(u => (
                       <tr key={u.id} className="tech-table-row">
                         <td className="px-5 py-3.5">
                           <span className="text-sm font-semibold text-slate-100">{u.nome}</span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className="font-mono text-xs text-slate-400">{u.matricula || '—'}</span>
                         </td>
                         <td className="px-5 py-3.5">
                           <span className="text-xs text-slate-300">{u.email}</span>
@@ -410,8 +405,8 @@ function UsuariosPanel() {
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-slate-200 truncate">{u.nome}</div>
                         <div className="text-xs text-slate-400 truncate">{u.email}</div>
-                        <div className="font-mono text-[10px] text-slate-550 mt-0.5">
-                          Matrícula: {u.matricula || '—'} • Turma: {u.turma || '—'}
+                        <div className="font-mono text-[10px] text-slate-555 mt-0.5">
+                          Turma: {u.turma || '—'}
                         </div>
                       </div>
                     </div>
@@ -467,9 +462,7 @@ function UsuariosPanel() {
                 Cadastrar Novo Usuário
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Matrícula / Registro" name="matricula" value={form.matricula}
-                  onChange={handleChange} placeholder="Ex: 20261234" required />
+              <div className="grid grid-cols-1 gap-4">
                 <Input label="Nome Completo" name="nome" value={form.nome}
                   onChange={handleChange} placeholder="Ex: Alysson Santos" required />
               </div>

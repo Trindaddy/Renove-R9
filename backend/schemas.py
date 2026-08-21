@@ -15,6 +15,10 @@ class NotebookStatus(str, Enum):
     manutencao = "Manutenção"
     reservado = "Reservado"
     reservado_lote = "Reservado (Em Lote)"
+    classe_s_suporte = "Classe S - Suporte"
+    classe_s_pcd = "Classe S - PCD"
+    classe_s_recanto = "Classe S - Alocação Recanto"
+    classe_s_eventos = "Classe S - Eventos"
 
 class NotebookCondicao(str, Enum):
     excelente = "Excelente"
@@ -46,7 +50,6 @@ class TipoMovimentacao(str, Enum):
 
 # Base Models
 class UsuarioBase(BaseModel):
-    matricula: str = Field(..., min_length=3, max_length=20)
     nome: str = Field(..., min_length=3, max_length=100)
     email: str = Field(..., pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
     role: Role
@@ -66,7 +69,6 @@ class UsuarioResponse(UsuarioBase):
         from_attributes = True
 
 class UsuarioUpdate(BaseModel):
-    matricula: Optional[str] = Field(None, min_length=3, max_length=20)
     nome: Optional[str] = Field(None, min_length=3, max_length=100)
     email: Optional[str] = Field(None, pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
     role: Optional[Role] = None
@@ -235,6 +237,7 @@ class TurmaResponse(BaseModel):
     carga_horaria: int
     turno: str
     regime_dias: str
+    alunos_count: int = 0
 
     class Config:
         from_attributes = True

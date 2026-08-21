@@ -74,6 +74,119 @@
   box-shadow: 0 0 0 3px rgba(244, 121, 32, 0.12);
 }
 
+/* Prioridades de IA adaptáveis */
+.text-priority-critical {
+  color: #F87171;
+}
+.bg-priority-critical {
+  background-color: rgba(69, 10, 10, 0.3);
+  border-color: rgba(153, 27, 27, 0.3);
+}
+
+.text-priority-high {
+  color: #FBBF24;
+}
+.bg-priority-high {
+  background-color: rgba(69, 39, 10, 0.2);
+  border-color: rgba(146, 64, 14, 0.3);
+}
+
+.text-priority-low {
+  color: #34D399;
+}
+.bg-priority-low {
+  background-color: rgba(6, 78, 59, 0.2);
+  border-color: rgba(6, 95, 70, 0.3);
+}
+
+/* Overrides para modo claro */
+.light .text-priority-critical {
+  color: #B91C1C !important;
+}
+.light .bg-priority-critical {
+  background-color: #FEE2E2 !important;
+  border-color: #FCA5A5 !important;
+}
+
+.light .text-priority-high {
+  color: #B45309 !important;
+}
+.light .bg-priority-high {
+  background-color: #FEF3C7 !important;
+  border-color: #FCD34D !important;
+}
+
+.light .text-priority-low {
+  color: #047857 !important;
+}
+.light .bg-priority-low {
+  background-color: #D1FAE5 !important;
+  border-color: #6EE7B7 !important;
+}
+
+.light .bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #065f46 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+.light .text-emerald-300 {
+  color: #047857 !important;
+}
+
+.light .bg-red-500\/10 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #991b1b !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.light .text-red-400 {
+  color: #b91c1c !important;
+}
+
+.light .bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #92400e !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+.light .text-amber-400 {
+  color: #b45309 !important;
+}
+
+.light .bg-blue-500\/10 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #1e40af !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.light .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+.light .bg-slate-500\/10 {
+  background-color: rgba(107, 114, 128, 0.15) !important;
+  color: #374151 !important;
+  border-color: rgba(107, 114, 128, 0.3) !important;
+}
+.light .text-slate-400 {
+  color: #4b5563 !important;
+}
+
+.light .text-slate-500 {
+  color: #475569 !important;
+}
+.light .text-slate-600 {
+  color: #334155 !important;
+}
+
+/* Fallbacks de cores customizadas typo */
+.text-slate-350 {
+  color: var(--color-text-300);
+}
+.text-slate-450 {
+  color: var(--color-text-400);
+}
+.text-slate-555 {
+  color: var(--color-text-500);
+}
+
 body {
   @apply bg-dark-900 text-slate-300 font-sans antialiased;
   background-image:
@@ -140,7 +253,7 @@ body {
 
   /* Status Badges */
   .status-badge {
-    @apply px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide;
+    @apply px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide whitespace-nowrap inline-flex items-center justify-center;
   }
 
   /* Glow Text */

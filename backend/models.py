@@ -44,7 +44,7 @@ class Notebook(Base):
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
     __table_args__ = (
-        CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado', 'Reservado (Em Lote)')", name="check_notebook_status"),
+        CheckConstraint("status IN ('Disponível', 'Emprestado', 'Manutenção', 'Reservado', 'Reservado (Em Lote)', 'Classe S - Suporte', 'Classe S - PCD', 'Classe S - Alocação Recanto', 'Classe S - Eventos')", name="check_notebook_status"),
         CheckConstraint("condicao IN ('Excelente', 'Bom', 'Regular', 'Ruim', 'Danificado', 'Obsoleto')", name="check_notebook_condicao"),
     )
 

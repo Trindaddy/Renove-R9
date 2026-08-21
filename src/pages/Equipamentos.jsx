@@ -4,7 +4,7 @@ import Button from '../components/Button.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { listarEquipamentos, atualizarEquipamento, cadastrarEquipamento, forcarDevolucaoEquipamento, excluirEquipamento } from '../services/equipamentosService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise, PencilSimple, CheckCircle, Warning } from '@phosphor-icons/react';
+import { WarningCircle, Archive, Laptop, Trash, ArrowClockwise, PencilSimple, CheckCircle, Warning, ShieldCheck } from '@phosphor-icons/react';
 
 export default function Equipamentos() {
   const [busca, setBusca] = useState('');
@@ -14,6 +14,7 @@ export default function Equipamentos() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [page, setPage] = useState(1);
+  const [filtroDashboard, setFiltroDashboard] = useState(null);
   const itemsPerPage = 20;
 
   // Modais
@@ -26,6 +27,8 @@ export default function Equipamentos() {
   const [editDescription, setEditDescription] = useState('');
   const [editCondition, setEditCondition] = useState('Bom');
   const [selectedEq, setSelectedEq] = useState(null);
+  const [showClasseSModal, setShowClasseSModal] = useState(false);
+  const [classeSSubcategory, setClasseSSubcategory] = useState('');
 
   // Form de Cadastro
   const [newNotebook, setNewNotebook] = useState({
@@ -260,6 +263,30 @@ export default function Equipamentos() {
     }
   }
 
+  async function handleSaveClasseS(e) {
+    e.preventDefault();
+    if (!selectedEq) return;
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const statusValue = classeSSubcategory ? `Classe S - ${classeSSubcategory}` : 'Disponível';
+      await atualizarEquipamento(selectedEq.id, { status: statusValue });
+      setSuccess(`Classificação do notebook ${selectedEq.patrimonio} atualizada com sucesso.`);
+      setShowClasseSModal(false);
+      setSelectedEq(null);
+      setClasseSSubcategory('');
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao atualizar a classificação Classe S.');
+      setShowClasseSModal(false);
+      setSelectedEq(null);
+      setClasseSSubcategory('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleDeleteDescription() {
     if (!selectedEq) return;
     try {
@@ -305,15 +332,34 @@ export default function Equipamentos() {
   const filtrados = equipamentos.filter((eq) => {
     const patrimonioStr = (eq?.patrimonio ?? '').toString().toLowerCase();
     const q = (busca ?? '').toLowerCase();
-    return patrimonioStr.includes(q);
+    if (!patrimonioStr.includes(q)) return false;
+
+    if (filtroDashboard) {
+      if (filtroDashboard.type === 'status') {
+        if (filtroDashboard.value === 'Emprestado') {
+          return eq.status === 'Emprestado' || eq.status === 'Em uso';
+        }
+        if (filtroDashboard.value === 'Classe S') {
+          return eq.status && eq.status.startsWith('Classe S');
+        }
+        return eq.status === filtroDashboard.value;
+      }
+      if (filtroDashboard.type === 'condicao') {
+        return (eq.condicao || 'Bom').toLowerCase() === filtroDashboard.value.toLowerCase();
+      }
+    }
+    return true;
   });
 
-  const paginated = filtrados.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const paginated = filtroDashboard 
+    ? filtrados 
+    : filtrados.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   // Métricas do Dashboard 1 (Status Geral)
   const disponiveisCount = equipamentos.filter(eq => eq.status === 'Disponível').length;
   const manutencaoCount = equipamentos.filter(eq => eq.status === 'Manutenção').length;
   const emprestadosCount = equipamentos.filter(eq => eq.status === 'Emprestado' || eq.status === 'Em uso').length;
+  const classeSCount = equipamentos.filter(eq => eq.status && eq.status.startsWith('Classe S')).length;
 
   // Métricas do Dashboard 2 (Condições Físicas)
   const excelenteCount = equipamentos.filter(eq => (eq.condicao || 'Bom').toLowerCase() === 'excelente').length;
@@ -402,10 +448,17 @@ export default function Equipamentos() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 15 }}
                 transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
               >
                 {/* Card 1: Disponíveis */}
-                <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 hover:border-emerald-500/25 transition-all flex items-center gap-3">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'Disponível' ? null : { type: 'status', value: 'Disponível' })}
+                  className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                    filtroDashboard?.value === 'Disponível' 
+                      ? 'bg-emerald-500/20 border-emerald-500 border-2 shadow-emerald-500/20 shadow-lg scale-[1.02]' 
+                      : 'bg-emerald-500/5 border-emerald-500/10 border hover:border-emerald-500/30'
+                  }`}
+                >
                   <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
                     <CheckCircle weight="duotone" size={22} />
                   </div>
@@ -416,7 +469,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Card 2: Emprestados */}
-                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 hover:border-amber-500/25 transition-all flex items-center gap-3">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'Emprestado' ? null : { type: 'status', value: 'Emprestado' })}
+                  className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                    filtroDashboard?.value === 'Emprestado' 
+                      ? 'bg-amber-500/20 border-amber-500 border-2 shadow-amber-500/20 shadow-lg scale-[1.02]' 
+                      : 'bg-amber-500/5 border-amber-500/10 border hover:border-amber-500/30'
+                  }`}
+                >
                   <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 shrink-0">
                     <Laptop weight="duotone" size={22} />
                   </div>
@@ -427,13 +487,38 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Card 3: Em Manutenção */}
-                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/25 transition-all flex items-center gap-3">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'Manutenção' ? null : { type: 'status', value: 'Manutenção' })}
+                  className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                    filtroDashboard?.value === 'Manutenção' 
+                      ? 'bg-red-500/20 border-red-500 border-2 shadow-red-500/20 shadow-lg scale-[1.02]' 
+                      : 'bg-red-500/5 border-red-500/10 border hover:border-red-500/30'
+                  }`}
+                >
                   <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 shrink-0">
                     <Warning weight="duotone" size={22} />
                   </div>
                   <div>
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Manutenção</span>
                     <h3 className="text-xl font-black text-slate-100 mt-0.5">{manutencaoCount}</h3>
+                  </div>
+                </div>
+
+                {/* Card 4: Classe S */}
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'Classe S' ? null : { type: 'status', value: 'Classe S' })}
+                  className={`p-4 rounded-2xl cursor-pointer transition-all flex items-center gap-3 ${
+                    filtroDashboard?.value === 'Classe S' 
+                      ? 'bg-blue-500/20 border-blue-500 border-2 shadow-blue-500/20 shadow-lg scale-[1.02]' 
+                      : 'bg-blue-500/5 border-blue-500/10 border hover:border-blue-500/30'
+                  }`}
+                >
+                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
+                    <ShieldCheck weight="duotone" size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Classe S</span>
+                    <h3 className="text-xl font-black text-slate-100 mt-0.5">{classeSCount}</h3>
                   </div>
                 </div>
               </motion.div>
@@ -447,7 +532,14 @@ export default function Equipamentos() {
                 className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
               >
                 {/* Excelente */}
-                <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 hover:border-emerald-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'excelente' ? null : { type: 'condicao', value: 'excelente' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'excelente'
+                      ? 'bg-emerald-500/20 border-emerald-500 border-2 shadow-emerald-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-emerald-500/5 border-emerald-500/10 border hover:border-emerald-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Excelente</span>
@@ -456,7 +548,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Bom */}
-                <div className="p-3 rounded-2xl bg-green-500/5 border border-green-500/10 hover:border-green-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'bom' ? null : { type: 'condicao', value: 'bom' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'bom'
+                      ? 'bg-green-500/20 border-green-500 border-2 shadow-green-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-green-500/5 border-green-500/10 border hover:border-green-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-green-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Bom</span>
@@ -465,7 +564,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Regular */}
-                <div className="p-3 rounded-2xl bg-yellow-500/5 border border-yellow-500/10 hover:border-yellow-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'regular' ? null : { type: 'condicao', value: 'regular' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'regular'
+                      ? 'bg-yellow-500/20 border-yellow-500 border-2 shadow-yellow-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-yellow-500/5 border-yellow-500/10 border hover:border-yellow-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-yellow-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Regular</span>
@@ -474,7 +580,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Ruim */}
-                <div className="p-3 rounded-2xl bg-orange-500/5 border border-orange-500/10 hover:border-orange-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'ruim' ? null : { type: 'condicao', value: 'ruim' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'ruim'
+                      ? 'bg-orange-500/20 border-orange-500 border-2 shadow-orange-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-orange-500/5 border-orange-500/10 border hover:border-orange-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-orange-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Ruim</span>
@@ -483,7 +596,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Danificado */}
-                <div className="p-3 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'danificado' ? null : { type: 'condicao', value: 'danificado' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'danificado'
+                      ? 'bg-red-500/20 border-red-500 border-2 shadow-red-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-red-500/5 border-red-500/10 border hover:border-red-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-red-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Danificado</span>
@@ -492,7 +612,14 @@ export default function Equipamentos() {
                 </div>
 
                 {/* Obsoleto */}
-                <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/10 hover:border-purple-500/20 transition-all">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === 'obsoleto' ? null : { type: 'condicao', value: 'obsoleto' })}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all ${
+                    filtroDashboard?.value === 'obsoleto'
+                      ? 'bg-purple-500/20 border-purple-500 border-2 shadow-purple-500/20 shadow-lg scale-[1.02]'
+                      : 'bg-purple-500/5 border-purple-500/10 border hover:border-purple-500/20'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-purple-500" />
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Obsoleto</span>
@@ -527,6 +654,23 @@ export default function Equipamentos() {
       </div>
 
       <div className="glass-card overflow-hidden">
+        {filtroDashboard && (
+          <div className="flex items-center justify-between gap-3 px-5 py-3 bg-primary/10 border-b border-dark-600/50">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-xs text-slate-300">
+                Filtrando por {filtroDashboard.type === 'status' ? 'status' : 'condição'}:{' '}
+                <strong className="text-primary font-bold uppercase tracking-wider">{filtroDashboard.value}</strong>
+              </span>
+            </div>
+            <button
+              onClick={() => setFiltroDashboard(null)}
+              className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-dark-700 hover:bg-dark-600 border border-dark-600 text-slate-300 hover:text-primary transition-all"
+            >
+              Limpar Filtro
+            </button>
+          </div>
+        )}
         {/* Table layout para Desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
@@ -598,13 +742,9 @@ export default function Equipamentos() {
                     <td className="px-5 py-3.5 text-xs">
                       <div className="flex items-center gap-1.5">
                         <span 
-                          onClick={() => {
-                            setSelectedEq(eq);
-                            setEditCondition(eq.condicao || 'Bom');
-                            setShowEditConditionModal(true);
-                          }}
+                          onClick={() => setFiltroDashboard(prev => prev?.value === (eq.condicao || 'Bom') ? null : { type: 'condicao', value: eq.condicao || 'Bom' })}
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:scale-105 active:scale-95 transition-all ${getConditionBadgeClass(eq.condicao)}`}
-                          title="Clique para editar a condição"
+                          title={`Filtrar por condição: ${eq.condicao || 'Bom'}`}
                         >
                           {eq.condicao || 'Bom'}
                         </span>
@@ -622,7 +762,13 @@ export default function Equipamentos() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <StatusBadge status={eq.status} />
+                      <span
+                        onClick={() => setFiltroDashboard(prev => prev?.value === eq.status ? null : { type: 'status', value: eq.status })}
+                        className="cursor-pointer hover:scale-105 active:scale-95 transition-all inline-block"
+                        title={`Filtrar por status: ${eq.status}`}
+                      >
+                        <StatusBadge status={eq.status} />
+                      </span>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       {eq.status === 'Disponível' && (
@@ -636,6 +782,43 @@ export default function Equipamentos() {
                             }}
                           >
                             Enviar Manutenção
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="px-2.5 py-1 text-[11px] bg-dark-700 hover:bg-blue-500/10 text-slate-200 border-dark-600 hover:border-blue-500/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setClasseSSubcategory('');
+                              setShowClasseSModal(true);
+                            }}
+                          >
+                            Classe S
+                          </Button>
+                          <button
+                            className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all text-xs"
+                            title="Excluir Notebook"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              setShowDeleteModal(true);
+                            }}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
+                      )}
+                      {eq.status.startsWith('Classe S') && (
+                        <div className="inline-flex gap-2 items-center">
+                          <Button
+                            variant="success"
+                            className="px-2.5 py-1 text-[11px]"
+                            onClick={() => {
+                              setSelectedEq(eq);
+                              const sub = eq.status.startsWith('Classe S - ') ? eq.status.replace('Classe S - ', '') : '';
+                              setClasseSSubcategory(sub);
+                              setShowClasseSModal(true);
+                            }}
+                          >
+                            Gerenciar Classe S
                           </Button>
                           <button
                             className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all text-xs"
@@ -735,7 +918,11 @@ export default function Equipamentos() {
             const isEmprestadoOuUso = eq.status === 'Emprestado' || eq.status === 'Em uso';
             return (
               <div key={eq.id} className="bg-dark-700/30 border border-dark-600 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-3">
+                <div 
+                  onClick={() => setFiltroDashboard(prev => prev?.value === eq.status ? null : { type: 'status', value: eq.status })}
+                  className="absolute top-0 right-0 p-3 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                  title={`Filtrar por status: ${eq.status}`}
+                >
                   <StatusBadge status={eq.status} />
                 </div>
                 <div className="flex items-center gap-3">
@@ -787,14 +974,10 @@ export default function Equipamentos() {
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-slate-500">Condição</span>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <span 
-                        onClick={() => {
-                          setSelectedEq(eq);
-                          setEditCondition(eq.condicao || 'Bom');
-                          setShowEditConditionModal(true);
-                        }}
+                       <span 
+                        onClick={() => setFiltroDashboard(prev => prev?.value === (eq.condicao || 'Bom') ? null : { type: 'condicao', value: eq.condicao || 'Bom' })}
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:scale-105 active:scale-95 transition-all ${getConditionBadgeClass(eq.condicao)}`}
-                        title="Clique para editar a condição"
+                        title={`Filtrar por condição: ${eq.condicao || 'Bom'}`}
                       >
                         {eq.condicao || 'Bom'}
                       </span>
@@ -815,10 +998,10 @@ export default function Equipamentos() {
 
                 <div className="mt-2 flex justify-end">
                   {eq.status === 'Disponível' && (
-                    <div className="flex gap-2 w-full">
+                    <div className="flex gap-2 w-full flex-wrap">
                       <Button
                         variant="danger"
-                        className="flex-1 text-[11px] py-2"
+                        className="flex-1 text-[11px] py-2 min-w-[120px]"
                         onClick={() => {
                           setSelectedEq(eq);
                           setShowMaintenanceModal(true);
@@ -826,8 +1009,44 @@ export default function Equipamentos() {
                       >
                         Enviar para Manutenção
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-[11px] py-2 bg-dark-700 hover:bg-blue-500/10 text-slate-200 border-dark-600 hover:border-blue-500/30"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setClasseSSubcategory('');
+                          setShowClasseSModal(true);
+                        }}
+                      >
+                        Classe S
+                      </Button>
                       <button
-                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
+                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center shrink-0"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  )}
+                  {eq.status.startsWith('Classe S') && (
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        variant="success"
+                        className="flex-1 text-[11px] py-2"
+                        onClick={() => {
+                          setSelectedEq(eq);
+                          const sub = eq.status.startsWith('Classe S - ') ? eq.status.replace('Classe S - ', '') : '';
+                          setClasseSSubcategory(sub);
+                          setShowClasseSModal(true);
+                        }}
+                      >
+                        Gerenciar Classe S
+                      </Button>
+                      <button
+                        className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center shrink-0"
                         onClick={() => {
                           setSelectedEq(eq);
                           setShowDeleteModal(true);
@@ -1283,6 +1502,73 @@ export default function Equipamentos() {
                     Excluir Descrição
                   </Button>
                 )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Gerenciar Classe S */}
+      {showClasseSModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+          <div className="glass-card p-6 w-full max-w-md shadow-2xl relative mx-4 border-dark-600 bg-gradient-to-br from-dark-800 to-dark-900">
+            <button
+              onClick={() => {
+                setShowClasseSModal(false);
+                setSelectedEq(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-dark-700/50 border border-dark-600 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+            <form onSubmit={handleSaveClasseS} className="space-y-4">
+              <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                <div className="h-16 w-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                  <ShieldCheck weight="duotone" size={32} />
+                </div>
+                
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-slate-100 uppercase tracking-wider">Gerenciar Classe S</h3>
+                  <p className="text-[10px] text-blue-400 font-mono tracking-widest uppercase">Notebook {selectedEq?.patrimonio}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Subcategoria Classe S</label>
+                <select
+                  value={classeSSubcategory}
+                  onChange={(e) => setClasseSSubcategory(e.target.value)}
+                  className="tech-select w-full py-2.5 text-xs bg-dark-900 border border-dark-600 text-slate-100 rounded-xl"
+                  required
+                >
+                  <option value="">Nenhum (Remover Classe S / Tornar Disponível)</option>
+                  <option value="Suporte">Suporte</option>
+                  <option value="PCD">PCD</option>
+                  <option value="Alocação Recanto">Alocação Recanto</option>
+                  <option value="Eventos">Eventos</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 w-full pt-2">
+                <Button
+                  onClick={() => {
+                    setShowClasseSModal(false);
+                    setSelectedEq(null);
+                  }}
+                  variant="outline"
+                  type="button"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold bg-dark-700 hover:bg-dark-600 text-slate-200"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="cyan"
+                  className="flex-1 py-3 text-xs tracking-wider uppercase font-bold"
+                >
+                  {loading ? 'Salvando...' : 'Confirmar'}
+                </Button>
               </div>
             </form>
           </div>

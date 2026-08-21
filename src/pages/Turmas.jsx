@@ -33,7 +33,7 @@ export default function Turmas() {
   const [loadingAlunos, setLoadingAlunos] = useState(false);
   const [alunosError, setAlunosError] = useState('');
   const [editingStudent, setEditingStudent] = useState(null);
-  const [editForm, setEditForm] = useState({ nome: '', email: '', matricula: '' });
+  const [editForm, setEditForm] = useState({ nome: '', email: '' });
   const [studentHistory, setStudentHistory] = useState(null);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -94,8 +94,7 @@ export default function Turmas() {
     setEditingStudent(student);
     setEditForm({
       nome: student.nome || '',
-      email: student.email || '',
-      matricula: student.matricula || ''
+      email: student.email || ''
     });
   }
 
@@ -322,164 +321,57 @@ export default function Turmas() {
         )}
       </AnimatePresence>
 
-      {/* Layout para Desktop */}
-      <div className="hidden md:block glass-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="tech-table-header">
-              <tr>
-                <th className="text-left px-5 py-3">Código (Turma)</th>
-                <th className="text-left px-5 py-3">Curso</th>
-                <th className="text-left px-5 py-3">Professor Responsável</th>
-                <th className="text-left px-5 py-3">Turno</th>
-                <th className="text-left px-5 py-3">Regime</th>
-                <th className="text-left px-5 py-3">Alunos</th>
-                {isTi && <th className="text-right px-5 py-3">Ações</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {loading && turmas.length === 0 && (
-                <tr>
-                  <td colSpan={isTi ? 7 : 6} className="px-5 py-10 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
-                      <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
-                      <span className="text-xs text-slate-500 ml-2">Buscando turmas...</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {!loading && turmas.map((turma) => (
-                <tr key={turma.id} className="tech-table-row group">
-                  <td className="px-5 py-3.5 font-mono text-xs text-primary/80">{turma.id}</td>
-                  <td className="px-5 py-3.5 text-xs text-slate-200">{turma.curso}</td>
-                  <td className="px-5 py-3.5 text-xs">
-                    {editingTurmaId === turma.id ? (
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={newInstructorVal}
-                          onChange={(e) => setNewInstructorVal(e.target.value)}
-                          className="tech-select text-[11px] py-1 px-2"
-                        >
-                          <option value="">Selecione o Professor</option>
-                          {professores.map((p) => (
-                            <option key={p.id} value={p.nome}>
-                              {p.nome}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => handleUpdateInstructor(turma.id, newInstructorVal)}
-                          className="p-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25"
-                          title="Confirmar alteração"
-                        >
-                          <Check size={12} weight="bold" />
-                        </button>
-                        <button
-                          onClick={() => setEditingTurmaId(null)}
-                          className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25"
-                          title="Cancelar"
-                        >
-                          <X size={12} weight="bold" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProfessor(turma.instrutor)}
-                          className="text-xs text-slate-300 font-semibold underline hover:text-primary transition-colors text-left"
-                          title="Ver todas as turmas deste professor"
-                        >
-                          {turma.instrutor}
-                        </button>
-                        {isTi && (
-                          <button
-                            onClick={() => {
-                              setEditingTurmaId(turma.id);
-                              setNewInstructorVal(turma.instrutor);
-                            }}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
-                          >
-                            Alterar
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-slate-400">{turma.turno}</td>
-                  <td className="px-5 py-3.5 text-xs text-slate-400 font-mono">{turma.regime_dias}</td>
-                  <td className="px-5 py-3.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAlunosPanel(turma)}
-                      className="flex items-center gap-1.5 text-xs text-primary hover:text-cyan-400 font-semibold transition-colors"
-                      title="Gerenciar alunos matriculados"
-                    >
-                      <Users size={16} />
-                      <span>Ver Alunos</span>
-                    </button>
-                  </td>
-                  {isTi && (
-                    <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => handleDeleteTurmaClick(turma.id)}
-                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/15 text-red-455 transition-all opacity-0 group-hover:opacity-100"
-                        title="Excluir Turma"
-                      >
-                        <Trash size={14} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-
-              {!loading && turmas.length === 0 && (
-                <tr>
-                  <td colSpan={isTi ? 7 : 6} className="px-5 py-10 text-center text-xs text-slate-500 font-mono">
-                    Nenhuma turma cadastrada no sistema.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Layout para Mobile (Cards) */}
-      <div className="block md:hidden">
+      {/* Grid de Turmas - Layout Responsivo Moderno */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading && turmas.length === 0 && (
-          <div className="px-5 py-10 text-center text-xs text-slate-500">Buscando turmas...</div>
+          <div className="col-span-full py-12 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-75" />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150" />
+              <span className="text-xs text-slate-500 ml-2">Buscando turmas...</span>
+            </div>
+          </div>
         )}
+
         {!loading && turmas.map((turma) => (
-          <div key={turma.id} className="bg-dark-700/30 border-b border-dark-600 p-4 flex flex-col gap-3 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-3">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-dark-800 border border-dark-600 text-slate-350">
-                {turma.turno}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-dark-600/50 flex items-center justify-center shrink-0">
-                <Users className="text-primary text-lg" weight="duotone" />
+          <div key={turma.id} className="glass-card hover:border-primary/30 transition-all duration-300 p-6 flex flex-col justify-between group relative overflow-hidden bg-dark-850/20 border border-dark-600/50 rounded-2xl">
+            {/* Background decorative touch */}
+            <div className="absolute top-0 right-0 h-20 w-20 bg-gradient-to-bl from-primary/5 to-transparent rounded-bl-full pointer-events-none" />
+            
+            <div className="space-y-4">
+              {/* Card Header: Code and Turno */}
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20 tracking-wider">
+                  {turma.id}
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 bg-dark-700/50 border border-dark-600 px-2 py-0.5 rounded">
+                  {turma.turno}
+                </span>
               </div>
-              <div className="min-w-0 pr-16">
-                <div className="font-mono text-xs text-primary/85 font-semibold">{turma.id}</div>
-                <div className="text-sm font-bold text-slate-200 truncate">{turma.curso}</div>
-              </div>
-            </div>
-
-            <div className="border-t border-dark-600/30 pt-3 flex flex-col gap-1.5 text-xs">
+              
+              {/* Course Title & Regime */}
               <div>
-                <span className="text-slate-555 uppercase tracking-wider text-[9px] block">Professor Responsável</span>
+                <h3 className="text-sm font-bold text-slate-200 leading-snug group-hover:text-primary transition-colors">
+                  {turma.curso}
+                </h3>
+                <p className="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-wider">
+                  Regime: {turma.regime_dias}
+                </p>
+              </div>
+
+              {/* Instructor / Responsible */}
+              <div className="pt-3 border-t border-dark-600/30">
+                <span className="text-[9px] uppercase tracking-wider text-slate-500 block mb-1">
+                  Professor Responsável
+                </span>
+                
                 {editingTurmaId === turma.id ? (
                   <div className="flex items-center gap-2 mt-1">
                     <select
                       value={newInstructorVal}
                       onChange={(e) => setNewInstructorVal(e.target.value)}
-                      className="tech-select text-[11px] py-1.5 px-2 flex-1"
+                      className="tech-select text-xs py-1 px-2 flex-1"
                     >
                       <option value="">Selecione o Professor</option>
                       {professores.map((p) => (
@@ -490,25 +382,24 @@ export default function Turmas() {
                     </select>
                     <button
                       onClick={() => handleUpdateInstructor(turma.id, newInstructorVal)}
-                      className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 shrink-0"
-                      title="Confirmar alteração"
+                      className="p-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 transition-all"
                     >
                       <Check size={12} weight="bold" />
                     </button>
                     <button
                       onClick={() => setEditingTurmaId(null)}
-                      className="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 shrink-0"
-                      title="Cancelar"
+                      className="p-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 transition-all"
                     >
                       <X size={12} weight="bold" />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center justify-between gap-2 mt-1">
                     <button
                       type="button"
                       onClick={() => setSelectedProfessor(turma.instrutor)}
-                      className="text-xs text-slate-350 font-bold underline hover:text-primary transition-colors text-left"
+                      className="text-xs font-semibold text-slate-300 hover:text-primary underline transition-colors truncate"
+                      title="Filtrar turmas deste professor"
                     >
                       {turma.instrutor}
                     </button>
@@ -518,7 +409,7 @@ export default function Turmas() {
                           setEditingTurmaId(turma.id);
                           setNewInstructorVal(turma.instrutor);
                         }}
-                        className="text-[9px] px-1.5 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
+                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-dark-700 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-400 hover:text-primary transition-all"
                       >
                         Alterar
                       </button>
@@ -526,34 +417,36 @@ export default function Turmas() {
                   </div>
                 )}
               </div>
-              <div className="mt-1 flex justify-between items-center">
-                <span className="text-slate-555 uppercase tracking-wider text-[9px]">Regime de Dias</span>
-                <span className="text-slate-350 font-mono font-medium">{turma.regime_dias}</span>
-              </div>
             </div>
 
-            <div className="mt-2 flex gap-2 w-full">
+            {/* Card Footer: Action buttons */}
+            <div className="mt-5 pt-4 border-t border-dark-600/30 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => handleOpenAlunosPanel(turma)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-xs text-primary border border-primary/20 bg-primary/5 hover:bg-primary/15 font-bold transition-colors"
+                className="flex-1 py-2 px-3 rounded-lg bg-dark-700/50 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-300 hover:text-primary text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
-                <Users size={16} />
-                <span>Ver Alunos</span>
+                <Users size={14} />
+                <span>Alunos ({turma.alunos_count ?? 0})</span>
               </button>
+
               {isTi && (
                 <button
                   onClick={() => handleDeleteTurmaClick(turma.id)}
-                  className="px-3.5 py-3 rounded-lg bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center shrink-0"
+                  className="p-2 rounded-lg bg-red-500/5 hover:bg-red-500/15 border border-red-500/10 hover:border-red-500/30 text-red-400 transition-all animate-pulse"
+                  title="Excluir Turma"
                 >
-                  <Trash size={16} />
+                  <Trash size={14} />
                 </button>
               )}
             </div>
           </div>
         ))}
+
         {!loading && turmas.length === 0 && (
-          <div className="px-5 py-10 text-center text-xs text-slate-500">Nenhuma turma cadastrada.</div>
+          <div className="col-span-full py-12 text-center text-xs text-slate-500 font-mono">
+            Nenhuma turma cadastrada no sistema.
+          </div>
         )}
       </div>
 
@@ -801,7 +694,6 @@ export default function Turmas() {
                         <table className="w-full text-xs">
                           <thead className="tech-table-header">
                             <tr>
-                              <th className="text-left px-4 py-2.5">Matrícula</th>
                               <th className="text-left px-4 py-2.5">Nome</th>
                               <th className="text-left px-4 py-2.5">E-mail</th>
                               <th className="text-right px-4 py-2.5">Ações</th>
@@ -810,7 +702,6 @@ export default function Turmas() {
                           <tbody>
                             {turmaAlunos.map((aluno) => (
                               <tr key={aluno.id} className="tech-table-row group">
-                                <td className="px-4 py-3 font-mono text-primary/80">{aluno.matricula}</td>
                                 <td className="px-4 py-3 font-bold text-slate-200">{aluno.nome}</td>
                                 <td className="px-4 py-3 text-slate-450 font-mono text-[10px] max-w-[170px] truncate" title={aluno.email}>
                                   {aluno.email}
@@ -857,7 +748,6 @@ export default function Turmas() {
                         <div key={aluno.id} className="bg-dark-800/40 border border-dark-600 p-4 rounded-xl flex flex-col gap-2 relative">
                           <div>
                             <p className="font-bold text-sm text-slate-200">{aluno.nome}</p>
-                            <p className="font-mono text-[10px] text-primary/85 mt-0.5">Matrícula: {aluno.matricula}</p>
                             <p className="text-[11px] text-slate-450 font-mono mt-0.5 truncate">{aluno.email}</p>
                           </div>
                           
@@ -925,13 +815,6 @@ export default function Turmas() {
                   required
                 />
 
-                <Input
-                  label="Matrícula"
-                  value={editForm.matricula}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, matricula: e.target.value }))}
-                  required
-                />
-
                 <div>
                   <Input
                     label="E-mail Institucional (@edu.df.senac.br)"
@@ -988,7 +871,7 @@ export default function Turmas() {
                     <h3 className="text-base font-bold text-slate-100">Histórico do Aluno</h3>
                   </div>
                   <p className="text-sm font-bold text-slate-200 mt-1">{studentHistory.nome}</p>
-                  <p className="text-xs text-slate-450 mt-0.5 font-mono">Matrícula: {studentHistory.matricula}</p>
+                  <p className="text-xs text-slate-450 mt-0.5 font-mono">{studentHistory.email}</p>
                 </header>
 
                 <div className="max-h-60 overflow-y-auto space-y-2 pr-1">

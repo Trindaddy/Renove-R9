@@ -216,11 +216,13 @@ export default function Emprestimos() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Column - Form */}
         {user?.role === 'ti' && (
-          <div className="xl:col-span-3 space-y-4">
-            <div className="glass-card-primary p-5 scan-line sticky top-24">
-              <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
+          <div className="xl:col-span-3">
+            <div className="xl:sticky xl:top-24 space-y-4">
+              <div className="glass-card-primary p-5 scan-line">
+                <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
+              </div>
+              <IAWidget stats={stats} />
             </div>
-            <IAWidget stats={stats} />
           </div>
         )}
 
@@ -292,8 +294,8 @@ export default function Emprestimos() {
                         <p className="text-[11px] text-slate-500 mt-0.5">{emp.notebook?.modelo}</p>
                       </td>
                       <td className="px-5 py-3.5">
-                        <p className="text-xs text-slate-200">{emp.usuario?.nome}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">{emp.usuario?.matricula}</p>
+                        <p className="text-xs text-slate-200 font-semibold">{emp.usuario?.nome}</p>
+                        <p className="text-[11px] text-slate-500 font-mono">{emp.usuario?.email}</p>
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge status={emp.status} />
@@ -376,7 +378,7 @@ export default function Emprestimos() {
                   <div className="border-t border-dark-600/30 pt-3 flex flex-col gap-1.5 text-xs">
                     <div>
                       <span className="text-slate-500 uppercase tracking-wider text-[9px] block">Beneficiário</span>
-                      <p className="text-slate-200 font-semibold">{emp.usuario?.nome} ({emp.usuario?.matricula})</p>
+                      <p className="text-slate-200 font-semibold">{emp.usuario?.nome} ({emp.usuario?.email})</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-1">
                       <div>

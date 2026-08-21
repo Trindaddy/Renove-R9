@@ -413,17 +413,7 @@ def get_usuario(
                 
     return user
 
-@app.get("/usuarios/matricula/{matricula}", response_model=schemas.UsuarioResponse)
-def get_usuario_by_matricula(
-    matricula: str,
-    db: Session = Depends(get_db),
-    current_user: schemas.UsuarioResponse = Depends(get_current_user)
-):
-    require_role(["ti", "professor"])(current_user)
-    user = crud.get_usuario_by_matricula(db, matricula)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return user
+
 
 @app.patch("/usuarios/{usuario_id}/senha", status_code=status.HTTP_200_OK)
 def reset_senha_usuario(
@@ -442,7 +432,7 @@ def reset_senha_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
     # Atualizar hash de senha utilizando o context global (bcrypt)
-    user.senha_hash = pwd_context.hash(nova_senha)
+    user.senha_hash = get_password_hash(nova_senha)
     
     # Adicionar histórico log de segurança (notebook_id=None é permitido agora)
     db_hist = models.Historico(
@@ -848,7 +838,7 @@ async def create_emprestimo_rapido(
     require_role(["ti", "aluno"])(current_user)
     
     if current_user.role == "aluno":
-        if dados.usuario_matricula != current_user.matricula:
+        if dados.usuario_matricula != current_user.matricula and dados.usuario_matricula != current_user.email:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Alunos só podem realizar empréstimo para si mesmos"
@@ -1189,17 +1179,25 @@ def list_turmas(
 ):
     require_role(["ti", "professor"])(current_user)
     db_turmas = db.query(models.Turma).all()
-    return [
-        schemas.TurmaResponse(
-            id=t.codigo_turma,
-            curso=t.nome_curso,
-            instrutor=t.instrutor,
-            carga_horaria=t.carga_horaria,
-            turno=t.turno,
-            regime_dias=t.regime_dias
+    response = []
+    for t in db_turmas:
+        alunos_count = db.query(models.Usuario).filter(
+            models.Usuario.turma == t.codigo_turma,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).count()
+        response.append(
+            schemas.TurmaResponse(
+                id=t.codigo_turma,
+                curso=t.nome_curso,
+                instrutor=t.instrutor,
+                carga_horaria=t.carga_horaria,
+                turno=t.turno,
+                regime_dias=t.regime_dias,
+                alunos_count=alunos_count
+            )
         )
-        for t in db_turmas
-    ]
+    return response
 
 @app.post("/turmas", response_model=schemas.TurmaResponse, status_code=status.HTTP_201_CREATED)
 def create_turma(
@@ -1231,7 +1229,8 @@ def create_turma(
         instrutor=db_turma.instrutor,
         carga_horaria=db_turma.carga_horaria,
         turno=db_turma.turno,
-        regime_dias=db_turma.regime_dias
+        regime_dias=db_turma.regime_dias,
+        alunos_count=0
     )
 
 @app.patch("/turmas/{codigo_turma}", response_model=schemas.TurmaResponse)
@@ -1262,13 +1261,20 @@ def update_turma(
     db.commit()
     db.refresh(db_turma)
     
+    alunos_count = db.query(models.Usuario).filter(
+        models.Usuario.turma == db_turma.codigo_turma,
+        models.Usuario.role == "aluno",
+        models.Usuario.ativo == True
+    ).count()
+    
     return schemas.TurmaResponse(
         id=db_turma.codigo_turma,
         curso=db_turma.nome_curso,
         instrutor=db_turma.instrutor,
         carga_horaria=db_turma.carga_horaria,
         turno=db_turma.turno,
-        regime_dias=db_turma.regime_dias
+        regime_dias=db_turma.regime_dias,
+        alunos_count=alunos_count
     )
 
 @app.delete("/turmas/{codigo_turma}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1324,6 +1330,18 @@ async def create_reserva(
     turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == reserva.turmaId).first()
     if not turma_exists:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
+        
+    # Validação: limite de notebooks não pode ultrapassar quantidade de alunos ativos
+    alunos_count = db.query(models.Usuario).filter(
+        models.Usuario.turma == reserva.turmaId,
+        models.Usuario.role == "aluno",
+        models.Usuario.ativo == True
+    ).count()
+    if reserva.quantidade > alunos_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível realizar este empréstimo: a quantidade de notebooks solicitada excede o número de alunos da turma."
+        )
         
     if current_user.role == "professor" and turma_exists.instrutor != current_user.nome:
         raise HTTPException(
@@ -1493,10 +1511,27 @@ async def update_reserva(
         raise HTTPException(status_code=404, detail="Reserva não encontrada")
         
     update_data = reserva_update.model_dump(exclude_unset=True)
+    target_turma = update_data.get("turmaId", db_reserva.turma_id)
+    target_qtd = update_data.get("quantidade", db_reserva.quantidade)
+    
     if "turmaId" in update_data:
-        turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == update_data["turmaId"]).first()
+        turma_exists = db.query(models.Turma).filter(models.Turma.codigo_turma == target_turma).first()
         if not turma_exists:
             raise HTTPException(status_code=404, detail="Turma não encontrada")
+            
+    # Validação: limite de notebooks não pode ultrapassar quantidade de alunos ativos
+    alunos_count = db.query(models.Usuario).filter(
+        models.Usuario.turma == target_turma,
+        models.Usuario.role == "aluno",
+        models.Usuario.ativo == True
+    ).count()
+    if target_qtd > alunos_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível realizar este empréstimo: a quantidade de notebooks solicitada excede o número de alunos da turma."
+        )
+        
+    if "turmaId" in update_data:
         db_reserva.turma_id = update_data["turmaId"]
         
     if "data" in update_data:

@@ -89,6 +89,16 @@ export default function Reservas() {
       setError('Não é possível criar ou editar reservas em datas passadas.');
       return;
     }
+
+    // Validar limite de quantidade com base no número de alunos ativos da turma
+    const selectedTurmaObj = turmas.find(t => t.id === form.turmaId);
+    if (selectedTurmaObj) {
+      const maxAlunos = selectedTurmaObj.alunos_count ?? 0;
+      if (form.quantidade > maxAlunos) {
+        setError("Não é possível realizar este empréstimo: a quantidade de notebooks solicitada excede o número de alunos da turma.");
+        return;
+      }
+    }
     
     const restantes = stats ? stats.disponiveis : 0;
     // Só validar estoque se for reserva para hoje
@@ -117,7 +127,7 @@ export default function Reservas() {
       setEditingId(null);
       await loadReservas();
     } catch (err) {
-      setError(`Não foi possível ${editingId ? 'atualizar' : 'criar'} a reserva. Verifique a API.`);
+      setError(err.response?.data?.detail || `Não foi possível ${editingId ? 'atualizar' : 'criar'} a reserva. Verifique a API.`);
     } finally {
       setLoading(false);
     }
