@@ -10,6 +10,8 @@ import {
   deletarTurma
 } from '../services/turmasService';
 import { getHistorico, processarEmprestimoLote } from '../services/emprestimosService';
+import { solicitarAlocacaoEmLote, listarSolicitacoesAlocacao } from '../services/alocacoesService';
+import { useWebSocket } from '../hooks/useWebSocket';
 import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,6 +42,53 @@ export default function Turmas() {
   const [batchResult, setBatchResult] = useState(null);
 
   const [accessRestricted, setAccessRestricted] = useState(false);
+  const [solicitacoes, setSolicitacoes] = useState([]);
+  const [solicitacaoModalTurma, setSolicitacaoModalTurma] = useState(null);
+  const [justificativaInput, setJustificativaInput] = useState('');
+  const [submittingSolicitacao, setSubmittingSolicitacao] = useState(false);
+  const { lastMessage } = useWebSocket();
+
+  async function loadSolicitacoes() {
+    try {
+      const data = await listarSolicitacoesAlocacao();
+      setSolicitacoes(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  useEffect(() => {
+    loadSolicitacoes();
+  }, []);
+
+  useEffect(() => {
+    if (lastMessage?.type === 'solicitacao_alocacao_criada' || lastMessage?.type === 'solicitacao_alocacao_avaliada') {
+      loadSolicitacoes();
+    }
+  }, [lastMessage]);
+
+  function getTurmaSolicitacao(turmaId) {
+    return solicitacoes.find(s => s.turma_id === turmaId);
+  }
+
+  async function handleSubmitSolicitacao(e) {
+    e.preventDefault();
+    if (!justificativaInput.trim() || !solicitacaoModalTurma) return;
+    try {
+      setSubmittingSolicitacao(true);
+      setError('');
+      setSuccess('');
+      await solicitarAlocacaoEmLote(solicitacaoModalTurma.id, justificativaInput.trim());
+      setSuccess(`Solicitação de alocação em lote para a turma ${solicitacaoModalTurma.id} enviada com sucesso para aprovação de TI!`);
+      setSolicitacaoModalTurma(null);
+      setJustificativaInput('');
+      await loadSolicitacoes();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao enviar solicitação de alocação.');
+    } finally {
+      setSubmittingSolicitacao(false);
+    }
+  }
 
   // Handlers para alunos da turma
   async function handleOpenAlunosPanel(turma) {
@@ -419,21 +468,64 @@ export default function Turmas() {
               </div>
             </div>
 
+            {/* Status de Solicitação da Turma */}
+            {(() => {
+              const sol = getTurmaSolicitacao(turma.id);
+              return (
+                <div className="mt-3 p-2.5 rounded-xl bg-dark-800/60 border border-dark-600/60 text-[11px] space-y-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Status Solicitação:</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                      sol?.status === 'Aberto' 
+                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
+                        : sol?.status === 'Aprovado'
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : sol?.status === 'Reprovado'
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                        : 'bg-dark-700 text-slate-400 border border-dark-600'
+                    }`}>
+                      {sol?.status === 'Aberto' ? 'Aberto' : sol?.status ? `Concluído (${sol.status})` : 'Disponível'}
+                    </span>
+                  </div>
+                  {sol && (
+                    <div className="text-[10px] text-slate-400 pt-1 border-t border-dark-600/40 flex flex-col gap-0.5">
+                      <div><strong className="text-slate-300">Solicitante:</strong> {sol.solicitante_nome}</div>
+                      <div><strong className="text-slate-300">Responsável TI:</strong> {sol.responsavel_ti_nome || 'Aguardando avaliação'}</div>
+                      <div className="font-mono text-[9px] text-slate-500">{new Date(sol.data_decisao || sol.created_at).toLocaleString('pt-BR')}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Card Footer: Action buttons */}
-            <div className="mt-5 pt-4 border-t border-dark-600/30 flex items-center justify-between gap-3">
+            <div className="mt-4 pt-3 border-t border-dark-600/30 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => handleOpenAlunosPanel(turma)}
-                className="flex-1 py-2 px-3 rounded-lg bg-dark-700/50 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-300 hover:text-primary text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-2 px-2.5 rounded-lg bg-dark-700/50 hover:bg-primary/10 border border-dark-600 hover:border-primary/20 text-slate-300 hover:text-primary text-xs font-bold transition-all flex items-center justify-center gap-1.5"
               >
                 <Users size={14} />
                 <span>Alunos ({turma.alunos_count ?? 0})</span>
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  setSolicitacaoModalTurma(turma);
+                  setJustificativaInput('');
+                }}
+                className="py-2 px-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-bold transition-all flex items-center justify-center gap-1"
+                title="Solicitar Alocação em Lote"
+              >
+                <Lightning size={14} weight="fill" />
+                <span>Alocação</span>
+              </button>
+
               {isTi && (
                 <button
                   onClick={() => handleDeleteTurmaClick(turma.id)}
-                  className="p-2 rounded-lg bg-red-500/5 hover:bg-red-500/15 border border-red-500/10 hover:border-red-500/30 text-red-400 transition-all animate-pulse"
+                  className="p-2 rounded-lg bg-red-500/5 hover:bg-red-500/15 border border-red-500/10 hover:border-red-500/30 text-red-400 transition-all"
                   title="Excluir Turma"
                 >
                   <Trash size={14} />
@@ -449,6 +541,76 @@ export default function Turmas() {
           </div>
         )}
       </div>
+
+      {/* MODAL: Solicitar Alocação em Lote */}
+      <AnimatePresence>
+        {solicitacaoModalTurma && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200 border border-primary/30">
+              <button
+                onClick={() => setSolicitacaoModalTurma(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+              >
+                ✕
+              </button>
+              <form onSubmit={handleSubmitSolicitacao} className="space-y-4">
+                <header className="border-b border-dark-600/50 pb-3">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <Lightning size={20} weight="fill" />
+                    <h3 className="text-base font-black text-slate-100">Solicitar Alocação em Lote</h3>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Turma: <strong className="text-slate-200 font-mono">{solicitacaoModalTurma.id}</strong> — {solicitacaoModalTurma.curso}
+                  </p>
+                </header>
+
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-xs text-slate-300">
+                  <p className="font-semibold text-primary mb-1">Fluxo de Aprovação Obrigatória</p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    A solicitação será enviada para os administradores de TI. A liberação dos notebooks ocorre automaticamente após a aprovação do pedido.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-300 font-bold block mb-1.5">
+                    Justificativa do Pedido <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    value={justificativaInput}
+                    onChange={(e) => setJustificativaInput(e.target.value)}
+                    rows={4}
+                    placeholder="Descreva a atividade pedagógica e a justificativa para o uso dos notebooks em lote..."
+                    className="tech-input w-full text-xs p-3 leading-relaxed"
+                    required
+                  />
+                  <span className="text-[10px] text-slate-500 block mt-1">
+                    O preenchimento da justificativa é obrigatório para habilitar o envio.
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t border-dark-600/50">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 text-xs py-2.5 bg-dark-700 hover:bg-dark-600 text-slate-200"
+                    onClick={() => setSolicitacaoModalTurma(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="cyan"
+                    className="flex-1 text-xs py-2.5 font-bold"
+                    disabled={!justificativaInput.trim() || submittingSolicitacao}
+                  >
+                    {submittingSolicitacao ? 'Enviando Pedido...' : 'Solicitar'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* MODAL: Cadastrar Nova Turma */}
       {showAddModal && (
@@ -657,6 +819,50 @@ export default function Turmas() {
                   </button>
                 </div>
               </header>
+
+              {/* Status de Solicitação da Turma no Drawer */}
+              {selectedTurmaForAlunos && (() => {
+                const sol = getTurmaSolicitacao(selectedTurmaForAlunos.id);
+                return (
+                  <div className="mb-4 p-3 rounded-xl bg-dark-800/80 border border-dark-600 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Status de Solicitação:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          sol?.status === 'Aberto' 
+                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
+                            : sol?.status === 'Aprovado'
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : sol?.status === 'Reprovado'
+                            ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                            : 'bg-dark-700 text-slate-400 border border-dark-600'
+                        }`}>
+                          {sol?.status === 'Aberto' ? 'Aberto' : sol?.status ? `Concluído (${sol.status})` : 'Disponível'}
+                        </span>
+                      </div>
+                      {sol && (
+                        <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                          <span><strong>Solicitante:</strong> {sol.solicitante_nome}</span>
+                          <span><strong>Responsável TI:</strong> {sol.responsavel_ti_nome || 'Aguardando avaliação'}</span>
+                          <span><strong>Data/Hora:</strong> {new Date(sol.data_decisao || sol.created_at).toLocaleString('pt-BR')}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <Button
+                      onClick={() => {
+                        setSolicitacaoModalTurma(selectedTurmaForAlunos);
+                        setJustificativaInput('');
+                      }}
+                      className="text-xs py-2 px-3 shrink-0 flex items-center gap-1.5"
+                      variant="cyan"
+                    >
+                      <Lightning size={14} weight="fill" />
+                      Alocação em Lote
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {alunosError && (
                 <div className="bg-red-950/30 border border-red-800/30 rounded-lg px-4 py-2.5 flex items-center gap-3 mb-4">

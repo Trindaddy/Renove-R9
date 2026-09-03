@@ -85,6 +85,39 @@ def run_db_migrations():
                 conn.execute(text("ALTER TABLE reservas ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)"))
                 conn.commit()
                 print("Successfully added usuario_id column to reservas table.")
+
+            # Check historico table columns
+            result = conn.execute(text("PRAGMA table_info(historico)"))
+            columns = [row[1] for row in result.fetchall()]
+            if columns and "ip_address" not in columns:
+                print("Adding ip_address column to historico table...")
+                conn.execute(text("ALTER TABLE historico ADD COLUMN ip_address VARCHAR(45)"))
+                conn.commit()
+                print("Successfully added ip_address column to historico table.")
+            if columns and "user_agent" not in columns:
+                print("Adding user_agent column to historico table...")
+                conn.execute(text("ALTER TABLE historico ADD COLUMN user_agent VARCHAR(255)"))
+                conn.commit()
+                print("Successfully added user_agent column to historico table.")
+
+            # Create solicitacoes_alocacao table if not exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS solicitacoes_alocacao (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    turma_id VARCHAR(50) NOT NULL REFERENCES turmas(codigo_turma) ON DELETE RESTRICT,
+                    solicitante_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+                    responsavel_ti_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                    justificativa TEXT NOT NULL,
+                    motivo_decisao TEXT,
+                    status VARCHAR(20) NOT NULL DEFAULT 'Aberto',
+                    data_decisao TIMESTAMP,
+                    detalhes_alocacao TEXT,
+                    visualizada_professor BOOLEAN DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.commit()
     except Exception as e:
         print(f"Error running db migration: {e}")
 

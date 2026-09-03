@@ -60,7 +60,7 @@ def listar_notebooks(db: Session, status: Optional[str] = None, skip: int = 0, l
         query = query.filter(models.Notebook.status == status)
     return query.order_by(cast(models.Notebook.patrimonio, Integer).asc()).offset(skip).limit(limit).all()
 
-def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_id: Optional[int] = None):
+def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_id: Optional[int] = None, ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     db_notebook = models.Notebook(**notebook.model_dump())
     try:
         db.add(db_notebook)
@@ -71,7 +71,9 @@ def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_i
             tipo_movimentacao="CADASTRO",
             responsavel_id=responsavel_id,
             status_novo=db_notebook.status,
-            descricao=f"Notebook {db_notebook.patrimonio} ({db_notebook.modelo}) cadastrado no sistema"
+            descricao=f"Notebook {db_notebook.patrimonio} ({db_notebook.modelo}) cadastrado no sistema",
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         db.add(db_hist)
         db.commit()
@@ -81,7 +83,7 @@ def create_notebook(db: Session, notebook: schemas.NotebookCreate, responsavel_i
         db.rollback()
         raise e
 
-def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate, responsavel_id: Optional[int] = None):
+def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.NotebookUpdate, responsavel_id: Optional[int] = None, ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     db_notebook = get_notebook(db, notebook_id)
     if not db_notebook:
         return None
@@ -114,7 +116,9 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
                             tipo_movimentacao="CANCELAMENTO",
                             status_anterior=status_anterior,
                             status_novo="Disponível",
-                            descricao=f"Reserva cancelada administrativamente via contingência TI para notebook {db_notebook.patrimonio}"
+                            descricao=f"Reserva cancelada administrativamente via contingência TI para notebook {db_notebook.patrimonio}",
+                            ip_address=ip_address,
+                            user_agent=user_agent
                         )
                         db.add(db_hist_emp)
                 elif db_notebook.status == "Emprestado":
@@ -134,7 +138,9 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
                             tipo_movimentacao="EMPRESTIMO",
                             status_anterior=status_anterior,
                             status_novo="Emprestado",
-                            descricao=f"Retirada confirmada administrativamente via contingência TI para notebook {db_notebook.patrimonio}"
+                            descricao=f"Retirada confirmada administrativamente via contingência TI para notebook {db_notebook.patrimonio}",
+                            ip_address=ip_address,
+                            user_agent=user_agent
                         )
                         db.add(db_hist_emp)
             
@@ -151,7 +157,9 @@ def update_notebook(db: Session, notebook_id: int, notebook_update: schemas.Note
                 status_anterior=status_anterior,
                 status_novo=db_notebook.status,
                 descricao=desc,
-                responsavel_id=responsavel_id
+                responsavel_id=responsavel_id,
+                ip_address=ip_address,
+                user_agent=user_agent
             )
             db.add(db_hist)
         db.commit()
@@ -189,7 +197,7 @@ def listar_emprestimos(
         query = query.filter(models.Emprestimo.usuario_id == usuario_id)
     return query.order_by(models.Emprestimo.data_emprestimo.desc()).offset(skip).limit(limit).all()
 
-def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None, status_inicial: str = "Pendente"):
+def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsavel_id: Optional[int] = None, status_inicial: str = "Pendente", ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     # Obter lock pessimista na configuração de alta demanda para serializar as verificações sob concorrência
     config_alta_demanda = db.query(models.Configuracao).filter(
         models.Configuracao.chave == "dia_alta_demanda"
@@ -274,7 +282,9 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
             status_anterior="Disponível",
             status_novo=notebook.status,
             descricao=f"Pré-alocação de notebook para {usuario.nome} ({usuario.matricula})" if status_inicial in ("Pendente", "Reservado") else f"Empréstimo rápido para {usuario.nome} ({usuario.matricula})",
-            informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo})
+            informacoes_adicionais=json.dumps({"emprestimo_id": db_emprestimo.id, "motivo": emprestimo.motivo}),
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         db.add(db_hist)
         db.commit()
@@ -286,7 +296,7 @@ def criar_emprestimo(db: Session, emprestimo: schemas.EmprestimoCreate, responsa
         db.rollback()
         raise e
 
-def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, responsavel_id: Optional[int] = None):
+def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, responsavel_id: Optional[int] = None, ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     notebook = get_notebook_by_patrimonio(db, dados.notebook_patrimonio)
     if not notebook:
         raise ValueError(f"Notebook {dados.notebook_patrimonio} não encontrado")
@@ -315,9 +325,9 @@ def criar_emprestimo_rapido(db: Session, dados: schemas.EmprestimoRapido, respon
         print(f"Status do Ativo: Reservado")
         print(f"---------------------------------\n")
         
-    return criar_emprestimo(db, emprestimo, responsavel_id, status_inicial="Reservado")
+    return criar_emprestimo(db, emprestimo, responsavel_id, status_inicial="Reservado", ip_address=ip_address, user_agent=user_agent)
 
-def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None):
+def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.EmprestimoDevolucao, responsavel_id: Optional[int] = None, ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
     if not emprestimo or emprestimo.status not in ["Ativo", "Atrasado", "Pendente"]:
         raise ValueError("Empréstimo não encontrado ou já finalizado")
@@ -345,7 +355,9 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
             status_anterior=status_anterior_nb,
             status_novo="Disponível",
             descricao=f"Devolução do notebook {notebook.patrimonio}",
-            informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id})
+            informacoes_adicionais=json.dumps({"emprestimo_id": emprestimo.id}),
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         db.add(db_hist)
         db.commit()
@@ -356,7 +368,7 @@ def registrar_devolucao(db: Session, emprestimo_id: int, dados: schemas.Empresti
         raise e
 
 
-def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optional[int] = None):
+def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optional[int] = None, ip_address: Optional[str] = None, user_agent: Optional[str] = None):
     emprestimo = get_emprestimo(db, emprestimo_id)
     if not emprestimo or emprestimo.status not in ["Ativo", "Pendente", "Atrasado"]:
         raise ValueError("Empréstimo não encontrado ou não está ativo")
@@ -376,11 +388,19 @@ def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optiona
             tipo_movimentacao="CANCELAMENTO",
             status_anterior=status_anterior_nb,
             status_novo="Disponível",
-            descricao="Empréstimo cancelado"
+            descricao="Empréstimo cancelado",
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         db.add(db_hist)
         db.commit()
         db.refresh(emprestimo)
+        
+        verificar_e_notificar_escassez(db)
+        return emprestimo
+    except Exception as e:
+        db.rollback()
+        raise e
         
         verificar_e_notificar_escassez(db)
         return emprestimo
@@ -491,11 +511,11 @@ def processar_agendamentos_ativos(db: Session):
         
     for res in reservas_ativas:
         try:
-            # Buscar notebooks disponíveis
+            # Buscar notebooks disponíveis com lock pessimista
             notebooks_disponiveis = db.query(models.Notebook).filter(
                 models.Notebook.status == "Disponível",
                 models.Notebook.excluido == False
-            ).limit(res.quantidade).all()
+            ).with_for_update().limit(res.quantidade).all()
             
             # Se não houver notebooks suficientes disponíveis, alocar o máximo possível
             qtd_a_alocar = min(len(notebooks_disponiveis), res.quantidade)
@@ -601,3 +621,196 @@ def update_usuario(db: Session, usuario_id: int, usuario_update: schemas.Usuario
         db.rollback()
         raise e
 
+
+
+def criar_solicitacao_alocacao(
+    db: Session,
+    turma_id: str,
+    solicitante_id: int,
+    justificativa: str,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
+):
+    turma = db.query(models.Turma).filter(models.Turma.codigo_turma == turma_id).first()
+    if not turma:
+        raise ValueError(f"Turma {turma_id} não encontrada")
+        
+    db_sol = models.SolicitacaoAlocacao(
+        turma_id=turma_id,
+        solicitante_id=solicitante_id,
+        justificativa=justificativa,
+        status="Aberto"
+    )
+    db.add(db_sol)
+    db.commit()
+    db.refresh(db_sol)
+    
+    db_hist = models.Historico(
+        usuario_id=solicitante_id,
+        responsavel_id=solicitante_id,
+        tipo_movimentacao="SOLICITACAO_ALOCACAO",
+        status_anterior="N/A",
+        status_novo="Aberto",
+        descricao=f"Solicitação de Alocação em Lote para a Turma {turma_id}: {justificativa}",
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.add(db_hist)
+    db.commit()
+    
+    return db_sol
+
+def listar_solicitacoes_alocacao(
+    db: Session,
+    status: Optional[str] = None,
+    responsavel_ti_id: Optional[int] = None,
+    solicitante_id: Optional[int] = None,
+    data_abertura: Optional[str] = None,
+    termo_busca: Optional[str] = None
+):
+    query = db.query(models.SolicitacaoAlocacao).options(
+        joinedload(models.SolicitacaoAlocacao.turma),
+        joinedload(models.SolicitacaoAlocacao.solicitante),
+        joinedload(models.SolicitacaoAlocacao.responsavel_ti)
+    )
+    
+    if status:
+        if status.lower() in ["concluido", "concluído"]:
+            query = query.filter(models.SolicitacaoAlocacao.status.in_(["Aprovado", "Reprovado"]))
+        else:
+            query = query.filter(models.SolicitacaoAlocacao.status == status)
+            
+    if responsavel_ti_id:
+        query = query.filter(models.SolicitacaoAlocacao.responsavel_ti_id == responsavel_ti_id)
+        
+    if solicitante_id:
+        query = query.filter(models.SolicitacaoAlocacao.solicitante_id == solicitante_id)
+        
+    if data_abertura:
+        query = query.filter(func.strftime('%Y-%m-%d', models.SolicitacaoAlocacao.created_at) == data_abertura)
+        
+    if termo_busca:
+        busca = f"%{termo_busca.lower()}%"
+        query = query.join(models.Usuario, models.SolicitacaoAlocacao.solicitante_id == models.Usuario.id).filter(
+            models.Usuario.nome.ilike(busca) |
+            models.SolicitacaoAlocacao.turma_id.ilike(busca) |
+            models.SolicitacaoAlocacao.justificativa.ilike(busca)
+        )
+        
+    return query.order_by(models.SolicitacaoAlocacao.created_at.desc()).all()
+
+def avaliar_solicitacao_alocacao(
+    db: Session,
+    solicitacao_id: int,
+    decisao: str,
+    motivo: str,
+    responsavel_ti_id: int,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
+):
+    sol = db.query(models.SolicitacaoAlocacao).filter(
+        models.SolicitacaoAlocacao.id == solicitacao_id
+    ).with_for_update().first()
+    
+    if not sol:
+        raise ValueError("Solicitação de alocação não encontrada.")
+    if sol.status != "Aberto":
+        raise ValueError("Esta solicitação já foi avaliada.")
+        
+    sol.status = decisao
+    sol.motivo_decisao = motivo
+    sol.responsavel_ti_id = responsavel_ti_id
+    sol.data_decisao = get_brasilia_time()
+    sol.visualizada_professor = False
+    
+    alocados_list = []
+    
+    if decisao == "Aprovado":
+        alunos = db.query(models.Usuario).filter(
+            models.Usuario.turma == sol.turma_id,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).all()
+        
+        alunos_precisam = []
+        for aluno in alunos:
+            emp_ativo = db.query(models.Emprestimo).filter(
+                models.Emprestimo.usuario_id == aluno.id,
+                models.Emprestimo.status.in_(["Ativo", "Atrasado", "Reservado"])
+            ).first()
+            if not emp_ativo:
+                alunos_precisam.append(aluno)
+                
+        notebooks_disponiveis = db.query(models.Notebook).filter(
+            models.Notebook.status == "Disponível",
+            models.Notebook.excluido == False
+        ).with_for_update().limit(len(alunos_precisam)).all()
+        
+        data_prevista = get_brasilia_time() + timedelta(hours=4)
+        
+        for i, aluno in enumerate(alunos_precisam):
+            if i < len(notebooks_disponiveis):
+                nb = notebooks_disponiveis[i]
+                db_emp = models.Emprestimo(
+                    notebook_id=nb.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=responsavel_ti_id,
+                    data_prevista_devolucao=data_prevista,
+                    status="Reservado",
+                    observacao_saida=f"Alocação em Lote Aprovada por TI (Solicitação #{sol.id})",
+                    motivo="Alocação em Lote"
+                )
+                nb.status = "Reservado"
+                nb.usuario_id = aluno.id
+                db.add(db_emp)
+                db.flush()
+                
+                db_hist = models.Historico(
+                    notebook_id=nb.id,
+                    usuario_id=aluno.id,
+                    responsavel_id=responsavel_ti_id,
+                    tipo_movimentacao="EMPRESTIMO",
+                    status_anterior="Disponível",
+                    status_novo="Reservado",
+                    descricao=f"Notebook alocado em lote para o aluno {aluno.nome} (Solicitação #{sol.id})",
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                db.add(db_hist)
+                
+                alocados_list.append({
+                    "patrimonio": nb.patrimonio,
+                    "modelo": nb.modelo,
+                    "aluno_nome": aluno.nome,
+                    "aluno_matricula": aluno.matricula
+                })
+                
+        sol.detalhes_alocacao = json.dumps({"alocados": alocados_list, "total_alocados": len(alocados_list)})
+    else:
+        sol.detalhes_alocacao = json.dumps({"alocados": [], "motivo": motivo})
+        
+    db_hist_decisao = models.Historico(
+        usuario_id=sol.solicitante_id,
+        responsavel_id=responsavel_ti_id,
+        tipo_movimentacao="DECISAO_ALOCACAO",
+        status_anterior="Aberto",
+        status_novo=decisao,
+        descricao=f"Solicitação de Alocação #{sol.id} para turma {sol.turma_id} {decisao}. Motivo: {motivo}",
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.add(db_hist_decisao)
+    
+    db.commit()
+    db.refresh(sol)
+    return sol
+
+def marcar_solicitacao_visualizada(db: Session, solicitacao_id: int, usuario_id: int):
+    sol = db.query(models.SolicitacaoAlocacao).filter(
+        models.SolicitacaoAlocacao.id == solicitacao_id
+    ).first()
+    if sol and (sol.solicitante_id == usuario_id):
+        sol.visualizada_professor = True
+        db.commit()
+        db.refresh(sol)
+    return sol

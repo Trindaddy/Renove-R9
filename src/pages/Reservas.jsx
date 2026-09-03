@@ -33,6 +33,7 @@ export default function Reservas() {
   const [stats, setStats] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [blockingAlert, setBlockingAlert] = useState(null);
+  const [sameDayBlockedAlert, setSameDayBlockedAlert] = useState(false);
 
   const { user } = useAuth();
   const { lastMessage } = useWebSocket();
@@ -91,6 +92,12 @@ export default function Reservas() {
       return;
     }
 
+    // Restrição: Professores não podem reservar para o mesmo dia
+    if (user?.role === 'professor' && form.data === hojeLocal) {
+      setSameDayBlockedAlert(true);
+      return;
+    }
+
     // Validar limite de quantidade com base no número de alunos ativos da turma
     const selectedTurmaObj = turmas.find(t => t.id === form.turmaId);
     if (selectedTurmaObj) {
@@ -132,7 +139,9 @@ export default function Reservas() {
       await loadReservas();
     } catch (err) {
       const apiErrorMsg = err.response?.data?.detail;
-      if (apiErrorMsg && apiErrorMsg.includes("excede o número de alunos")) {
+      if (apiErrorMsg && apiErrorMsg.includes("Faça os empréstimos com antecedência")) {
+        setSameDayBlockedAlert(true);
+      } else if (apiErrorMsg && apiErrorMsg.includes("excede o número de alunos")) {
         setBlockingAlert({
           requested: form.quantidade,
           max: selectedTurmaObj ? (selectedTurmaObj.alunos_count ?? 0) : 0
@@ -620,6 +629,37 @@ export default function Reservas() {
                   onClick={executeDelete}
                 >
                   Confirmar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {sameDayBlockedAlert && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-900 border border-primary/40 rounded-2xl p-6 w-full max-w-md shadow-2xl relative mx-4 text-center text-slate-200"
+            >
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center mx-auto mb-4 text-primary text-3xl">
+                <WarningCircle weight="duotone" />
+              </div>
+              <h3 className="text-lg font-black text-slate-100 mb-2">
+                Antecedência Obrigatória
+              </h3>
+              <p className="text-xs text-slate-300 mb-6 leading-relaxed font-medium bg-dark-800/60 p-4 rounded-xl border border-dark-600/60 text-justify">
+                Faça os empréstimos com antecedência! Não é permitido fazer empréstimos no mesmo dia escolhido para uso. Tente a alocação em lote para avaliação da Equipe de TI.
+              </p>
+
+              <div className="flex w-full">
+                <Button
+                  className="w-full text-xs py-3 font-bold bg-primary text-white hover:bg-primary-dark"
+                  onClick={() => setSameDayBlockedAlert(false)}
+                >
+                  Entendi
                 </Button>
               </div>
             </motion.div>

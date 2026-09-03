@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 import bcrypt
 import os
@@ -20,7 +20,7 @@ import models
 from models import Base
 import crud
 import schemas
-from websocket import websocket_endpoint, manager, broadcast_disponibilidade, broadcast_emprestimo_realizado, broadcast_devolucao_realizada
+from websocket import websocket_endpoint, manager, broadcast_disponibilidade, broadcast_emprestimo_realizado, broadcast_devolucao_realizada, broadcast_solicitacao_alocacao_criada, broadcast_solicitacao_alocacao_avaliada
 from alertas import verificar_alerta_escassez_sync
 
 # Criar tabelas (apenas se configurado para evitar conflito com Alembic em produção)
@@ -122,29 +122,61 @@ if SECRET_KEY == "SNC@1234" and is_production:
         "Por favor, defina a variável de ambiente SECRET_KEY com um valor robusto."
     )
 
+def get_client_metadata(request: Request):
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    else:
+        ip = request.client.host if request.client else "127.0.0.1"
+    user_agent = request.headers.get("User-Agent", "Unknown")[:255]
+    return ip, user_agent
+
+# ==================== TRATAMENTO CENTRALIZADO DE EXCEÇÕES ====================
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import logging
+    logging.error(f"Erro não tratado na rota {request.method} {request.url}: {exc}", exc_info=True)
+    if is_production:
+        return Response(
+            content='{"detail":"Erro interno no processamento. A equipe técnica foi notificada.","code":"INTERNAL_SERVER_ERROR"}',
+            status_code=500,
+            media_type="application/json"
+        )
+    return Response(
+        content=f'{{"detail":"{str(exc)}","code":"INTERNAL_SERVER_ERROR"}}',
+        status_code=500,
+        media_type="application/json"
+    )
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-# ==================== UTILITÁRIOS DE AUTENTICAÇÃO ====================
+from passlib.hash import pbkdf2_sha256
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(
-            plain_password.encode('utf-8'),
-            hashed_password.encode('utf-8')
-        )
+        if not hashed_password:
+            return False
+        if hashed_password.startswith("$2a$") or hashed_password.startswith("$2b$") or hashed_password.startswith("$2y$"):
+            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        elif hashed_password.startswith("$pbkdf2-sha256$"):
+            return pbkdf2_sha256.verify(plain_password, hashed_password)
+        return plain_password == hashed_password
     except Exception:
         return False
 
 def get_password_hash(password: str) -> str:
-    pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -154,19 +186,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
-    except JWTError:
+        user_id = int(user_id_str)
+    except (JWTError, ValueError):
         raise credentials_exception
     
-    user = crud.get_usuario(db, int(user_id))
+    user = crud.get_usuario(db, usuario_id=user_id)
     if user is None:
         raise credentials_exception
     if not user.ativo:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta suspensa/inativa"
+            detail="Conta inativa"
         )
     return user
 
@@ -183,9 +216,21 @@ def require_role(roles: List[str]):
 # ==================== ROTAS DE AUTENTICAÇÃO ====================
 
 @app.post("/auth/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), _rate_limit = Depends(rate_limit_auth)):
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), _rate_limit = Depends(rate_limit_auth)):
+    ip, ua = get_client_metadata(request)
     user = crud.get_usuario_by_email(db, form_data.username)
     if not user or not verify_password(form_data.password, user.senha_hash):
+        try:
+            crud.registrar_historico(db, schemas.HistoricoCreate(
+                usuario_id=user.id if user else None,
+                responsavel_id=user.id if user else None,
+                tipo_movimentacao=schemas.TipoMovimentacao.login_falha,
+                descricao=f"Tentativa de login falha para '{form_data.username}'",
+                ip_address=ip,
+                user_agent=ua
+            ))
+        except Exception:
+            pass
         raise HTTPException(status_code=400, detail="Email ou senha incorretos")
     if not user.ativo:
         raise HTTPException(
@@ -197,6 +242,18 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             status_code=400,
             detail="Primeiro acesso pendente. Por favor, use a opção 'Primeiro Acesso' para ativar sua conta."
         )
+    
+    try:
+        crud.registrar_historico(db, schemas.HistoricoCreate(
+            usuario_id=user.id,
+            responsavel_id=user.id,
+            tipo_movimentacao=schemas.TipoMovimentacao.login,
+            descricao=f"Login efetuado com sucesso por {user.nome} ({user.email})",
+            ip_address=ip,
+            user_agent=ua
+        ))
+    except Exception:
+        pass
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -589,25 +646,29 @@ def get_notebook(
 
 @app.post("/notebooks", response_model=schemas.NotebookResponse, status_code=status.HTTP_201_CREATED)
 def create_notebook(
+    request: Request,
     notebook: schemas.NotebookCreate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     if crud.get_notebook_by_patrimonio(db, notebook.patrimonio):
         raise HTTPException(status_code=400, detail="Patrimônio já cadastrado")
     
-    return crud.create_notebook(db, notebook, responsavel_id=current_user.id)
+    return crud.create_notebook(db, notebook, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
 
 @app.patch("/notebooks/{notebook_id}", response_model=schemas.NotebookResponse)
 async def update_notebook(
+    request: Request,
     notebook_id: int,
     notebook_update: schemas.NotebookUpdate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     if notebook_update.status == "Manutenção":
         justificativa = notebook_update.justificativa_manutencao or notebook_update.observacoes
@@ -622,7 +683,7 @@ async def update_notebook(
         notebook_update.justificativa_manutencao = None
         notebook_update.autor_manutencao = None
     
-    nb = crud.update_notebook(db, notebook_id, notebook_update, responsavel_id=current_user.id)
+    nb = crud.update_notebook(db, notebook_id, notebook_update, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
     if not nb:
         raise HTTPException(status_code=404, detail="Notebook não encontrado")
         
@@ -794,17 +855,19 @@ def get_emprestimo(
 
 @app.post("/emprestimos", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
 async def create_emprestimo(
+    request: Request,
     emprestimo: schemas.EmprestimoCreate,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     # Limpar atrasados antes
     crud.verificar_atrasos(db)
     
     try:
-        result = crud.criar_emprestimo(db, emprestimo, responsavel_id=current_user.id)
+        result = crud.criar_emprestimo(db, emprestimo, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
         
         # Eagerly load fields to prevent DetachedInstanceError in background task
         patrimonio = result.notebook.patrimonio if result.notebook else ""
@@ -831,11 +894,13 @@ async def create_emprestimo(
 
 @app.post("/emprestimos/rapido", response_model=schemas.EmprestimoResponse, status_code=status.HTTP_201_CREATED)
 async def create_emprestimo_rapido(
+    request: Request,
     dados: schemas.EmprestimoRapido,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "aluno"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     if current_user.role == "aluno":
         if dados.usuario_matricula != current_user.matricula and dados.usuario_matricula != current_user.email:
@@ -847,7 +912,7 @@ async def create_emprestimo_rapido(
     crud.verificar_atrasos(db)
     
     try:
-        result = crud.criar_emprestimo_rapido(db, dados, responsavel_id=current_user.id)
+        result = crud.criar_emprestimo_rapido(db, dados, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
         
         # Eagerly load fields to prevent DetachedInstanceError in background task
         patrimonio = result.notebook.patrimonio if result.notebook else ""
@@ -1097,15 +1162,17 @@ async def confirmar_emprestimo(
 
 @app.post("/emprestimos/{emprestimo_id}/devolver")
 async def devolver_emprestimo(
+    request: Request,
     emprestimo_id: int,
     dados: schemas.EmprestimoDevolucao,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     try:
-        result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id)
+        result = crud.registrar_devolucao(db, emprestimo_id, dados, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
         
         # Eagerly load fields to prevent DetachedInstanceError in background task
         patrimonio = result.notebook.patrimonio if result.notebook else ""
@@ -1126,14 +1193,16 @@ async def devolver_emprestimo(
 
 @app.post("/emprestimos/{emprestimo_id}/cancelar")
 async def cancelar_emprestimo(
+    request: Request,
     emprestimo_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti"])(current_user)
+    ip, ua = get_client_metadata(request)
     
     try:
-        result = crud.cancelar_emprestimo(db, emprestimo_id, responsavel_id=current_user.id)
+        result = crud.cancelar_emprestimo(db, emprestimo_id, responsavel_id=current_user.id, ip_address=ip, user_agent=ua)
         
         stats = crud.get_dashboard_stats(db)
         import asyncio
@@ -1354,6 +1423,12 @@ async def create_reserva(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não é possível criar reservas em datas passadas."
+        )
+        
+    if current_user.role == "professor" and reserva.data == hoje_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Faça os empréstimos com antecedência! Não é permitido fazer empréstimos no mesmo dia escolhido para uso. Tente a alocação em lote para avaliação da Equipe de TI."
         )
         
     is_future = reserva.data > hoje_str
@@ -2139,6 +2214,273 @@ def get_alocacoes_diarias(
             
     res_list = list(alocacoes_map.values())
     return res_list
+
+
+# ==================== ROTAS DE SOLICITAÇÃO DE ALOCAÇÃO EM LOTE ====================
+
+@app.post("/alocacoes/solicitar", response_model=schemas.SolicitacaoAlocacaoResponse, status_code=status.HTTP_201_CREATED)
+async def create_solicitacao_alocacao_route(
+    request: Request,
+    payload: schemas.SolicitacaoAlocacaoCreate,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["professor", "ti"])(current_user)
+    
+    if not payload.justificativa or not payload.justificativa.strip():
+        raise HTTPException(status_code=400, detail="A justificativa do pedido é obrigatória.")
+        
+    turma = db.query(models.Turma).filter(models.Turma.codigo_turma == payload.turma_id).first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma informada não encontrada.")
+        
+    if current_user.role == "professor" and turma.instrutor != current_user.nome:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode solicitar alocação em lote para turmas de que é instrutor."
+        )
+        
+    ip, ua = get_client_metadata(request)
+    try:
+        sol = crud.criar_solicitacao_alocacao(
+            db=db,
+            turma_id=payload.turma_id,
+            solicitante_id=current_user.id,
+            justificativa=payload.justificativa.strip(),
+            ip_address=ip,
+            user_agent=ua
+        )
+        
+        alunos_count = db.query(models.Usuario).filter(
+            models.Usuario.turma == turma.codigo_turma,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).count()
+        
+        sol_data = {
+            "id": sol.id,
+            "turma_id": sol.turma_id,
+            "turma_curso": turma.nome_curso,
+            "turma_turno": turma.turno,
+            "solicitante_id": current_user.id,
+            "solicitante_nome": current_user.nome,
+            "solicitante_email": current_user.email,
+            "justificativa": sol.justificativa,
+            "status": sol.status,
+            "created_at": sol.created_at.isoformat() if sol.created_at else None,
+            "alunos_count": alunos_count
+        }
+        
+        import asyncio
+        asyncio.create_task(broadcast_solicitacao_alocacao_criada(sol_data))
+        
+        return schemas.SolicitacaoAlocacaoResponse(
+            id=sol.id,
+            turma_id=sol.turma_id,
+            turma_curso=turma.nome_curso,
+            turma_turno=turma.turno,
+            solicitante_id=current_user.id,
+            solicitante_nome=current_user.nome,
+            solicitante_email=current_user.email,
+            responsavel_ti_id=None,
+            responsavel_ti_nome=None,
+            justificativa=sol.justificativa,
+            motivo_decisao=None,
+            status=sol.status,
+            data_decisao=None,
+            detalhes_alocacao=None,
+            visualizada_professor=sol.visualizada_professor,
+            created_at=sol.created_at,
+            updated_at=sol.updated_at,
+            alunos_count=alunos_count
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/alocacoes/solicitacoes", response_model=List[schemas.SolicitacaoAlocacaoResponse])
+def list_solicitacoes_alocacao_route(
+    status: Optional[str] = None,
+    responsavel_ti_id: Optional[int] = None,
+    solicitante_id: Optional[int] = None,
+    data_abertura: Optional[str] = None,
+    termo_busca: Optional[str] = None,
+    turma_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti", "professor"])(current_user)
+    
+    solicitante_filter = solicitante_id
+    if current_user.role == "professor":
+        solicitante_filter = current_user.id
+        
+    sols = crud.listar_solicitacoes_alocacao(
+        db=db,
+        status=status,
+        responsavel_ti_id=responsavel_ti_id,
+        solicitante_id=solicitante_filter,
+        data_abertura=data_abertura,
+        termo_busca=termo_busca
+    )
+    
+    if turma_id:
+        sols = [s for s in sols if s.turma_id == turma_id]
+        
+    result = []
+    for s in sols:
+        alunos_count = db.query(models.Usuario).filter(
+            models.Usuario.turma == s.turma_id,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).count()
+        
+        result.append(schemas.SolicitacaoAlocacaoResponse(
+            id=s.id,
+            turma_id=s.turma_id,
+            turma_curso=s.turma.nome_curso if s.turma else None,
+            turma_turno=s.turma.turno if s.turma else None,
+            solicitante_id=s.solicitante_id,
+            solicitante_nome=s.solicitante.nome if s.solicitante else None,
+            solicitante_email=s.solicitante.email if s.solicitante else None,
+            responsavel_ti_id=s.responsavel_ti_id,
+            responsavel_ti_nome=s.responsavel_ti.nome if s.responsavel_ti else None,
+            justificativa=s.justificativa,
+            motivo_decisao=s.motivo_decisao,
+            status=s.status,
+            data_decisao=s.data_decisao,
+            detalhes_alocacao=s.detalhes_alocacao,
+            visualizada_professor=s.visualizada_professor,
+            created_at=s.created_at,
+            updated_at=s.updated_at,
+            alunos_count=alunos_count
+        ))
+    return result
+
+@app.post("/alocacoes/solicitacoes/{solicitacao_id}/avaliar", response_model=schemas.SolicitacaoAlocacaoResponse)
+async def avaliar_solicitacao_alocacao_route(
+    solicitacao_id: int,
+    payload: schemas.SolicitacaoAlocacaoAvaliar,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["ti"])(current_user)
+    
+    if not payload.motivo or not payload.motivo.strip():
+        raise HTTPException(status_code=400, detail="O campo de motivo é obrigatório tanto para aprovação quanto para reprovação.")
+        
+    ip, ua = get_client_metadata(request)
+    try:
+        sol = crud.avaliar_solicitacao_alocacao(
+            db=db,
+            solicitacao_id=solicitacao_id,
+            decisao=payload.decisao,
+            motivo=payload.motivo.strip(),
+            responsavel_ti_id=current_user.id,
+            ip_address=ip,
+            user_agent=ua
+        )
+        
+        turma = db.query(models.Turma).filter(models.Turma.codigo_turma == sol.turma_id).first()
+        alunos_count = db.query(models.Usuario).filter(
+            models.Usuario.turma == sol.turma_id,
+            models.Usuario.role == "aluno",
+            models.Usuario.ativo == True
+        ).count()
+        
+        sol_data = {
+            "id": sol.id,
+            "turma_id": sol.turma_id,
+            "turma_curso": turma.nome_curso if turma else None,
+            "turma_turno": turma.turno if turma else None,
+            "solicitante_id": sol.solicitante_id,
+            "solicitante_nome": sol.solicitante.nome if sol.solicitante else None,
+            "responsavel_ti_id": current_user.id,
+            "responsavel_ti_nome": current_user.nome,
+            "justificativa": sol.justificativa,
+            "motivo_decisao": sol.motivo_decisao,
+            "status": sol.status,
+            "data_decisao": sol.data_decisao.isoformat() if sol.data_decisao else None,
+            "detalhes_alocacao": sol.detalhes_alocacao,
+            "alunos_count": alunos_count
+        }
+        
+        import asyncio
+        asyncio.create_task(broadcast_solicitacao_alocacao_avaliada(sol_data))
+        stats = crud.get_dashboard_stats(db)
+        asyncio.create_task(broadcast_disponibilidade(stats.__dict__))
+        
+        return schemas.SolicitacaoAlocacaoResponse(
+            id=sol.id,
+            turma_id=sol.turma_id,
+            turma_curso=turma.nome_curso if turma else None,
+            turma_turno=turma.turno if turma else None,
+            solicitante_id=sol.solicitante_id,
+            solicitante_nome=sol.solicitante.nome if sol.solicitante else None,
+            solicitante_email=sol.solicitante.email if sol.solicitante else None,
+            responsavel_ti_id=current_user.id,
+            responsavel_ti_nome=current_user.nome,
+            justificativa=sol.justificativa,
+            motivo_decisao=sol.motivo_decisao,
+            status=sol.status,
+            data_decisao=sol.data_decisao,
+            detalhes_alocacao=sol.detalhes_alocacao,
+            visualizada_professor=sol.visualizada_professor,
+            created_at=sol.created_at,
+            updated_at=sol.updated_at,
+            alunos_count=alunos_count
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.patch("/alocacoes/solicitacoes/{solicitacao_id}/visualizar")
+def visualizar_solicitacao_alocacao_route(
+    solicitacao_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    sol = crud.marcar_solicitacao_visualizada(db, solicitacao_id, current_user.id)
+    if not sol:
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
+    return {"message": "Solicitação marcada como visualizada."}
+
+@app.get("/alocacoes/notificacoes-pendentes", response_model=List[schemas.SolicitacaoAlocacaoResponse])
+def get_notificacoes_pendentes_route(
+    db: Session = Depends(get_db),
+    current_user: schemas.UsuarioResponse = Depends(get_current_user)
+):
+    require_role(["professor"])(current_user)
+    sols = db.query(models.SolicitacaoAlocacao).options(
+        joinedload(models.SolicitacaoAlocacao.turma),
+        joinedload(models.SolicitacaoAlocacao.responsavel_ti)
+    ).filter(
+        models.SolicitacaoAlocacao.solicitante_id == current_user.id,
+        models.SolicitacaoAlocacao.status.in_(["Aprovado", "Reprovado"]),
+        models.SolicitacaoAlocacao.visualizada_professor == False
+    ).order_by(models.SolicitacaoAlocacao.data_decisao.desc()).all()
+    
+    return [
+        schemas.SolicitacaoAlocacaoResponse(
+            id=s.id,
+            turma_id=s.turma_id,
+            turma_curso=s.turma.nome_curso if s.turma else None,
+            turma_turno=s.turma.turno if s.turma else None,
+            solicitante_id=s.solicitante_id,
+            solicitante_nome=current_user.nome,
+            solicitante_email=current_user.email,
+            responsavel_ti_id=s.responsavel_ti_id,
+            responsavel_ti_nome=s.responsavel_ti.nome if s.responsavel_ti else "Equipe TI",
+            justificativa=s.justificativa,
+            motivo_decisao=s.motivo_decisao,
+            status=s.status,
+            data_decisao=s.data_decisao,
+            detalhes_alocacao=s.detalhes_alocacao,
+            visualizada_professor=s.visualizada_professor,
+            created_at=s.created_at,
+            updated_at=s.updated_at
+        )
+        for s in sols
+    ]
 
 # ==================== ROTAS DE SAÚDE ====================
 

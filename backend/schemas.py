@@ -47,6 +47,11 @@ class TipoMovimentacao(str, Enum):
     cadastro = "CADASTRO"
     atualizacao = "ATUALIZACAO"
     alerta_escassez = "ALERTA_ESCASSEZ"
+    login = "LOGIN"
+    login_falha = "LOGIN_FALHA"
+    seguranca_alerta = "SEGURANCA_ALERTA"
+    solicitacao_alocacao = "SOLICITACAO_ALOCACAO"
+    decisao_alocacao = "DECISAO_ALOCACAO"
 
 # Base Models
 class UsuarioBase(BaseModel):
@@ -148,6 +153,8 @@ class HistoricoBase(BaseModel):
     status_novo: Optional[str] = None
     descricao: Optional[str] = None
     informacoes_adicionais: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
 
 class HistoricoCreate(HistoricoBase):
     usuario_id: Optional[int] = None
@@ -281,3 +288,35 @@ class ReservaUpdate(BaseModel):
 
 
 
+
+
+class SolicitacaoAlocacaoCreate(BaseModel):
+    turma_id: str = Field(..., min_length=1, max_length=50)
+    justificativa: str = Field(..., min_length=1)
+
+class SolicitacaoAlocacaoAvaliar(BaseModel):
+    decisao: str = Field(..., pattern="^(Aprovado|Reprovado)$")
+    motivo: str = Field(..., min_length=1)
+
+class SolicitacaoAlocacaoResponse(BaseModel):
+    id: int
+    turma_id: str
+    turma_curso: Optional[str] = None
+    turma_turno: Optional[str] = None
+    solicitante_id: int
+    solicitante_nome: Optional[str] = None
+    solicitante_email: Optional[str] = None
+    responsavel_ti_id: Optional[int] = None
+    responsavel_ti_nome: Optional[str] = None
+    justificativa: str
+    motivo_decisao: Optional[str] = None
+    status: str
+    data_decisao: Optional[datetime] = None
+    detalhes_alocacao: Optional[str] = None
+    visualizada_professor: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    alunos_count: Optional[int] = 0
+
+    class Config:
+        from_attributes = True

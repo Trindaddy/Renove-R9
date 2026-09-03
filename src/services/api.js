@@ -1,20 +1,20 @@
 import axios from 'axios';
 
-// Armazenamento em memória (In-Memory) para mitigar vulnerabilidades XSS
-let inMemoryToken = null;
+// Armazenamento de token com fallback para localStorage
+let inMemoryToken = typeof window !== 'undefined' ? localStorage.getItem('r9:token') : null;
 let unauthorizedCallback = null;
 
 const api = axios.create({
-  // Em produção, use Nginx para proxyar /api -> backend
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  withCredentials: true, // Crucial para permitir envio automático de cookies HttpOnly
+  withCredentials: true,
 });
 
-// Interceptor de Requisição: Injeta o token Bearer em memória se ele existir
+// Interceptor de Requisição: Injeta o token Bearer se ele existir
 api.interceptors.request.use(
   (config) => {
-    if (inMemoryToken) {
-      config.headers.Authorization = `Bearer ${inMemoryToken}`;
+    const token = inMemoryToken || (typeof window !== 'undefined' ? localStorage.getItem('r9:token') : null);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -23,20 +23,25 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de Resposta: Trata 401/403 de forma centralizada e desloga o usuário
+// Interceptor de Resposta: Trata 401/403 de forma centralizada apenas para rotas protegidas
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      const detail = error.response.data?.detail;
-      
-      // Se for conta suspensa ou sessão expirada/inválida, desloga e redireciona
-      if (unauthorizedCallback) {
-        unauthorizedCallback(detail);
-      } else {
-        localStorage.removeItem('r9:user');
-        inMemoryToken = null;
-        window.location.href = '/login?expired=true';
+      const requestUrl = error.config?.url || '';
+      const isAuthRoute = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/primeiro-acesso') || requestUrl.includes('/auth/me');
+      const isAlreadyOnLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
+
+      if (!isAuthRoute && !isAlreadyOnLoginPage) {
+        const detail = error.response.data?.detail;
+        if (unauthorizedCallback) {
+          unauthorizedCallback(detail);
+        } else {
+          localStorage.removeItem('r9:user');
+          localStorage.removeItem('r9:token');
+          inMemoryToken = null;
+          window.location.href = '/login?expired=true';
+        }
       }
     }
     return Promise.reject(error);
@@ -44,10 +49,21 @@ api.interceptors.response.use(
 );
 
 /**
- * Atualiza o token JWT em memória.
+ * Atualiza o token JWT em memória e nos cabeçalhos padrão do Axios.
  */
 export function setAuthToken(token) {
   inMemoryToken = token;
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('r9:token', token);
+    }
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('r9:token');
+    }
+  }
 }
 
 /**

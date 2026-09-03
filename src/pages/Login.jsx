@@ -34,12 +34,14 @@ export default function Login() {
     if (params.get('suspended') === 'true') {
       setSuspendedModalMessage('Esta conta está atualmente inativa. Por favor, entre em contato com o setor de TI para verificar o seu status e solicitar o desbloqueio.');
       setShowSuspendedModal(true);
+    } else if (params.get('expired') === 'true') {
+      setError('Sessão expirada. Por favor, faça login com suas credenciais.');
     }
   }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

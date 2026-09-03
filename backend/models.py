@@ -87,12 +87,15 @@ class Historico(Base):
     status_novo = Column(String(20))
     descricao = Column(Text)
     informacoes_adicionais = Column(Text)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
 
     __table_args__ = (
         CheckConstraint(
             "tipo_movimentacao IN ('EMPRESTIMO', 'DEVOLUCAO', 'MANUTENCAO_ENTRADA', "
-            "'MANUTENCAO_SAIDA', 'RESERVA', 'CANCELAMENTO', 'CADASTRO', 'ATUALIZACAO', 'ALERTA_ESCASSEZ')",
+            "'MANUTENCAO_SAIDA', 'RESERVA', 'CANCELAMENTO', 'CADASTRO', 'ATUALIZACAO', 'ALERTA_ESCASSEZ', "
+            "'LOGIN', 'LOGIN_FALHA', 'SEGURANCA_ALERTA', 'SOLICITACAO_ALOCACAO', 'DECISAO_ALOCACAO')",
             name="check_historico_tipo"
         ),
     )
@@ -133,3 +136,28 @@ class Reserva(Base):
 
 
 
+
+
+class SolicitacaoAlocacao(Base):
+    __tablename__ = "solicitacoes_alocacao"
+
+    id = Column(Integer, primary_key=True, index=True)
+    turma_id = Column(String(50), ForeignKey("turmas.codigo_turma", ondelete="RESTRICT"), nullable=False)
+    solicitante_id = Column(Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=False)
+    responsavel_ti_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    justificativa = Column(Text, nullable=False)
+    motivo_decisao = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="Aberto")
+    data_decisao = Column(DateTime(timezone=True), nullable=True)
+    detalhes_alocacao = Column(Text, nullable=True)
+    visualizada_professor = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
+    updated_at = Column(DateTime(timezone=True), default=get_brasilia_time, onupdate=get_brasilia_time)
+
+    turma = relationship("Turma")
+    solicitante = relationship("Usuario", foreign_keys=[solicitante_id])
+    responsavel_ti = relationship("Usuario", foreign_keys=[responsavel_ti_id])
+
+    __table_args__ = (
+        CheckConstraint("status IN ('Aberto', 'Aprovado', 'Reprovado')", name="check_solicitacao_alocacao_status"),
+    )

@@ -115,3 +115,20 @@ async def broadcast_devolucao_realizada(devolucao: dict):
 # Importação tardia para evitar circular imports
 from typing import Optional
 
+
+
+async def broadcast_solicitacao_alocacao_criada(solicitacao: dict):
+    """Broadcast para quando uma nova solicitação de alocação em lote é criada"""
+    await manager.broadcast({
+        "type": "solicitacao_alocacao_criada",
+        "data": solicitacao,
+        "timestamp": datetime.now().isoformat()
+    })
+
+async def broadcast_solicitacao_alocacao_avaliada(solicitacao: dict):
+    """Broadcast quando uma solicitação de alocação é aprovada ou reprovada"""
+    await manager.broadcast({
+        "type": "solicitacao_alocacao_avaliada",
+        "data": solicitacao,
+        "timestamp": datetime.now().isoformat()
+    })

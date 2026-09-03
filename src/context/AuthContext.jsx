@@ -15,16 +15,18 @@ export function AuthProvider({ children }) {
     setToken(null);
     setAuthToken(null);
     localStorage.removeItem('r9:user');
+    localStorage.removeItem('r9:token');
   }
 
   useEffect(() => {
     async function init() {
-      // Registra o callback do Axios para deslogar automaticamente em erros 401/403
+      // Registra o callback do Axios para deslogar automaticamente em erros 401/403 de rotas protegidas
       registerUnauthorizedCallback((detail) => {
         logout();
         if (
           detail === 'Conta suspensa/inativa' || 
-          detail === 'Esta conta está inativa/suspensa. Entre em contato com o administrador.'
+          detail === 'Esta conta está inativa/suspensa. Entre em contato com o administrador.' ||
+          detail === 'Conta inativa'
         ) {
           window.location.href = '/login?suspended=true';
         } else {
@@ -32,11 +34,12 @@ export function AuthProvider({ children }) {
         }
       });
 
+      const storedToken = localStorage.getItem('r9:token');
       const storedUser = localStorage.getItem('r9:user');
-      if (storedUser) {
+      if (storedToken && storedUser) {
         try {
-          // Em um modelo Zero Trust (BFF / HttpOnly), ao recarregar a página,
-          // o cookie seguro envia a sessão e obtemos os dados de perfil
+          setAuthToken(storedToken);
+          setToken(storedToken);
           const me = await getMeRequest();
           
           setUser({
@@ -47,9 +50,11 @@ export function AuthProvider({ children }) {
             primeiro_acesso: me.primeiro_acesso
           });
         } catch (err) {
-          // Token expirado ou sem cookie de sessão ativo
+          // Token expirado ou inválido
           logout();
         }
+      } else {
+        logout();
       }
       setLoading(false);
     }
@@ -60,9 +65,10 @@ export function AuthProvider({ children }) {
     try {
       const tokenData = await loginRequest(email, password);
       
-      // Armazena o token na memória (React State + api.js local variable)
+      // Armazena o token na memória e no localStorage
       setToken(tokenData.access_token);
       setAuthToken(tokenData.access_token);
+      localStorage.setItem('r9:token', tokenData.access_token);
 
       // Busca dados de perfil do usuário
       const me = await getMeRequest();
@@ -76,8 +82,6 @@ export function AuthProvider({ children }) {
       };
 
       setUser(loggedUser);
-      
-      // Salva apenas metadados no localStorage (SEM TOKEN)
       localStorage.setItem('r9:user', JSON.stringify(loggedUser));
       return { ok: true };
     } catch (error) {

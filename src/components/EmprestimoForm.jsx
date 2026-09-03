@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import Button from './Button.jsx';
 
 export default function EmprestimoForm({ onSubmit, loading }) {
@@ -27,9 +28,9 @@ export default function EmprestimoForm({ onSubmit, loading }) {
 
     try {
       await onSubmit({
-        notebook_patrimonio: form.notebook_patrimonio.trim(),
-        usuario_matricula: form.usuario_matricula.trim(),
-        motivo: form.motivo.trim() || undefined,
+        notebook_patrimonio: DOMPurify.sanitize(form.notebook_patrimonio.trim()),
+        usuario_matricula: DOMPurify.sanitize(form.usuario_matricula.trim()),
+        motivo: form.motivo ? DOMPurify.sanitize(form.motivo.trim()) : undefined,
         horas_previstas: parseInt(form.horas_previstas) || 4
       });
       setForm({

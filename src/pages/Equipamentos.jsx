@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import Input from '../components/Input.jsx';
 import Button from '../components/Button.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -97,7 +98,14 @@ export default function Equipamentos() {
       setLoading(true);
       setError('');
       setSuccess('');
-      await cadastrarEquipamento(newNotebook);
+      await cadastrarEquipamento({
+        ...newNotebook,
+        patrimonio: DOMPurify.sanitize(newNotebook.patrimonio.trim()),
+        modelo: DOMPurify.sanitize(newNotebook.modelo.trim()),
+        marca: DOMPurify.sanitize(newNotebook.marca.trim()),
+        local: DOMPurify.sanitize(newNotebook.local.trim()),
+        observacoes: newNotebook.observacoes ? DOMPurify.sanitize(newNotebook.observacoes.trim()) : ''
+      });
       setSuccess('Notebook cadastrado com sucesso!');
       setShowAddModal(false);
       setNewNotebook({
@@ -130,7 +138,7 @@ export default function Equipamentos() {
       const reasonDetail = maintenanceNotes ? `${maintenanceReason} - ${maintenanceNotes}` : maintenanceReason;
       await atualizarEquipamento(selectedEq.id, { 
         status: 'Manutenção',
-        justificativa_manutencao: reasonDetail
+        justificativa_manutencao: DOMPurify.sanitize(reasonDetail.trim())
       });
       setSuccess('Equipamento enviado para manutenção.');
       setShowMaintenanceModal(false);
@@ -247,7 +255,8 @@ export default function Equipamentos() {
       setLoading(true);
       setError('');
       setSuccess('');
-      await atualizarEquipamento(selectedEq.id, { observacoes: editDescription || null });
+      const sanitizedDesc = editDescription ? DOMPurify.sanitize(editDescription.trim()) : null;
+      await atualizarEquipamento(selectedEq.id, { observacoes: sanitizedDesc });
       setSuccess(`Descrição do notebook ${selectedEq.patrimonio} atualizada com sucesso.`);
       setShowEditDescriptionModal(false);
       setSelectedEq(null);
