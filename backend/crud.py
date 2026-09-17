@@ -628,6 +628,11 @@ def criar_solicitacao_alocacao(
     turma_id: str,
     solicitante_id: int,
     justificativa: str,
+    quantidade: Optional[int] = 1,
+    local_uso: Optional[str] = None,
+    data_necessidade: Optional[str] = None,
+    periodo_letivo: Optional[str] = None,
+    motivo: Optional[str] = None,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 ):
@@ -635,23 +640,40 @@ def criar_solicitacao_alocacao(
     if not turma:
         raise ValueError(f"Turma {turma_id} não encontrada")
         
+    final_motivo = motivo or justificativa
     db_sol = models.SolicitacaoAlocacao(
         turma_id=turma_id,
         solicitante_id=solicitante_id,
         justificativa=justificativa,
+        motivo=final_motivo,
+        quantidade=quantidade or 1,
+        local_uso=local_uso,
+        data_necessidade=data_necessidade,
+        periodo_letivo=periodo_letivo,
         status="Aberto"
     )
     db.add(db_sol)
     db.commit()
     db.refresh(db_sol)
     
+    desc_extra = []
+    if quantidade:
+        desc_extra.append(f"Qtd: {quantidade}")
+    if local_uso:
+        desc_extra.append(f"Local: {local_uso}")
+    if data_necessidade:
+        desc_extra.append(f"Data: {data_necessidade}")
+    if periodo_letivo:
+        desc_extra.append(f"Período: {periodo_letivo}")
+    desc_str = f" ({', '.join(desc_extra)})" if desc_extra else ""
+
     db_hist = models.Historico(
         usuario_id=solicitante_id,
         responsavel_id=solicitante_id,
         tipo_movimentacao="SOLICITACAO_ALOCACAO",
         status_anterior="N/A",
         status_novo="Aberto",
-        descricao=f"Solicitação de Alocação em Lote para a Turma {turma_id}: {justificativa}",
+        descricao=f"Solicitação de Alocação em Lote para a Turma {turma_id}{desc_str}: {justificativa}",
         ip_address=ip_address,
         user_agent=user_agent
     )
@@ -741,10 +763,14 @@ def avaliar_solicitacao_alocacao(
             if not emp_ativo:
                 alunos_precisam.append(aluno)
                 
+        qtd_alocacao = len(alunos_precisam)
+        if sol.quantidade and sol.quantidade > 0:
+            qtd_alocacao = min(sol.quantidade, len(alunos_precisam))
+
         notebooks_disponiveis = db.query(models.Notebook).filter(
             models.Notebook.status == "Disponível",
             models.Notebook.excluido == False
-        ).with_for_update().limit(len(alunos_precisam)).all()
+        ).with_for_update().limit(qtd_alocacao).all()
         
         data_prevista = get_brasilia_time() + timedelta(hours=4)
         

@@ -11,10 +11,8 @@ import {
   devolverEmprestimo,
   cancelarEmprestimo,
   getDashboardStats,
-  getAlertaEscassez,
-  processarEmprestimoLote
+  getAlertaEscassez
 } from '../services/emprestimosService';
-import { listarTurmas } from '../services/turmasService';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Laptop, Warning, CheckCircle, WarningCircle, ListBullets, Swap, Lightning, Check } from '@phosphor-icons/react';
@@ -35,12 +33,6 @@ export default function Emprestimos() {
   const [confirmDevolucaoId, setConfirmDevolucaoId] = useState(null);
   const [confirmCancelarId, setConfirmCancelarId] = useState(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [turmas, setTurmas] = useState([]);
-  const [selectedTurma, setSelectedTurma] = useState('');
-  const [batchLoading, setBatchLoading] = useState(false);
-  const [batchResult, setBatchResult] = useState(null);
 
   const { lastMessage } = useWebSocket();
 
@@ -149,28 +141,6 @@ export default function Emprestimos() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {isProfessorOuTi && (
-            <Button
-              variant="cyan"
-              className="py-1.5 px-3.5 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0"
-              onClick={async () => {
-                setShowBatchModal(true);
-                try {
-                  const data = await listarTurmas();
-                  let list = Array.isArray(data) ? data : [];
-                  if (user?.role === 'professor') {
-                    list = list.filter(t => t.instrutor === user.nome);
-                  }
-                  setTurmas(list);
-                } catch (err) {
-                  setError('Erro ao carregar turmas.');
-                }
-              }}
-            >
-              <Lightning weight="fill" size={14} />
-              Alocação em Lote
-            </Button>
-          )}
           {alerta?.ativo && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -542,194 +512,6 @@ export default function Emprestimos() {
         )}
       </AnimatePresence>
 
-      {/* Modal: Seleção de Turma para Lote */}
-      <AnimatePresence>
-        {showBatchModal && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowBatchModal(false); }}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-dark-900 border border-dark-600 rounded-xl p-6 w-full max-w-md shadow-2xl relative text-slate-200"
-            >
-              <button
-                onClick={() => setShowBatchModal(false)}
-                className="absolute top-4 right-4 text-slate-455 hover:text-slate-200 text-sm font-mono"
-              >
-                ✕
-              </button>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-405">
-                  <Lightning weight="fill" size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-100">Alocação Automática em Lote</h3>
-                  <p className="text-xs text-slate-400">Distribua notebooks para os alunos de uma turma</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-xs text-slate-400">Selecione a Turma *</span>
-                  <select
-                    value={selectedTurma}
-                    onChange={(e) => setSelectedTurma(e.target.value)}
-                    className="tech-select text-xs w-full"
-                    required
-                  >
-                    <option value="">Selecione...</option>
-                    {turmas.map((t) => (
-                      <option key={t.id || t.codigo_turma} value={t.id || t.codigo_turma}>
-                        {t.id || t.codigo_turma} — {t.curso}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="cyan"
-                    className="flex-1 text-xs py-2.5"
-                    disabled={!selectedTurma || batchLoading}
-                    onClick={async () => {
-                      try {
-                        setBatchLoading(true);
-                        setError('');
-                        const res = await processarEmprestimoLote(selectedTurma);
-                        setBatchResult(res);
-                        setShowBatchModal(false);
-                        setSelectedTurma('');
-                        await carregarDados();
-                      } catch (err) {
-                        setError(err.response?.data?.detail || 'Erro ao processar lote.');
-                        setShowBatchModal(false);
-                      } finally {
-                        setBatchLoading(false);
-                      }
-                    }}
-                  >
-                    {batchLoading ? 'Processando...' : 'Iniciar Alocação em Lote'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="px-5 py-2.5 bg-dark-700/50 text-slate-300 border border-dark-600"
-                    onClick={() => setShowBatchModal(false)}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* SUB-MODAL: Resultado do Empréstimo em Lote */}
-      <AnimatePresence>
-        {batchResult && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass-card p-6 w-full max-w-xl shadow-2xl relative mx-4 text-slate-200">
-              <button
-                onClick={() => setBatchResult(null)}
-                className="absolute top-4 right-4 text-slate-450 hover:text-slate-250 text-lg"
-              >
-                ✕
-              </button>
-              <div className="space-y-4">
-                <header className="border-b border-dark-600/50 pb-3">
-                  <div className="flex items-center gap-2 text-emerald-400">
-                    <Check size={20} weight="bold" />
-                    <h3 className="text-base font-bold text-slate-100">Resultado da Alocação</h3>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1 font-semibold">
-                    {batchResult.message}
-                  </p>
-                </header>
-
-                <div className="max-h-[300px] overflow-y-auto space-y-4 pr-1">
-                  {/* ALOCADOS */}
-                  {batchResult.alocados && batchResult.alocados.length > 0 && (
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-emerald-405 uppercase tracking-wider">
-                        Contemplados ({batchResult.alocados.length})
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {batchResult.alocados.map((item) => (
-                          <div key={item.usuario_id} className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 text-xs flex justify-between">
-                            <span className="text-slate-300 font-semibold">{item.nome}</span>
-                            <span className="font-mono text-emerald-400 font-bold">{item.notebook_patrimonio}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* JÁ POSSUÍAM */}
-                  {batchResult.ja_alocados && batchResult.ja_alocados.length > 0 && (
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Já com Notebook ({batchResult.ja_alocados.length})
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {batchResult.ja_alocados.map((item) => (
-                          <div key={item.usuario_id} className="p-2 rounded bg-dark-800 border border-dark-600 text-xs flex justify-between">
-                            <span className="text-slate-450">{item.nome}</span>
-                            <span className="font-mono text-slate-450">{item.notebook_patrimonio}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* NÃO ALOCADOS */}
-                  {batchResult.nao_alocados && batchResult.nao_alocados.length > 0 && (
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-red-405 uppercase tracking-wider">
-                        Não Alocados (Sem Estoque) ({batchResult.nao_alocados.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {batchResult.nao_alocados.map((item) => (
-                          <div key={item.usuario_id} className="p-2.5 rounded bg-red-500/5 border border-red-500/10 text-xs space-y-1">
-                            <div className="flex justify-between font-semibold text-slate-300">
-                              <span>{item.nome}</span>
-                              <span className="text-red-450">{item.motivo}</span>
-                            </div>
-                            {item.historico && item.historico.length > 0 && (
-                              <div className="mt-1 pt-1 border-t border-red-500/10">
-                                <span className="text-[10px] text-slate-505">Histórico de Uso Recente:</span>
-                                <div className="space-y-1 mt-1 font-mono">
-                                  {item.historico.map((h, i) => (
-                                    <div key={i} className="text-[10px] text-slate-450 flex justify-between">
-                                      <span>{h.modelo} ({h.patrimonio})</span>
-                                      <span>{h.data}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-dark-600/50 flex justify-end">
-                  <Button
-                    onClick={() => setBatchResult(null)}
-                    variant="cyan"
-                    className="text-xs py-2 px-4"
-                  >
-                    Entendido
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

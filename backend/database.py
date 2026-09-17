@@ -108,6 +108,11 @@ def run_db_migrations():
                     solicitante_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
                     responsavel_ti_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
                     justificativa TEXT NOT NULL,
+                    motivo TEXT,
+                    quantidade INTEGER DEFAULT 1,
+                    local_uso VARCHAR(100),
+                    data_necessidade VARCHAR(50),
+                    periodo_letivo VARCHAR(50),
                     motivo_decisao TEXT,
                     status VARCHAR(20) NOT NULL DEFAULT 'Aberto',
                     data_decisao TIMESTAMP,
@@ -118,6 +123,22 @@ def run_db_migrations():
                 )
             """))
             conn.commit()
+
+            # Check solicitacoes_alocacao columns
+            result = conn.execute(text("PRAGMA table_info(solicitacoes_alocacao)"))
+            sol_cols = [row[1] for row in result.fetchall()]
+            if sol_cols:
+                if "motivo" not in sol_cols:
+                    conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN motivo TEXT"))
+                if "quantidade" not in sol_cols:
+                    conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN quantidade INTEGER DEFAULT 1"))
+                if "local_uso" not in sol_cols:
+                    conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN local_uso VARCHAR(100)"))
+                if "data_necessidade" not in sol_cols:
+                    conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN data_necessidade VARCHAR(50)"))
+                if "periodo_letivo" not in sol_cols:
+                    conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN periodo_letivo VARCHAR(50)"))
+                conn.commit()
     except Exception as e:
         print(f"Error running db migration: {e}")
 

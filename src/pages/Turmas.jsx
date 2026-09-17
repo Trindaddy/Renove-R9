@@ -9,10 +9,10 @@ import {
   editarTurma,
   deletarTurma
 } from '../services/turmasService';
-import { getHistorico, processarEmprestimoLote } from '../services/emprestimosService';
+import { getHistorico } from '../services/emprestimosService';
 import { solicitarAlocacaoEmLote, listarSolicitacoesAlocacao } from '../services/alocacoesService';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning } from '@phosphor-icons/react';
+import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning, CalendarBlank, MapPin, Laptop, Clock } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Turmas() {
@@ -44,9 +44,27 @@ export default function Turmas() {
   const [accessRestricted, setAccessRestricted] = useState(false);
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [solicitacaoModalTurma, setSolicitacaoModalTurma] = useState(null);
-  const [justificativaInput, setJustificativaInput] = useState('');
+  const [solicitacaoForm, setSolicitacaoForm] = useState({
+    quantidade: 1,
+    motivo: '',
+    local_uso: '',
+    data_necessidade: '',
+    periodo_letivo: 'Vespertino'
+  });
   const [submittingSolicitacao, setSubmittingSolicitacao] = useState(false);
   const { lastMessage } = useWebSocket();
+
+  function handleOpenSolicitacaoModal(turma) {
+    if (!turma) return;
+    setSolicitacaoModalTurma(turma);
+    setSolicitacaoForm({
+      quantidade: turma.alunos_count && turma.alunos_count > 0 ? turma.alunos_count : 1,
+      motivo: '',
+      local_uso: '',
+      data_necessidade: new Date().toLocaleDateString('en-CA'),
+      periodo_letivo: turma.turno || 'Vespertino'
+    });
+  }
 
   async function loadSolicitacoes() {
     try {
@@ -73,15 +91,27 @@ export default function Turmas() {
 
   async function handleSubmitSolicitacao(e) {
     e.preventDefault();
-    if (!justificativaInput.trim() || !solicitacaoModalTurma) return;
+    if (!solicitacaoModalTurma) return;
+    const { quantidade, motivo, local_uso, data_necessidade, periodo_letivo } = solicitacaoForm;
+    if (!motivo.trim() || !local_uso.trim() || !data_necessidade || !periodo_letivo || !quantidade) {
+      setError('Por favor, preencha todos os campos obrigatórios da solicitação.');
+      return;
+    }
     try {
       setSubmittingSolicitacao(true);
       setError('');
       setSuccess('');
-      await solicitarAlocacaoEmLote(solicitacaoModalTurma.id, justificativaInput.trim());
-      setSuccess(`Solicitação de alocação em lote para a turma ${solicitacaoModalTurma.id} enviada com sucesso para aprovação de TI!`);
+      await solicitarAlocacaoEmLote({
+        turma_id: solicitacaoModalTurma.id,
+        quantidade: parseInt(quantidade, 10),
+        motivo: motivo.trim(),
+        justificativa: motivo.trim(),
+        local_uso: local_uso.trim(),
+        data_necessidade,
+        periodo_letivo
+      });
+      setSuccess(`Solicitação de alocação em lote para a turma ${solicitacaoModalTurma.id} enviada com sucesso para aprovação da TI!`);
       setSolicitacaoModalTurma(null);
-      setJustificativaInput('');
       await loadSolicitacoes();
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao enviar solicitação de alocação.');
@@ -221,7 +251,11 @@ export default function Turmas() {
       setLoading(true);
       setError('');
       const data = await listarTurmas();
-      setTurmas(Array.isArray(data) ? data : []);
+      let list = Array.isArray(data) ? data : [];
+      if (user?.role === 'professor') {
+        list = list.filter(t => t.instrutor === user.nome);
+      }
+      setTurmas(list);
 
       if (user?.role === 'ti') {
         const response = await api.get('/usuarios?role=professor');
@@ -511,10 +545,7 @@ export default function Turmas() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setSolicitacaoModalTurma(turma);
-                  setJustificativaInput('');
-                }}
+                onClick={() => handleOpenSolicitacaoModal(turma)}
                 className="py-2 px-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-bold transition-all flex items-center justify-center gap-1"
                 title="Solicitar Alocação em Lote"
               >
@@ -545,18 +576,20 @@ export default function Turmas() {
       {/* MODAL: Solicitar Alocação em Lote */}
       <AnimatePresence>
         {solicitacaoModalTurma && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-            <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200 border border-primary/30">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
+            <div className="glass-card p-6 w-full max-w-xl shadow-2xl relative text-slate-200 border border-primary/30 max-h-[90vh] overflow-y-auto">
               <button
+                type="button"
                 onClick={() => setSolicitacaoModalTurma(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg transition-colors"
               >
                 ✕
               </button>
+              
               <form onSubmit={handleSubmitSolicitacao} className="space-y-4">
                 <header className="border-b border-dark-600/50 pb-3">
                   <div className="flex items-center gap-2 text-primary mb-1">
-                    <Lightning size={20} weight="fill" />
+                    <Lightning size={22} weight="fill" />
                     <h3 className="text-base font-black text-slate-100">Solicitar Alocação em Lote</h3>
                   </div>
                   <p className="text-xs text-slate-400">
@@ -564,30 +597,137 @@ export default function Turmas() {
                   </p>
                 </header>
 
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-xs text-slate-300">
-                  <p className="font-semibold text-primary mb-1">Fluxo de Aprovação Obrigatória</p>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    A solicitação será enviada para os administradores de TI. A liberação dos notebooks ocorre automaticamente após a aprovação do pedido.
-                  </p>
+                {/* Contagem Automática de Alunos */}
+                <div className="flex items-center justify-between p-3.5 bg-dark-800/90 border border-primary/25 rounded-xl shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                      <Users size={20} weight="bold" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">
+                        Alunos Matriculados
+                      </span>
+                      <span className="text-sm font-black text-slate-100 font-mono">
+                        {solicitacaoModalTurma.alunos_count ?? 0} {solicitacaoModalTurma.alunos_count === 1 ? 'aluno ativo' : 'alunos ativos'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Turno Oficial</span>
+                    <span className="text-xs font-semibold text-primary">{solicitacaoModalTurma.turno || 'Não definido'}</span>
+                  </div>
                 </div>
 
+                {/* Banner de Aprovação Obrigatória */}
+                <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-300 flex items-start gap-2.5">
+                  <WarningCircle size={20} weight="fill" className="shrink-0 mt-0.5 text-amber-400" />
+                  <div>
+                    <p className="font-bold text-amber-300">Aprovação Obrigatória por Administrador</p>
+                    <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                      Ao clicar em <strong>Solicitar</strong>, o pedido não é efetivado de imediato. Uma notificação será enviada em tempo real para os perfis de Administrador (TI), que farão a análise e aprovação dos equipamentos.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Grid: Quantidade e Data */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-300 font-bold block mb-1">
+                      Quantidade de Notebooks <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={solicitacaoForm.quantidade}
+                        onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, quantidade: e.target.value }))}
+                        className="tech-input w-full text-xs p-2.5 pl-8 font-mono"
+                        required
+                      />
+                      <Laptop size={14} className="absolute left-2.5 top-3 text-slate-500" />
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-1">
+                      Sugerido: {solicitacaoModalTurma.alunos_count || 1} notebooks
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-300 font-bold block mb-1">
+                      Data da Aula / Uso <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={solicitacaoForm.data_necessidade}
+                        onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, data_necessidade: e.target.value }))}
+                        className="tech-input w-full text-xs p-2.5 pl-8"
+                        required
+                      />
+                      <CalendarBlank size={14} className="absolute left-2.5 top-3 text-slate-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid: Local de Uso e Período Letivo */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-300 font-bold block mb-1">
+                      Local de Uso <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Ex: Laboratório 03, Sala 204"
+                        value={solicitacaoForm.local_uso}
+                        onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, local_uso: e.target.value }))}
+                        className="tech-input w-full text-xs p-2.5 pl-8"
+                        required
+                      />
+                      <MapPin size={14} className="absolute left-2.5 top-3 text-slate-500" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-300 font-bold block mb-1">
+                      Período Letivo <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={solicitacaoForm.periodo_letivo}
+                        onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, periodo_letivo: e.target.value }))}
+                        className="tech-select w-full text-xs p-2.5 pl-8"
+                        required
+                      >
+                        <option value="Matutino">Matutino</option>
+                        <option value="Vespertino">Vespertino</option>
+                        <option value="Noturno">Noturno</option>
+                        <option value="Integral">Integral</option>
+                      </select>
+                      <Clock size={14} className="absolute left-2.5 top-3 text-slate-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Motivo do Pedido */}
                 <div>
-                  <label className="text-xs text-slate-300 font-bold block mb-1.5">
-                    Justificativa do Pedido <span className="text-red-400">*</span>
+                  <label className="text-xs text-slate-300 font-bold block mb-1">
+                    Motivo do Pedido / Contexto Pedagógico <span className="text-red-400">*</span>
                   </label>
                   <textarea
-                    value={justificativaInput}
-                    onChange={(e) => setJustificativaInput(e.target.value)}
-                    rows={4}
-                    placeholder="Descreva a atividade pedagógica e a justificativa para o uso dos notebooks em lote..."
+                    value={solicitacaoForm.motivo}
+                    onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, motivo: e.target.value }))}
+                    rows={3}
+                    placeholder="Descreva a atividade pedagógica, softwares ou justificativa do uso dos equipamentos..."
                     className="tech-input w-full text-xs p-3 leading-relaxed"
                     required
                   />
                   <span className="text-[10px] text-slate-500 block mt-1">
-                    O preenchimento da justificativa é obrigatório para habilitar o envio.
+                    Este motivo será exibido aos administradores de TI para avaliação e parecer técnico.
                   </span>
                 </div>
 
+                {/* Botões de Ação */}
                 <div className="flex gap-2 pt-3 border-t border-dark-600/50">
                   <Button
                     type="button"
@@ -601,7 +741,7 @@ export default function Turmas() {
                     type="submit"
                     variant="cyan"
                     className="flex-1 text-xs py-2.5 font-bold"
-                    disabled={!justificativaInput.trim() || submittingSolicitacao}
+                    disabled={submittingSolicitacao}
                   >
                     {submittingSolicitacao ? 'Enviando Pedido...' : 'Solicitar'}
                   </Button>
@@ -850,10 +990,7 @@ export default function Turmas() {
                     </div>
                     
                     <Button
-                      onClick={() => {
-                        setSolicitacaoModalTurma(selectedTurmaForAlunos);
-                        setJustificativaInput('');
-                      }}
+                      onClick={() => handleOpenSolicitacaoModal(selectedTurmaForAlunos)}
                       className="text-xs py-2 px-3 shrink-0 flex items-center gap-1.5"
                       variant="cyan"
                     >

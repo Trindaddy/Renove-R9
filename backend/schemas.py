@@ -76,6 +76,7 @@ class UsuarioResponse(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     nome: Optional[str] = Field(None, min_length=3, max_length=100)
     email: Optional[str] = Field(None, pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
+    matricula: Optional[str] = None
     role: Optional[Role] = None
     curso: Optional[str] = None
     turma: Optional[str] = None
@@ -292,7 +293,12 @@ class ReservaUpdate(BaseModel):
 
 class SolicitacaoAlocacaoCreate(BaseModel):
     turma_id: str = Field(..., min_length=1, max_length=50)
-    justificativa: str = Field(..., min_length=1)
+    justificativa: Optional[str] = None
+    motivo: Optional[str] = None
+    quantidade: Optional[int] = Field(None, ge=1)
+    local_uso: Optional[str] = None
+    data_necessidade: Optional[str] = None
+    periodo_letivo: Optional[str] = None
 
 class SolicitacaoAlocacaoAvaliar(BaseModel):
     decisao: str = Field(..., pattern="^(Aprovado|Reprovado)$")
@@ -309,6 +315,11 @@ class SolicitacaoAlocacaoResponse(BaseModel):
     responsavel_ti_id: Optional[int] = None
     responsavel_ti_nome: Optional[str] = None
     justificativa: str
+    motivo: Optional[str] = None
+    quantidade: Optional[int] = 1
+    local_uso: Optional[str] = None
+    data_necessidade: Optional[str] = None
+    periodo_letivo: Optional[str] = None
     motivo_decisao: Optional[str] = None
     status: str
     data_decisao: Optional[datetime] = None

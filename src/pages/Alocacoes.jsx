@@ -332,9 +332,21 @@ export default function Alocacoes() {
                   {!loadingSolicitacoes && solicitacoesFiltradas.map((sol) => (
                     <tr key={sol.id} className="tech-table-row">
                       <td className="px-4 py-3.5">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-primary font-bold">#{sol.id} • {sol.turma_id}</span>
-                          <span className="text-[10px] text-slate-400 truncate max-w-[150px]">{sol.turma_curso}</span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-primary font-bold">#{sol.id} • {sol.turma_id}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold">
+                              {sol.quantidade || 1} {sol.quantidade === 1 ? 'notebook' : 'notebooks'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 truncate max-w-[170px]">{sol.turma_curso}</span>
+                          {(sol.local_uso || sol.data_necessidade) && (
+                            <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
+                              {sol.data_necessidade && <span>📅 {sol.data_necessidade}</span>}
+                              {sol.periodo_letivo && <span>({sol.periodo_letivo})</span>}
+                              {sol.local_uso && <span>📍 {sol.local_uso}</span>}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -343,7 +355,7 @@ export default function Alocacoes() {
                         <span className="text-[10px] text-slate-500 font-mono">{sol.solicitante_email}</span>
                       </td>
 
-                      <td className="px-4 py-3.5 font-mono text-slate-300">
+                      <td className="px-4 py-3.5 font-mono text-slate-300 text-xs">
                         {sol.created_at ? new Date(sol.created_at).toLocaleString('pt-BR') : 'N/A'}
                       </td>
 
@@ -359,11 +371,11 @@ export default function Alocacoes() {
                       </td>
 
                       <td className="px-4 py-3.5 max-w-[200px]">
-                        <p className="text-slate-300 truncate" title={sol.justificativa}>
-                          {sol.justificativa}
+                        <p className="text-slate-300 text-xs line-clamp-2" title={sol.motivo || sol.justificativa}>
+                          {sol.motivo || sol.justificativa}
                         </p>
                         {sol.motivo_decisao && (
-                          <p className="text-[10px] text-slate-500 truncate mt-0.5" title={`Motivo TI: ${sol.motivo_decisao}`}>
+                          <p className="text-[10px] text-slate-500 truncate mt-1" title={`Motivo TI: ${sol.motivo_decisao}`}>
                             <strong className="text-slate-400">Motivo TI:</strong> {sol.motivo_decisao}
                           </p>
                         )}
@@ -568,19 +580,37 @@ export default function Alocacoes() {
               </header>
 
               <div className="space-y-4">
-                <div className="bg-dark-800/80 p-3.5 rounded-xl border border-dark-600/60 text-xs space-y-1.5">
+                <div className="bg-dark-800/80 p-3.5 rounded-xl border border-dark-600/60 text-xs space-y-2">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Professor Solicitante:</span>
                     <strong className="text-slate-200">{avaliarModal.solicitante_nome}</strong>
                   </div>
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-dark-900/60 border border-dark-700/60">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Qtd. Solicitada</span>
+                      <span className="font-mono text-primary font-bold text-sm">{avaliarModal.quantidade || 1} notebooks</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Data de Uso</span>
+                      <span className="font-mono text-slate-200 text-xs">{avaliarModal.data_necessidade || 'Não especificada'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Local</span>
+                      <span className="text-slate-200 text-xs">{avaliarModal.local_uso || 'Não especificado'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Período</span>
+                      <span className="text-slate-200 text-xs">{avaliarModal.periodo_letivo || avaliarModal.turma_turno || 'Não especificado'}</span>
+                    </div>
+                  </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Data e Horário de Abertura:</span>
+                    <span className="text-slate-400">Data de Abertura:</span>
                     <span className="font-mono text-slate-300">{new Date(avaliarModal.created_at).toLocaleString('pt-BR')}</span>
                   </div>
                   <div className="pt-2 border-t border-dark-600/40">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Justificativa do Professor:</span>
-                    <p className="text-slate-200 italic bg-dark-900/50 p-2 rounded border border-dark-700 leading-relaxed">
-                      "{avaliarModal.justificativa}"
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Motivo / Justificativa do Pedido:</span>
+                    <p className="text-slate-200 italic bg-dark-900/50 p-2.5 rounded-lg border border-dark-700 leading-relaxed text-xs">
+                      "{avaliarModal.motivo || avaliarModal.justificativa}"
                     </p>
                   </div>
                 </div>

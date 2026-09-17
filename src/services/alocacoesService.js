@@ -1,10 +1,20 @@
-﻿import api from './api';
+import api from './api';
 
-export async function solicitarAlocacaoEmLote(turmaId, justificativa) {
-  const response = await api.post('/alocacoes/solicitar', {
-    turma_id: turmaId,
-    justificativa
-  });
+export async function solicitarAlocacaoEmLote(payloadOrTurmaId, justificativa) {
+  let body = {};
+  if (typeof payloadOrTurmaId === 'object' && payloadOrTurmaId !== null) {
+    body = { ...payloadOrTurmaId };
+    if (!body.justificativa && body.motivo) {
+      body.justificativa = body.motivo;
+    }
+  } else {
+    body = {
+      turma_id: payloadOrTurmaId,
+      justificativa: justificativa,
+      motivo: justificativa
+    };
+  }
+  const response = await api.post('/alocacoes/solicitar', body);
   return response.data;
 }
 

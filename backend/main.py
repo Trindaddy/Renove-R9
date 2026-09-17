@@ -597,8 +597,9 @@ def update_usuario_route(
         if existing_email and existing_email.id != usuario_id:
             raise HTTPException(status_code=400, detail="Email já cadastrado")
             
-    if usuario_update.matricula:
-        existing_mat = crud.get_usuario_by_matricula(db, usuario_update.matricula)
+    matricula_val = getattr(usuario_update, 'matricula', None)
+    if matricula_val:
+        existing_mat = crud.get_usuario_by_matricula(db, matricula_val)
         if existing_mat and existing_mat.id != usuario_id:
             raise HTTPException(status_code=400, detail="Matrícula já cadastrada")
             
@@ -938,7 +939,7 @@ async def create_emprestimos_lote(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     import json
     
     # 1. Verificar se a turma existe
@@ -1247,7 +1248,10 @@ def list_turmas(
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
     require_role(["ti", "professor"])(current_user)
-    db_turmas = db.query(models.Turma).all()
+    if current_user.role == "professor":
+        db_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+    else:
+        db_turmas = db.query(models.Turma).all()
     response = []
     for t in db_turmas:
         alunos_count = db.query(models.Usuario).filter(
@@ -2227,8 +2231,9 @@ async def create_solicitacao_alocacao_route(
 ):
     require_role(["professor", "ti"])(current_user)
     
-    if not payload.justificativa or not payload.justificativa.strip():
-        raise HTTPException(status_code=400, detail="A justificativa do pedido é obrigatória.")
+    justificativa_texto = (payload.justificativa or payload.motivo or "").strip()
+    if not justificativa_texto:
+        raise HTTPException(status_code=400, detail="A justificativa ou motivo do pedido é obrigatória.")
         
     turma = db.query(models.Turma).filter(models.Turma.codigo_turma == payload.turma_id).first()
     if not turma:
@@ -2246,7 +2251,12 @@ async def create_solicitacao_alocacao_route(
             db=db,
             turma_id=payload.turma_id,
             solicitante_id=current_user.id,
-            justificativa=payload.justificativa.strip(),
+            justificativa=justificativa_texto,
+            quantidade=payload.quantidade or 1,
+            local_uso=payload.local_uso,
+            data_necessidade=payload.data_necessidade,
+            periodo_letivo=payload.periodo_letivo,
+            motivo=payload.motivo or justificativa_texto,
             ip_address=ip,
             user_agent=ua
         )
@@ -2266,6 +2276,11 @@ async def create_solicitacao_alocacao_route(
             "solicitante_nome": current_user.nome,
             "solicitante_email": current_user.email,
             "justificativa": sol.justificativa,
+            "motivo": sol.motivo,
+            "quantidade": sol.quantidade,
+            "local_uso": sol.local_uso,
+            "data_necessidade": sol.data_necessidade,
+            "periodo_letivo": sol.periodo_letivo,
             "status": sol.status,
             "created_at": sol.created_at.isoformat() if sol.created_at else None,
             "alunos_count": alunos_count
@@ -2285,6 +2300,11 @@ async def create_solicitacao_alocacao_route(
             responsavel_ti_id=None,
             responsavel_ti_nome=None,
             justificativa=sol.justificativa,
+            motivo=sol.motivo,
+            quantidade=sol.quantidade,
+            local_uso=sol.local_uso,
+            data_necessidade=sol.data_necessidade,
+            periodo_letivo=sol.periodo_letivo,
             motivo_decisao=None,
             status=sol.status,
             data_decisao=None,
@@ -2345,6 +2365,11 @@ def list_solicitacoes_alocacao_route(
             responsavel_ti_id=s.responsavel_ti_id,
             responsavel_ti_nome=s.responsavel_ti.nome if s.responsavel_ti else None,
             justificativa=s.justificativa,
+            motivo=s.motivo or s.justificativa,
+            quantidade=s.quantidade or 1,
+            local_uso=s.local_uso,
+            data_necessidade=s.data_necessidade,
+            periodo_letivo=s.periodo_letivo,
             motivo_decisao=s.motivo_decisao,
             status=s.status,
             data_decisao=s.data_decisao,
@@ -2421,6 +2446,11 @@ async def avaliar_solicitacao_alocacao_route(
             responsavel_ti_id=current_user.id,
             responsavel_ti_nome=current_user.nome,
             justificativa=sol.justificativa,
+            motivo=sol.motivo or sol.justificativa,
+            quantidade=sol.quantidade or 1,
+            local_uso=sol.local_uso,
+            data_necessidade=sol.data_necessidade,
+            periodo_letivo=sol.periodo_letivo,
             motivo_decisao=sol.motivo_decisao,
             status=sol.status,
             data_decisao=sol.data_decisao,
