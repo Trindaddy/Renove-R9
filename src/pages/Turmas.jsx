@@ -10,9 +10,9 @@ import {
   deletarTurma
 } from '../services/turmasService';
 import { getHistorico } from '../services/emprestimosService';
-import { solicitarAlocacaoEmLote, listarSolicitacoesAlocacao } from '../services/alocacoesService';
+import { solicitarAlocacaoEmLote, listarSolicitacoesAlocacao, avaliarSolicitacaoAlocacao } from '../services/alocacoesService';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning, CalendarBlank, MapPin, Laptop, Clock } from '@phosphor-icons/react';
+import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning, CalendarBlank, MapPin, Laptop, Clock, ShieldCheck } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Turmas() {
@@ -52,10 +52,16 @@ export default function Turmas() {
     periodo_letivo: 'Vespertino'
   });
   const [submittingSolicitacao, setSubmittingSolicitacao] = useState(false);
+  const [futureDateAlert, setFutureDateAlert] = useState('');
+  const [turmaAvaliarModal, setTurmaAvaliarModal] = useState(null);
+  const [turmaMotivoDecisao, setTurmaMotivoDecisao] = useState('');
+  const [submittingTurmaAvaliacao, setSubmittingTurmaAvaliacao] = useState(false);
+  const MSG_DATA_FUTURA = "Não é possível realizar alocações em lotes para dias futuros! Visto que a alocação é de uso emergencial!";
   const { lastMessage } = useWebSocket();
 
   function handleOpenSolicitacaoModal(turma) {
     if (!turma) return;
+    setFutureDateAlert('');
     setSolicitacaoModalTurma(turma);
     setSolicitacaoForm({
       quantidade: turma.alunos_count && turma.alunos_count > 0 ? turma.alunos_count : 1,
@@ -64,6 +70,19 @@ export default function Turmas() {
       data_necessidade: new Date().toLocaleDateString('en-CA'),
       periodo_letivo: turma.turno || 'Vespertino'
     });
+  }
+
+  function handleDataNecessidadeChange(e) {
+    const val = e.target.value;
+    const today = new Date().toLocaleDateString('en-CA');
+    if (val && val > today) {
+      setFutureDateAlert(MSG_DATA_FUTURA);
+      window.alert(MSG_DATA_FUTURA);
+      setSolicitacaoForm(prev => ({ ...prev, data_necessidade: today }));
+      return;
+    }
+    setFutureDateAlert('');
+    setSolicitacaoForm(prev => ({ ...prev, data_necessidade: val }));
   }
 
   async function loadSolicitacoes() {
@@ -97,6 +116,14 @@ export default function Turmas() {
       setError('Por favor, preencha todos os campos obrigatórios da solicitação.');
       return;
     }
+
+    const today = new Date().toLocaleDateString('en-CA');
+    if (data_necessidade > today) {
+      setFutureDateAlert(MSG_DATA_FUTURA);
+      window.alert(MSG_DATA_FUTURA);
+      return;
+    }
+
     try {
       setSubmittingSolicitacao(true);
       setError('');
@@ -117,6 +144,23 @@ export default function Turmas() {
       setError(err.response?.data?.detail || 'Erro ao enviar solicitação de alocação.');
     } finally {
       setSubmittingSolicitacao(false);
+    }
+  }
+
+  async function handleDecisaoTurma(decisao) {
+    if (!turmaMotivoDecisao.trim() || !turmaAvaliarModal) return;
+    try {
+      setSubmittingTurmaAvaliacao(true);
+      setError('');
+      setSuccess('');
+      await avaliarSolicitacaoAlocacao(turmaAvaliarModal.id, decisao, turmaMotivoDecisao.trim());
+      setSuccess(`Solicitação #${turmaAvaliarModal.id} foi ${decisao.toLowerCase()} com sucesso!`);
+      setTurmaAvaliarModal(null);
+      await loadSolicitacoes();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao avaliar solicitação.');
+    } finally {
+      setSubmittingTurmaAvaliacao(false);
     }
   }
 
@@ -659,8 +703,9 @@ export default function Turmas() {
                     <div className="relative">
                       <input
                         type="date"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={solicitacaoForm.data_necessidade}
-                        onChange={(e) => setSolicitacaoForm(prev => ({ ...prev, data_necessidade: e.target.value }))}
+                        onChange={handleDataNecessidadeChange}
                         className="tech-input w-full text-xs p-2.5 pl-8"
                         required
                       />
@@ -668,6 +713,17 @@ export default function Turmas() {
                     </div>
                   </div>
                 </div>
+
+                {/* Caixa de Alerta (Alert Box) de Bloqueio de Datas Futuras */}
+                {futureDateAlert && (
+                  <div className="bg-red-500/15 border-2 border-red-500/40 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2.5 animate-pulse">
+                    <WarningCircle size={20} weight="fill" className="shrink-0 mt-0.5 text-red-400" />
+                    <div>
+                      <p className="font-bold text-red-200">Atenção:</p>
+                      <p className="mt-0.5 leading-relaxed">{futureDateAlert}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Grid: Local de Uso e Período Letivo */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -989,14 +1045,30 @@ export default function Turmas() {
                       )}
                     </div>
                     
-                    <Button
-                      onClick={() => handleOpenSolicitacaoModal(selectedTurmaForAlunos)}
-                      className="text-xs py-2 px-3 shrink-0 flex items-center gap-1.5"
-                      variant="cyan"
-                    >
-                      <Lightning size={14} weight="fill" />
-                      Alocação em Lote
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {sol?.status === 'Aberto' && (
+                        <Button
+                          onClick={() => {
+                            setTurmaAvaliarModal(sol);
+                            setTurmaMotivoDecisao('');
+                          }}
+                          className="text-xs py-2 px-3 flex items-center gap-1.5"
+                          variant="cyan"
+                        >
+                          <ShieldCheck size={14} weight="fill" />
+                          Avaliar / Aprovar
+                        </Button>
+                      )}
+                      
+                      <Button
+                        onClick={() => handleOpenSolicitacaoModal(selectedTurmaForAlunos)}
+                        className="text-xs py-2 px-3 shrink-0 flex items-center gap-1.5"
+                        variant={sol?.status === 'Aberto' ? 'outline' : 'cyan'}
+                      >
+                        <Lightning size={14} weight="fill" />
+                        Alocação em Lote
+                      </Button>
+                    </div>
                   </div>
                 );
               })()}
@@ -1452,6 +1524,98 @@ export default function Turmas() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: AVALIAÇÃO DE SOLICITAÇÃO EM TURMAS */}
+      <AnimatePresence>
+        {turmaAvaliarModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200 border border-primary/30 rounded-2xl">
+              <button
+                onClick={() => setTurmaAvaliarModal(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 text-lg"
+              >
+                ✕
+              </button>
+
+              <header className="border-b border-dark-600/50 pb-3 mb-4">
+                <div className="flex items-center gap-2 text-primary mb-1">
+                  <ShieldCheck size={22} weight="fill" />
+                  <h3 className="text-base font-black text-slate-100">Avaliar Solicitação de Alocação #{turmaAvaliarModal.id}</h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Turma: <strong className="text-slate-200 font-mono">{turmaAvaliarModal.turma_id}</strong> — {turmaAvaliarModal.turma_curso}
+                </p>
+              </header>
+
+              <div className="space-y-4">
+                <div className="bg-dark-800/80 p-3.5 rounded-xl border border-dark-600/60 text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Solicitante:</span>
+                    <strong className="text-slate-200">{turmaAvaliarModal.solicitante_nome}</strong>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-dark-900/60 border border-dark-700/60">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Qtd. Solicitada</span>
+                      <span className="font-mono text-primary font-bold text-sm">{turmaAvaliarModal.quantidade || 1} notebooks</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase block font-bold">Data de Uso</span>
+                      <span className="font-mono text-slate-200 text-xs">{turmaAvaliarModal.data_necessidade || 'Não especificada'}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-dark-600/40">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Motivo / Justificativa:</span>
+                    <p className="text-slate-200 italic bg-dark-900/50 p-2.5 rounded-lg border border-dark-700 leading-relaxed text-xs">
+                      "{turmaAvaliarModal.motivo || turmaAvaliarModal.justificativa}"
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-300 font-bold block mb-1.5">
+                    Motivo da Decisão <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    value={turmaMotivoDecisao}
+                    onChange={(e) => setTurmaMotivoDecisao(e.target.value)}
+                    rows={3}
+                    placeholder="Informe o motivo para a aprovação ou reprovação deste pedido..."
+                    className="tech-input w-full text-xs p-3 leading-relaxed"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2.5 pt-3 border-t border-dark-600/50">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-xs py-2.5 px-4 bg-dark-700 hover:bg-dark-600 text-slate-200"
+                    onClick={() => setTurmaAvaliarModal(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 text-xs py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold"
+                    disabled={!turmaMotivoDecisao.trim() || submittingTurmaAvaliacao}
+                    onClick={() => handleDecisaoTurma('Reprovado')}
+                  >
+                    {submittingTurmaAvaliacao ? 'Processando...' : 'Reprovar'}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 text-xs py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                    disabled={!turmaMotivoDecisao.trim() || submittingTurmaAvaliacao}
+                    onClick={() => handleDecisaoTurma('Aprovado')}
+                  >
+                    {submittingTurmaAvaliacao ? 'Processando...' : 'Aprovar Alocação'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>

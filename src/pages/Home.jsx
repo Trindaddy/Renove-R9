@@ -547,11 +547,6 @@ function DashboardTI({ data }) {
 }
 
 function DashboardAluno({ data, user, onRefresh }) {
-  const [patrimonio, setPatrimonio] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState('');
   const [confirmSuccess, setConfirmSuccess] = useState('');
@@ -572,30 +567,6 @@ function DashboardAluno({ data, user, onRefresh }) {
         <p className="text-sm text-slate-400">Carregando dados do aluno...</p>
       </div>
     );
-  }
-
-  async function handleQuickLoan(e) {
-    e.preventDefault();
-    if (!patrimonio || !patrimonio.trim()) return;
-    try {
-      setLoading(true);
-      setError('');
-      setSuccess('');
-      const { criarEmprestimoRapido } = await import('../services/emprestimosService');
-      await criarEmprestimoRapido({
-        notebook_patrimonio: patrimonio.trim(),
-        usuario_matricula: user.matricula,
-        motivo: 'Retirada Individual Aluno',
-        horas_previstas: 4
-      });
-      setSuccess('Retirada rápida registrada! Confirme a retirada física abaixo.');
-      setPatrimonio('');
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao realizar empréstimo. Verifique o patrimônio.');
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function handleConfirmRetirada() {
@@ -764,47 +735,44 @@ function DashboardAluno({ data, user, onRefresh }) {
               </motion.div>
             )
           ) : (
-            /* ESTADO C: Nenhum Notebook Alocado (Com Formulário de Retirada Rápida) */
+            /* ESTADO C: Nenhum Notebook Alocado (Aviso Centralizado e Redimensionado) */
             <motion.div 
               initial={{ opacity: 0, scale: 0.98 }} 
               animate={{ opacity: 1, scale: 1 }}
-              className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-6 shadow-xl space-y-4"
+              className="rounded-2xl border border-dark-600/80 bg-gradient-to-b from-dark-800/60 to-dark-900/80 backdrop-blur-xl p-8 sm:p-12 shadow-2xl flex flex-col items-center justify-center text-center space-y-6 relative overflow-hidden"
             >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-405">
-                  <Warning weight="fill" className="text-xl" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-red-400">Sem empréstimos disponíveis</h2>
-                  <p className="text-xs text-slate-450 font-semibold">Nenhum notebook foi pré-alocado ou liberado para você hoje.</p>
+              {/* Glow background effect */}
+              <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 via-transparent to-transparent pointer-events-none" />
+              
+              {/* Icon Container with glow */}
+              <div className="relative">
+                <div className="h-20 w-20 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
+                  <Warning weight="fill" className="text-4xl animate-pulse" />
                 </div>
               </div>
 
-              <div className="border-t border-dark-600/50 pt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 font-mono">Retirada Rápida de Notebook</h3>
-                <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                  Caso o instrutor solicite a retirada individual, insira o número de patrimônio do notebook abaixo para alocá-lo à sua conta.
+              {/* Title with larger font */}
+              <div className="space-y-2 max-w-lg">
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
+                  Sem empréstimos disponíveis
+                </h2>
+                <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed">
+                  Nenhum notebook foi pré-alocado ou liberado para a sua conta hoje.
                 </p>
+              </div>
 
-                <form onSubmit={handleQuickLoan} className="space-y-3 max-w-md">
-                  <Input
-                    placeholder="Ex: 21491"
-                    value={patrimonio}
-                    onChange={(e) => setPatrimonio(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                  {error && <p className="text-xs text-red-400 bg-red-950/20 border border-red-900 rounded p-2">{error}</p>}
-                  {success && <p className="text-xs text-emerald-400 bg-emerald-950/20 border border-emerald-900 rounded p-2">{success}</p>}
-                  <Button 
-                    type="submit" 
-                    variant="primary" 
-                    className="w-full text-xs py-2.5 uppercase font-bold tracking-wider font-mono" 
-                    disabled={loading}
-                  >
-                    {loading ? 'Validando...' : 'Iniciar Retirada'}
-                  </Button>
-                </form>
+              {/* Informative description box */}
+              <div className="max-w-md w-full p-4 rounded-xl bg-dark-900/60 border border-dark-600/50 text-xs text-slate-400 space-y-2 text-left">
+                <div className="flex items-center gap-2 text-primary font-mono text-[11px] font-bold uppercase tracking-wider">
+                  <Laptop size={15} weight="duotone" />
+                  <span>Distribuição por Turma</span>
+                </div>
+                <p className="leading-relaxed">
+                  Os computadores portáteis são liberados pelo seu professor através de <strong>Alocação em Lote</strong> no início da aula.
+                </p>
+                <p className="text-[11px] text-slate-500 italic pt-1 border-t border-dark-700/50">
+                  Assim que o instrutor registrar a alocação, o equipamento atribuído a você aparecerá aqui automaticamente para confirmação de retirada.
+                </p>
               </div>
             </motion.div>
           )}

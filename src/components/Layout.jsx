@@ -82,12 +82,13 @@ export default function Layout({ children }) {
   // Carregar notificações iniciais
   async function carregarNotificacoes() {
     if (!user) return;
-    if (user.role === 'ti') {
+    if (user.role === 'ti' || user.role === 'professor') {
       try {
         const abertas = await listarSolicitacoesAlocacao({ status: 'Aberto' });
         setSolicitacoesAbertasCount(Array.isArray(abertas) ? abertas.length : 0);
       } catch (e) {}
-    } else if (user.role === 'professor') {
+    }
+    if (user.role === 'professor') {
       try {
         const pendentes = await getNotificacoesPendentesProfessor();
         if (Array.isArray(pendentes) && pendentes.length > 0) {
@@ -106,8 +107,8 @@ export default function Layout({ children }) {
     if (!lastMessage) return;
 
     if (lastMessage.type === 'solicitacao_alocacao_criada') {
-      if (user?.role === 'ti') {
-        setSolicitacoesAbertasCount(prev => prev + 1);
+      if (user?.role === 'ti' || user?.role === 'professor') {
+        carregarNotificacoes();
         if (window.showToast) {
           window.showToast({
             type: 'warning',
@@ -119,7 +120,7 @@ export default function Layout({ children }) {
     }
 
     if (lastMessage.type === 'solicitacao_alocacao_avaliada') {
-      if (user?.role === 'ti') {
+      if (user?.role === 'ti' || user?.role === 'professor') {
         carregarNotificacoes();
       }
       if (user?.role === 'professor' && lastMessage.data?.solicitante_id === user.id) {
@@ -172,7 +173,12 @@ export default function Layout({ children }) {
     navItems.push(
       { to: '/', label: 'Dashboard', icon: <SquaresFour weight="duotone" /> },
       { to: '/emprestimos', label: 'Empréstimos', icon: <Laptop weight="duotone" /> },
-      { to: '/alocacoes', label: 'Alocações', icon: <ChartBar weight="duotone" /> },
+      { 
+        to: '/alocacoes', 
+        label: 'Alocações', 
+        icon: <ChartBar weight="duotone" />,
+        badge: solicitacoesAbertasCount > 0 ? solicitacoesAbertasCount : null 
+      },
       { to: '/historico', label: 'Histórico', icon: <ClockCounterClockwise weight="duotone" /> },
       { to: '/turmas', label: 'Turmas', icon: <Users weight="duotone" /> },
       { to: '/reservas', label: 'Reservas', icon: <CalendarCheck weight="duotone" /> }

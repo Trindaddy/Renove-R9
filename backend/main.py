@@ -939,7 +939,7 @@ async def create_emprestimos_lote(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti"])(current_user)
+    require_role(["ti", "professor"])(current_user)
     import json
     
     # 1. Verificar se a turma existe
@@ -947,11 +947,14 @@ async def create_emprestimos_lote(
     if not turma:
         raise HTTPException(status_code=404, detail=f"Turma {turma_id} não encontrada")
         
-    if current_user.role == "professor" and turma.instrutor != current_user.nome:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você só pode realizar empréstimos em lote para turmas de que é instrutor."
-        )
+    if current_user.role == "professor":
+        instrutor_turma = (turma.instrutor or "").strip().lower()
+        instrutor_usuario = (current_user.nome or "").strip().lower()
+        if instrutor_turma != instrutor_usuario:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você só pode realizar empréstimos em lote para turmas de que é instrutor."
+            )
         
     # 2. Obter alunos ativos da turma
     alunos = db.query(models.Usuario).filter(
@@ -1249,7 +1252,8 @@ def list_turmas(
 ):
     require_role(["ti", "professor"])(current_user)
     if current_user.role == "professor":
-        db_turmas = db.query(models.Turma).filter(models.Turma.instrutor == current_user.nome).all()
+        user_nome_clean = (current_user.nome or "").strip().lower()
+        db_turmas = [t for t in db.query(models.Turma).all() if (t.instrutor or "").strip().lower() == user_nome_clean]
     else:
         db_turmas = db.query(models.Turma).all()
     response = []
@@ -2239,11 +2243,40 @@ async def create_solicitacao_alocacao_route(
     if not turma:
         raise HTTPException(status_code=404, detail="Turma informada não encontrada.")
         
-    if current_user.role == "professor" and turma.instrutor != current_user.nome:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você só pode solicitar alocação em lote para turmas de que é instrutor."
-        )
+    if current_user.role == "professor":
+        instrutor_turma = (turma.instrutor or "").strip().lower()
+        instrutor_usuario = (current_user.nome or "").strip().lower()
+        if instrutor_turma != instrutor_usuario:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você só pode solicitar alocação em lote para turmas de que é instrutor."
+            )
+
+    if current_user.role == "professor":
+        hoje_bsb = get_brasilia_time().date()
+        data_solicitada = payload.data_necessidade or hoje_bsb.isoformat()
+        try:
+            raw_date = data_solicitada.strip()
+            if "T" in raw_date:
+                data_obj = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).date()
+            elif "/" in raw_date:
+                parts = raw_date.split("/")
+                if len(parts[0]) == 4:
+                    data_obj = datetime.strptime(raw_date, "%Y/%m/%d").date()
+                else:
+                    data_obj = datetime.strptime(raw_date, "%d/%m/%Y").date()
+            else:
+                data_obj = datetime.strptime(raw_date[:10], "%Y-%m-%d").date()
+                
+            if data_obj > hoje_bsb:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Não é possível realizar alocações em lotes para dias futuros! Visto que a alocação é de uso emergencial!"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
         
     ip, ua = get_client_metadata(request)
     try:
@@ -2330,18 +2363,30 @@ def list_solicitacoes_alocacao_route(
 ):
     require_role(["ti", "professor"])(current_user)
     
-    solicitante_filter = solicitante_id
     if current_user.role == "professor":
-        solicitante_filter = current_user.id
-        
-    sols = crud.listar_solicitacoes_alocacao(
-        db=db,
-        status=status,
-        responsavel_ti_id=responsavel_ti_id,
-        solicitante_id=solicitante_filter,
-        data_abertura=data_abertura,
-        termo_busca=termo_busca
-    )
+        user_nome_clean = (current_user.nome or "").strip().lower()
+        turmas_prof = [
+            t.codigo_turma for t in db.query(models.Turma).all()
+            if (t.instrutor or "").strip().lower() == user_nome_clean
+        ]
+        sols_raw = crud.listar_solicitacoes_alocacao(
+            db=db,
+            status=status,
+            responsavel_ti_id=responsavel_ti_id,
+            solicitante_id=None,
+            data_abertura=data_abertura,
+            termo_busca=termo_busca
+        )
+        sols = [s for s in sols_raw if s.solicitante_id == current_user.id or s.turma_id in turmas_prof]
+    else:
+        sols = crud.listar_solicitacoes_alocacao(
+            db=db,
+            status=status,
+            responsavel_ti_id=responsavel_ti_id,
+            solicitante_id=solicitante_filter,
+            data_abertura=data_abertura,
+            termo_busca=termo_busca
+        )
     
     if turma_id:
         sols = [s for s in sols if s.turma_id == turma_id]
@@ -2389,11 +2434,24 @@ async def avaliar_solicitacao_alocacao_route(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti"])(current_user)
+    require_role(["ti", "professor"])(current_user)
     
     if not payload.motivo or not payload.motivo.strip():
         raise HTTPException(status_code=400, detail="O campo de motivo é obrigatório tanto para aprovação quanto para reprovação.")
         
+    if current_user.role == "professor":
+        sol_check = db.query(models.SolicitacaoAlocacao).filter(models.SolicitacaoAlocacao.id == solicitacao_id).first()
+        if not sol_check:
+            raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
+        turma_check = db.query(models.Turma).filter(models.Turma.codigo_turma == sol_check.turma_id).first()
+        instrutor_turma = (turma_check.instrutor or "").strip().lower() if turma_check else ""
+        instrutor_usuario = (current_user.nome or "").strip().lower()
+        if instrutor_turma != instrutor_usuario and sol_check.solicitante_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você só pode avaliar solicitações de suas próprias turmas."
+            )
+
     ip, ua = get_client_metadata(request)
     try:
         sol = crud.avaliar_solicitacao_alocacao(

@@ -31,6 +31,8 @@ export default function Alocacoes() {
   const { user } = useAuth();
   const { lastMessage } = useWebSocket();
   const isTi = user?.role === 'ti';
+  const isProfessor = user?.role === 'professor';
+  const canAvaliar = isTi || isProfessor;
 
   // Abas
   const [activeTab, setActiveTab] = useState('solicitacoes');
@@ -398,7 +400,7 @@ export default function Alocacoes() {
 
                       <td className="px-4 py-3.5 text-center">
                         <div className="inline-flex items-center gap-1.5">
-                          {isTi && sol.status === 'Aberto' && (
+                          {canAvaliar && sol.status === 'Aberto' && (
                             <button
                               onClick={() => {
                                 setAvaliarModal(sol);
@@ -617,7 +619,7 @@ export default function Alocacoes() {
 
                 <div>
                   <label className="text-xs text-slate-300 font-bold block mb-1.5">
-                    Motivo da Decisão do Administrador <span className="text-red-400">*</span>
+                    Motivo da Decisão <span className="text-red-400">*</span>
                   </label>
                   <textarea
                     value={motivoDecisao}
