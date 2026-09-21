@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   XCircle
 } from '@phosphor-icons/react';
+import senacLogo from '../assets/senac_logo.png';
 
 export default function Layout({ children }) {
   const [theme, setTheme] = useState(
@@ -210,10 +211,8 @@ export default function Layout({ children }) {
           {/* Logo Area */}
           <div className="h-16 flex items-center px-6 border-b border-dark-600/30">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="relative">
-                <div className="h-9 px-3 rounded-lg bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                  <span className="text-sm font-black text-white uppercase tracking-wider">Senac</span>
-                </div>
+              <div className="h-10 w-10 rounded-xl bg-white/95 p-1.5 flex items-center justify-center shadow-md border border-white/20 group-hover:scale-105 transition-transform shrink-0">
+                <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-black tracking-widest text-slate-100 uppercase">Renove</span>
@@ -288,9 +287,9 @@ export default function Layout({ children }) {
       {/* 2. MOBILE TOP BAR */}
       {user && (
         <div className="md:hidden flex items-center justify-between h-16 px-4 bg-dark-900 border-b border-dark-600/50 sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <div className="h-8 px-2 rounded-md bg-gradient-to-br from-senac-orange to-senac-orange/80 flex items-center justify-center">
-              <span className="text-xs font-black text-white">SNC</span>
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-white/95 p-1 flex items-center justify-center shadow-sm shrink-0 border border-white/20">
+              <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
             </div>
             <span className="text-sm font-black text-slate-100 tracking-wider">RENOVE</span>
           </div>
@@ -327,8 +326,8 @@ export default function Layout({ children }) {
             >
               <div className="h-16 flex items-center justify-between px-6 border-b border-dark-600/30 bg-dark-950/20">
                 <div className="flex items-center gap-3">
-                  <div className="h-8 px-2.5 rounded-md bg-gradient-to-br from-senac-orange/90 to-senac-orange/70 flex items-center justify-center shadow-md">
-                    <span className="text-xs font-black text-white uppercase tracking-wider">Senac</span>
+                  <div className="h-9 w-9 rounded-xl bg-white/95 p-1 flex items-center justify-center shadow-md shrink-0 border border-white/20">
+                    <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
                   </div>
                   <span className="text-xs font-black tracking-widest text-slate-100 uppercase mt-0.5">Renove</span>
                 </div>

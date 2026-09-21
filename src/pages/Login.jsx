@@ -5,6 +5,7 @@ import Button from '../components/Button.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WarningCircle, LockKey, X } from '@phosphor-icons/react';
 import studentsTechImage from '../../students_tech.png';
+import senacLogo from '../assets/senac_logo.png';
 import { verificarEmailPrimeiroAcesso, validarSenhaPadraoPrimeiroAcesso, definirSenhaDefinitivaPrimeiroAcesso } from '../services/authService';
 
 export default function Login() {
@@ -164,9 +165,7 @@ export default function Login() {
         <header className="topbar">
           <div className="brand">
             <div className="brand-logo">
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 18H5V6h14v12M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM7.5 15h9c.28 0 .5-.22.5-.5s-.22-.5-.5-.5h-9c-.28 0-.5.22-.5.5s.22.5.5.5z"/>
-              </svg>
+              <img src={senacLogo} alt="Senac" />
             </div>
             <div className="brand-text">
               <span className="brand-title">RENOVE</span>
@@ -257,8 +256,8 @@ export default function Login() {
                   >
                     {/* Header */}
                     <div className="card-header">
-                      <div className="r9-logo-circle">
-                        <span>R9</span>
+                      <div className="senac-logo-card">
+                        <img src={senacLogo} alt="Logo Senac" />
                       </div>
                       <h2 className="card-title">Portal de Acesso</h2>
                       <p className="card-subtitle">Insira suas credenciais institucionais</p>
@@ -356,8 +355,8 @@ export default function Login() {
                   >
                     {/* Header */}
                     <div className="card-header">
-                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
-                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      <div className="senac-logo-card">
+                        <img src={senacLogo} alt="Logo Senac" />
                       </div>
                       <h2 className="card-title">Primeiro Acesso</h2>
                       <p className="card-subtitle">Informe seu e-mail para ativar sua conta</p>
@@ -416,8 +415,8 @@ export default function Login() {
                   >
                     {/* Header */}
                     <div className="card-header">
-                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
-                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      <div className="senac-logo-card">
+                        <img src={senacLogo} alt="Logo Senac" />
                       </div>
                       <h2 className="card-title">Senha Provisória</h2>
                       <p className="card-subtitle">Insira a senha padrão para validação</p>
@@ -492,8 +491,8 @@ export default function Login() {
                   >
                     {/* Header */}
                     <div className="card-header">
-                      <div className="r9-logo-circle" style={{ borderColor: 'rgba(255, 140, 0, 0.4)' }}>
-                        <span style={{ color: '#ff8c00' }}>R9</span>
+                      <div className="senac-logo-card">
+                        <img src={senacLogo} alt="Logo Senac" />
                       </div>
                       <h2 className="card-title">Senha Definitiva</h2>
                       <p className="card-subtitle">Cadastre sua nova senha de acesso</p>
