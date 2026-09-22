@@ -48,10 +48,12 @@ export async function getEmprestimosAtrasados() {
   return response.data;
 }
 
-export async function getHistorico(notebookId, usuarioId) {
+export async function getHistorico(notebookId, usuarioId, tipoMovimentacao, autorId) {
   const params = new URLSearchParams();
   if (notebookId) params.append('notebook_id', notebookId);
   if (usuarioId) params.append('usuario_id', usuarioId);
+  if (tipoMovimentacao) params.append('tipo_movimentacao', tipoMovimentacao);
+  if (autorId) params.append('autor_id', autorId);
   const response = await api.get(`/historico?${params.toString()}`);
   return response.data;
 }

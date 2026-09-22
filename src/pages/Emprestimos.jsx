@@ -1,30 +1,42 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/Button.jsx';
-import EmprestimoForm from '../components/EmprestimoForm.jsx';
 import DashboardCards from '../components/DashboardCards.jsx';
 import IAWidget from '../components/IAWidget.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import {
   listarEmprestimos,
-  criarEmprestimoRapido,
   devolverEmprestimo,
   cancelarEmprestimo,
   getDashboardStats,
   getAlertaEscassez
 } from '../services/emprestimosService';
+import { listarNotebooksManutencao } from '../services/equipamentosService';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Laptop, Warning, CheckCircle, WarningCircle, ListBullets, Swap, Lightning, Check } from '@phosphor-icons/react';
+import { 
+  Laptop, 
+  WarningCircle, 
+  CheckCircle, 
+  ListBullets, 
+  Swap, 
+  Wrench, 
+  ChartBar, 
+  Clock, 
+  TrendUp, 
+  Lightning 
+} from '@phosphor-icons/react';
 
 export default function Emprestimos() {
   const { user } = useAuth();
-  const isProfessorOuTi = user?.role === 'professor' || user?.role === 'ti';
 
   const [stats, setStats] = useState(null);
   const [alerta, setAlerta] = useState(null);
   const [emprestimos, setEmprestimos] = useState([]);
+  const [manutencoes, setManutencoes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingManutencoes, setLoadingManutencoes] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -40,21 +52,22 @@ export default function Emprestimos() {
     try {
       setLoading(true);
       setError('');
-      const [s, a, e] = await Promise.all([
-        getDashboardStats(),
-        getAlertaEscassez(),
-        listarEmprestimos(filtroStatus)
+      const [s, a, e, m] = await Promise.all([
+        getDashboardStats().catch(() => null),
+        getAlertaEscassez().catch(() => null),
+        listarEmprestimos(filtroStatus).catch(() => []),
+        listarNotebooksManutencao().catch(() => [])
       ]);
       setStats(s);
       setAlerta(a);
-      
       setEmprestimos(Array.isArray(e) ? e : []);
+      setManutencoes(Array.isArray(m) ? m : []);
     } catch (err) {
-      setError('Erro ao carregar dados do dashboard');
+      setError('Erro ao carregar dados do módulo de empréstimos.');
     } finally {
       setLoading(false);
     }
-  }, [filtroStatus, user]);
+  }, [filtroStatus]);
 
   useEffect(() => {
     carregarDados();
@@ -69,20 +82,69 @@ export default function Emprestimos() {
     }
   }, [lastMessage, carregarDados]);
 
-  async function handleEmprestimoRapido(dados) {
-    try {
-      setLoadingAction(true);
-      setError('');
-      setSuccess('');
-      await criarEmprestimoRapido(dados);
-      setSuccess('Empréstimo realizado com sucesso!');
-      await carregarDados();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao realizar empréstimo');
-    } finally {
-      setLoadingAction(false);
+  // Cálculos analíticos para tomada de decisão de TI e Docentes
+  const analiseMetricas = useMemo(() => {
+    const total = emprestimos.length;
+    const noPrazo = emprestimos.filter(e => e.status === 'Ativo').length;
+    const atrasados = emprestimos.filter(e => e.status === 'Atrasado').length;
+    const reservados = emprestimos.filter(e => e.status === 'Reservado').length;
+    const devolvidos = emprestimos.filter(e => e.status === 'Devolvido').length;
+
+    const baseCalculo = total > 0 ? total : 1;
+    const taxaPontualidade = total > 0 ? Math.round(((total - atrasados) / baseCalculo) * 100) : 100;
+    const percNoPrazo = total > 0 ? Math.round((noPrazo / baseCalculo) * 100) : 0;
+    const percAtrasados = total > 0 ? Math.round((atrasados / baseCalculo) * 100) : 0;
+    const percReservados = total > 0 ? Math.round((reservados / baseCalculo) * 100) : 0;
+
+    // Distribuição por turnos estimada por horário de retirada
+    let matutino = 0;
+    let vespertino = 0;
+    let noturno = 0;
+
+    emprestimos.forEach(e => {
+      if (e.data_emprestimo) {
+        const hora = new Date(e.data_emprestimo).getHours();
+        if (hora >= 6 && hora < 12) matutino++;
+        else if (hora >= 12 && hora < 18) vespertino++;
+        else noturno++;
+      }
+    });
+
+    let turnoMaiorDemanda = 'Equilibrado';
+    if (matutino > vespertino && matutino > noturno) turnoMaiorDemanda = 'Matutino (Pico)';
+    else if (vespertino > matutino && vespertino > noturno) turnoMaiorDemanda = 'Vespertino (Pico)';
+    else if (noturno > matutino && noturno > vespertino) turnoMaiorDemanda = 'Noturno (Pico)';
+
+    // Taxa de disponibilidade geral
+    const totalFrota = stats ? stats.total : 0;
+    const disponiveis = stats ? stats.disponiveis : 0;
+    const taxaDisponibilidade = totalFrota > 0 ? Math.round((disponiveis / totalFrota) * 100) : 0;
+
+    let recomendacao = 'Operação regular. Estoque disponível adequado para atender à demanda das próximas turmas.';
+    if (atrasados > 3) {
+      recomendacao = `Atenção: ${atrasados} computadores estão com devolução atrasada. Recomenda-se acionar docentes responsáveis antes de autorizar novos lotes.`;
+    } else if (taxaDisponibilidade < 25) {
+      recomendacao = `Estoque em nível de atenção (${taxaDisponibilidade}% disponível). Priorize devoluções imediatas para suportar os próximos turnos.`;
+    } else if (taxaPontualidade >= 90) {
+      recomendacao = `Excelente conformidade (${taxaPontualidade}% pontual). Janela favorável para liberação de empréstimos e alocações de turmas.`;
     }
-  }
+
+    return {
+      total,
+      noPrazo,
+      atrasados,
+      reservados,
+      devolvidos,
+      taxaPontualidade,
+      percNoPrazo,
+      percAtrasados,
+      percReservados,
+      turnos: { matutino, vespertino, noturno },
+      turnoMaiorDemanda,
+      taxaDisponibilidade,
+      recomendacao
+    };
+  }, [emprestimos, stats]);
 
   async function executeDevolucao() {
     const id = confirmDevolucaoId;
@@ -137,26 +199,20 @@ export default function Emprestimos() {
             Empréstimo de <span className="text-primary glow-text-primary">Notebooks</span>
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Gerencie empréstimos em tempo real com disponibilidade instantânea via WebSocket.
+            Acompanhamento em tempo real das movimentações, manutenções ativas e indicadores analíticos.
           </p>
         </div>
         <div className="flex items-center gap-3">
           {alerta?.ativo && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-              <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Alerta Ativo</span>
+              <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Alerta de Estoque Crítico</span>
             </div>
           )}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dark-800/50 border border-dark-600/50">
-            <span className={`h-1.5 w-1.5 rounded-full ${lastMessage ? 'bg-primary animate-pulse' : 'bg-slate-600'}`} />
-            <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
-              {lastMessage ? 'Live' : 'Syncing'}
-            </span>
-          </div>
         </div>
       </header>
 
-      {/* Dashboard Cards */}
+      {/* Dashboard Cards Estatísticos */}
       {user?.role !== 'professor' && <DashboardCards stats={stats} alerta={alerta} />}
 
       {/* Alerts */}
@@ -184,20 +240,178 @@ export default function Emprestimos() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left Column - Form */}
-        {user?.role === 'ti' && (
-          <div className="xl:col-span-3">
-            <div className="xl:sticky xl:top-24 space-y-4">
-              <div className="glass-card-primary p-5 scan-line">
-                <EmprestimoForm onSubmit={handleEmprestimoRapido} loading={loadingAction} />
+        
+        {/* Coluna Esquerda: Painel de Manutenções Ativas & IA */}
+        <div className="xl:col-span-4 space-y-5">
+          
+          {/* Painel de Manutenções Ativas */}
+          <div className="glass-card p-5 border border-amber-500/20 bg-dark-900/40">
+            <div className="flex items-center justify-between pb-3 border-b border-dark-600/40 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Wrench size={18} weight="duotone" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black tracking-wider uppercase text-slate-100">
+                    Manutenções Ativas
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Equipamentos em triagem/reparo</p>
+                </div>
               </div>
-              <IAWidget stats={stats} />
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-bold text-xs">
+                {manutencoes.length}
+              </span>
+            </div>
+
+            {loadingManutencoes ? (
+              <div className="py-6 text-center text-xs text-slate-500 flex justify-center gap-1.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse delay-75" />
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse delay-150" />
+              </div>
+            ) : manutencoes.length === 0 ? (
+              <div className="py-6 px-3 text-center rounded-xl bg-dark-800/20 border border-dark-700/50">
+                <CheckCircle className="text-emerald-400 text-2xl mx-auto mb-1.5" weight="duotone" />
+                <p className="text-xs text-slate-300 font-medium">Nenhum notebook em manutenção</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Toda a frota está disponível ou alocada.</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {manutencoes.map((nb) => (
+                  <div key={nb.id} className="p-3 rounded-xl bg-dark-800/40 border border-dark-600/50 hover:border-amber-500/30 transition-all text-xs">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono font-black text-amber-400 text-xs">
+                        {nb.patrimonio}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-dark-700 text-slate-300 border border-dark-600">
+                        {nb.condicao || 'Regular'}
+                      </span>
+                    </div>
+                    <p className="text-slate-200 font-semibold text-[11px] truncate">{nb.modelo}</p>
+                    {nb.justificativa_manutencao && (
+                      <p className="text-slate-400 text-[10px] italic mt-1 bg-dark-900/60 p-2 rounded border border-dark-700/40 leading-relaxed">
+                        "{nb.justificativa_manutencao}"
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-dark-600/30 text-[10px] text-slate-400 font-mono">
+                      <span className="truncate max-w-[130px]">{nb.autor_manutencao || 'TI Senac'}</span>
+                      <Link to="/equipamentos" className="text-primary hover:underline font-sans font-bold text-[10px]">
+                        Ver Inventário →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <IAWidget stats={stats} />
+        </div>
+
+        {/* Coluna Direita: Central Analítica + Tabela de Movimentações */}
+        <div className="xl:col-span-8 space-y-6">
+          
+          {/* Nova Central Analítica de Empréstimos (Analytics & Decision Center) */}
+          <div className="glass-card p-5 border border-primary/20 bg-dark-900/40 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-dark-600/40 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                  <ChartBar size={18} weight="duotone" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black tracking-wider uppercase text-slate-100 flex items-center gap-2">
+                    Painel Analítico de Empréstimos
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                      Decisão Estratégica
+                    </span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400">Indicadores consolidados para tomada de decisão ágil</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="text-slate-400 text-[11px]">Total Analisado:</span>
+                <strong className="text-primary font-bold">{analiseMetricas.total} registro(s)</strong>
+              </div>
+            </div>
+
+            {/* Grid Analítico de 3 Colunas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 1. Taxa de Pontualidade */}
+              <div className="p-3.5 rounded-xl bg-dark-800/30 border border-dark-600/40 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Clock size={13} className="text-emerald-400" /> Pontualidade
+                    </span>
+                    <span className="font-mono text-xs font-black text-emerald-400">
+                      {analiseMetricas.taxaPontualidade}% no prazo
+                    </span>
+                  </div>
+                  {/* Barra de distribuição segmentada */}
+                  <div className="h-2 w-full rounded-full bg-dark-700 overflow-hidden flex my-2">
+                    <div style={{ width: `${analiseMetricas.percNoPrazo}%` }} className="bg-emerald-500" title={`No Prazo: ${analiseMetricas.noPrazo}`} />
+                    <div style={{ width: `${analiseMetricas.percReservados}%` }} className="bg-amber-400" title={`Reservados: ${analiseMetricas.reservados}`} />
+                    <div style={{ width: `${analiseMetricas.percAtrasados}%` }} className="bg-red-500" title={`Atrasados: ${analiseMetricas.atrasados}`} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 font-mono">
+                  <span className="text-emerald-400">✓ {analiseMetricas.noPrazo} no prazo</span>
+                  <span className="text-amber-400">⏳ {analiseMetricas.reservados} res.</span>
+                  <span className="text-red-400">⚠ {analiseMetricas.atrasados} atras.</span>
+                </div>
+              </div>
+
+              {/* 2. Picos de Demanda por Turno */}
+              <div className="p-3.5 rounded-xl bg-dark-800/30 border border-dark-600/40 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <TrendUp size={13} className="text-cyan" /> Picos por Turno
+                  </span>
+                  <span className="text-[10px] text-cyan font-mono font-bold">
+                    {analiseMetricas.turnoMaiorDemanda}
+                  </span>
+                </div>
+                <div className="space-y-1 my-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">Matutino (Manhã)</span>
+                    <span className="font-mono font-bold text-slate-200">{analiseMetricas.turnos.matutino}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">Vespertino (Tarde)</span>
+                    <span className="font-mono font-bold text-slate-200">{analiseMetricas.turnos.vespertino}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-400">Noturno (Noite)</span>
+                    <span className="font-mono font-bold text-slate-200">{analiseMetricas.turnos.noturno}</span>
+                  </div>
+                </div>
+                <p className="text-[9px] text-slate-400 border-t border-dark-600/30 pt-1">
+                  Fluxo ideal para planejamento de empréstimos.
+                </p>
+              </div>
+
+              {/* 3. Recomendações Acionáveis para Decisão */}
+              <div className="p-3.5 rounded-xl bg-dark-800/30 border border-dark-600/40 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center gap-1.5">
+                    <Lightning size={13} weight="fill" /> Insights de Decisão
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-dark-700 text-slate-300">
+                    Sugestão
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 font-medium leading-relaxed my-1">
+                  {analiseMetricas.recomendacao}
+                </p>
+                <div className="pt-1.5 border-t border-dark-600/30 flex items-center justify-between text-[10px]">
+                  <span className="text-slate-400">Disponibilidade Geral:</span>
+                  <strong className="text-primary font-mono">{analiseMetricas.taxaDisponibilidade}% livre</strong>
+                </div>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Right Column - Table */}
-        <div className={`${user?.role === 'ti' ? 'xl:col-span-9' : 'xl:col-span-12'}`}>
+          {/* Tabela de Movimentações Ativas */}
           <div className="glass-card overflow-hidden">
             {/* Table Header */}
             <div className="px-5 py-4 border-b border-dark-600 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-dark-900/30">
@@ -260,8 +474,8 @@ export default function Emprestimos() {
                         #{emp.id?.toString().padStart(4, '0')}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="font-mono text-xs text-primary/80">{emp.notebook?.patrimonio}</span>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{emp.notebook?.modelo}</p>
+                        <span className="font-mono text-xs text-primary/80 font-bold">{emp.notebook?.patrimonio}</span>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{emp.notebook?.modelo}</p>
                       </td>
                       <td className="px-5 py-3.5">
                         <p className="text-xs text-slate-200 font-semibold">{emp.usuario?.nome}</p>

@@ -12,7 +12,6 @@ import Button from '../components/Button.jsx';
 import IAWidget from '../components/IAWidget.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Laptop, Users, Warning, CheckCircle, Clock, Check, X, SignOut } from '@phosphor-icons/react';
-import senacLogo from '../assets/senac_logo.png';
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -184,7 +183,7 @@ export default function Home() {
 }
 
 function DashboardHeader({ user }) {
-  const firstName = user?.nome?.split(' ')[0] || '';
+  const firstName = user?.nome ? user.nome.split(' ')[0] : 'Usuário';
   const roleMap = { ti: 'Administrador TI', professor: 'Professor', aluno: 'Aluno' };
 
   return (
@@ -192,60 +191,18 @@ function DashboardHeader({ user }) {
       initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl border border-dark-600 bg-dark-800/40 backdrop-blur-xl p-5 sm:p-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white/95 p-2 flex items-center justify-center shadow-lg border border-white/20 shrink-0">
-            <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-px w-10 bg-gradient-to-r from-primary/70 to-transparent" />
-              <span className="text-[10px] uppercase tracking-[0.35em] text-primary/70 font-semibold">
-                Dashboard Central • Senac DF
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Bem-vindo, <span className="text-primary/90 glow-text-primary">{firstName}</span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Visão geral • Perfil:{' '}
-              <span className="text-slate-200/90 font-mono text-xs uppercase tracking-wider">
-                {roleMap[user.role] || user.role}
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <StatusPill label="Tempo Real" />
-          <StatusPill
-            label={user.role === 'ti' ? 'Gestão' : user.role === 'professor' ? 'Coordenação' : 'Aluno'}
-            variant="muted"
-          />
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+          Bem-vindo, <span className="text-primary/90 glow-text-primary">{firstName}</span>
+        </h1>
+        <p className="text-sm text-slate-400 mt-1">
+          Visão geral • Perfil:{' '}
+          <span className="text-slate-200/90 font-mono text-xs uppercase tracking-wider">
+            {roleMap[user.role] || user.role}
+          </span>
+        </p>
       </div>
     </motion.header>
-  );
-}
-
-function StatusPill({ label, variant = 'primary' }) {
-  return (
-    <div
-      className={
-        variant === 'primary'
-          ? 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20'
-          : 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-600/30 border border-dark-500/20'
-      }
-    >
-      <span
-        className={
-          variant === 'primary'
-            ? 'h-1.5 w-1.5 rounded-full bg-primary animate-pulse'
-            : 'h-1.5 w-1.5 rounded-full bg-slate-500/80'
-        }
-      />
-      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-200/90">{label}</span>
-    </div>
   );
 }
 

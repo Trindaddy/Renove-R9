@@ -29,7 +29,7 @@ import {
   ShieldCheck,
   XCircle
 } from '@phosphor-icons/react';
-import senacLogo from '../assets/senac_logo.png';
+import senacLogo from '../assets/senac_logo_white.png';
 
 export default function Layout({ children }) {
   const [theme, setTheme] = useState(
@@ -211,12 +211,11 @@ export default function Layout({ children }) {
           {/* Logo Area */}
           <div className="h-16 flex items-center px-6 border-b border-dark-600/30">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="h-10 w-10 rounded-xl bg-white/95 p-1.5 flex items-center justify-center shadow-md border border-white/20 group-hover:scale-105 transition-transform shrink-0">
+              <div className="h-10 w-10 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                 <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-black tracking-widest text-slate-100 uppercase">Renove</span>
-                <span className="text-[9px] text-slate-400 font-mono tracking-wider">DF • R9</span>
               </div>
             </Link>
           </div>
@@ -288,7 +287,7 @@ export default function Layout({ children }) {
       {user && (
         <div className="md:hidden flex items-center justify-between h-16 px-4 bg-dark-900 border-b border-dark-600/50 sticky top-0 z-30">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-white/95 p-1 flex items-center justify-center shadow-sm shrink-0 border border-white/20">
+            <div className="h-9 w-9 flex items-center justify-center shrink-0">
               <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
             </div>
             <span className="text-sm font-black text-slate-100 tracking-wider">RENOVE</span>
@@ -326,7 +325,7 @@ export default function Layout({ children }) {
             >
               <div className="h-16 flex items-center justify-between px-6 border-b border-dark-600/30 bg-dark-950/20">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-white/95 p-1 flex items-center justify-center shadow-md shrink-0 border border-white/20">
+                  <div className="h-9 w-9 flex items-center justify-center shrink-0">
                     <img src={senacLogo} alt="Senac" className="w-full h-full object-contain" />
                   </div>
                   <span className="text-xs font-black tracking-widest text-slate-100 uppercase mt-0.5">Renove</span>

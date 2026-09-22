@@ -26,3 +26,8 @@ export async function excluirEquipamento(id) {
   return response.data;
 }
 
+export async function listarNotebooksManutencao() {
+  const response = await api.get('/notebooks?status=Manuten%C3%A7%C3%A3o&limit=100');
+  return response.data;
+}
+

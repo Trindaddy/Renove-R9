@@ -423,11 +423,8 @@ body {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 20px rgba(0, 74, 141, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 5px;
+  background: transparent;
+  padding: 0;
   flex-shrink: 0;
 }
 
@@ -435,6 +432,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 74, 141, 0.3));
 }
 
 .brand-text {
@@ -708,49 +706,44 @@ body {
 .senac-logo-card {
   width: 80px;
   height: 80px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.25rem;
-  padding: 0.65rem;
+  padding: 0;
   position: relative;
-  box-shadow: 0 10px 25px rgba(0, 74, 141, 0.25), 0 0 25px rgba(244, 121, 32, 0.2);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
 .senac-logo-card:hover {
-  transform: scale(1.05);
-  box-shadow: 0 15px 30px rgba(0, 74, 141, 0.35), 0 0 30px rgba(244, 121, 32, 0.3);
+  transform: scale(1.06);
 }
 
 .senac-logo-card img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0, 74, 141, 0.35)) drop-shadow(0 0 15px rgba(244, 121, 32, 0.25));
 }
 
 .r9-logo-circle {
   width: 76px;
   height: 76px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 1.25rem;
-  padding: 0.6rem;
+  padding: 0;
   position: relative;
-  box-shadow: 0 10px 25px rgba(0, 74, 141, 0.25), 0 0 25px rgba(244, 121, 32, 0.2);
 }
 
 .r9-logo-circle img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0, 74, 141, 0.35));
 }
 
 .card-title {

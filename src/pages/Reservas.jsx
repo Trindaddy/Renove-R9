@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Input from '../components/Input.jsx';
 import Button from '../components/Button.jsx';
 import { listarTurmas } from '../services/turmasService';
@@ -11,7 +11,7 @@ import {
 import { getDashboardStats } from '../services/emprestimosService';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { Laptop, WarningCircle, Trash } from '@phosphor-icons/react';
+import { Laptop, WarningCircle, Trash, Sun, Moon, CalendarCheck, SquaresFour } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Reservas() {
@@ -34,9 +34,33 @@ export default function Reservas() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [blockingAlert, setBlockingAlert] = useState(null);
   const [sameDayBlockedAlert, setSameDayBlockedAlert] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('gerenciamento');
 
   const { user } = useAuth();
   const { lastMessage } = useWebSocket();
+
+  const turmasMap = useMemo(() => new Map(turmas.map(t => [t.id, t])), [turmas]);
+
+  const turnosReservas = useMemo(() => {
+    const matutino = [];
+    const vespertino = [];
+    const noturno = [];
+
+    reservas.forEach(r => {
+      const t = (r.turno || '').toLowerCase();
+      if (t.includes('matutino') || t.includes('manh')) {
+        matutino.push(r);
+      } else if (t.includes('vespertino') || t.includes('tarde')) {
+        vespertino.push(r);
+      } else if (t.includes('noturno') || t.includes('noite')) {
+        noturno.push(r);
+      } else {
+        matutino.push(r);
+      }
+    });
+
+    return { matutino, vespertino, noturno };
+  }, [reservas]);
 
   useEffect(() => {
     if (lastMessage) {
@@ -245,7 +269,38 @@ export default function Reservas() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Seleção de Abas: Gerenciamento vs Panorama de Turnos */}
+      <div className="flex border-b border-dark-600/60 gap-4 mb-4">
+        <button
+          onClick={() => setAbaAtiva('gerenciamento')}
+          className={`pb-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 ${
+            abaAtiva === 'gerenciamento'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <CalendarCheck size={16} weight="duotone" />
+          <span>Gerenciamento de Reservas</span>
+        </button>
+        <button
+          onClick={() => setAbaAtiva('panorama')}
+          className={`pb-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 ${
+            abaAtiva === 'panorama'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <SquaresFour size={16} weight="duotone" />
+          <span>Panorama por Turnos</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-primary/20 text-primary text-[10px] font-mono">
+            {reservas.length}
+          </span>
+        </button>
+      </div>
+
+      {/* 1. ABA: GERENCIAMENTO DE RESERVAS */}
+      {abaAtiva === 'gerenciamento' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {(user?.role === 'ti' || user?.role === 'professor') && (
           <form
             onSubmit={handleSubmit}
@@ -512,12 +567,76 @@ export default function Reservas() {
                 </div>
               ))}
 
-            {!loadingReservas && reservas.length === 0 && !error && (
-              <div className="px-4 py-8 text-center text-xs text-slate-400">Nenhuma reserva encontrada.</div>
-            )}
+              {!loadingReservas && reservas.length === 0 && !error && (
+                <div className="px-4 py-8 text-center text-xs text-slate-400">Nenhuma reserva encontrada.</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* 2. ABA: PANORAMA POR TURNOS */}
+      {abaAtiva === 'panorama' && (
+        <div className="space-y-6">
+          <div className="glass-card p-4 border border-dark-600 bg-dark-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <span>Panorama Consolidado por Turnos</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                  {reservas.length} reserva(s)
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Distribuição de lotes de equipamentos por turno e turmas cadastradas.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span className="text-slate-400">Total Reservado:</span>
+              <strong className="text-primary font-bold text-sm">
+                {reservas.reduce((acc, r) => acc + (r.quantidade || 0), 0)} notebooks
+              </strong>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Bloco 1: Turno Matutino */}
+            <TurnoColuna
+              titulo="Turno Matutino"
+              horario="08:00 — 12:00"
+              icone={<Sun size={18} className="text-amber-400" weight="duotone" />}
+              reservas={turnosReservas.matutino}
+              turmasMap={turmasMap}
+              onCardClick={(reserva) => {
+                if (reserva.status === 'Pendente') setSelectedReserva(reserva);
+              }}
+            />
+
+            {/* Bloco 2: Turno Vespertino */}
+            <TurnoColuna
+              titulo="Turno Vespertino"
+              horario="14:00 — 18:00"
+              icone={<Sun size={18} className="text-orange-400" weight="fill" />}
+              reservas={turnosReservas.vespertino}
+              turmasMap={turmasMap}
+              onCardClick={(reserva) => {
+                if (reserva.status === 'Pendente') setSelectedReserva(reserva);
+              }}
+            />
+
+            {/* Bloco 3: Turno Noturno */}
+            <TurnoColuna
+              titulo="Turno Noturno"
+              horario="19:00 — 22:30"
+              icone={<Moon size={18} className="text-indigo-400" weight="duotone" />}
+              reservas={turnosReservas.noturno}
+              turmasMap={turmasMap}
+              onCardClick={(reserva) => {
+                if (reserva.status === 'Pendente') setSelectedReserva(reserva);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Details modal for Pending Reservations */}
       {selectedReserva && (
@@ -702,6 +821,117 @@ export default function Reservas() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function TurnoColuna({ titulo, horario, icone, reservas, turmasMap, onCardClick }) {
+  const totalEquipamentos = reservas.reduce((acc, r) => acc + (r.quantidade || 0), 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Cabeçalho do Turno */}
+      <div className="glass-card p-3.5 border border-dark-600/70 bg-dark-900/60 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-dark-800 border border-dark-600/50">
+            {icone}
+          </div>
+          <div>
+            <h3 className="text-xs font-black tracking-wider uppercase text-slate-100">{titulo}</h3>
+            <span className="text-[10px] text-slate-400 font-mono">{horario}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-xs font-mono font-black text-primary block">{totalEquipamentos} un.</span>
+          <span className="text-[9px] text-slate-400 font-mono">{reservas.length} reserva(s)</span>
+        </div>
+      </div>
+
+      {/* Lista de Cards de Alocação Padronizados */}
+      <div className="space-y-3">
+        {reservas.length === 0 ? (
+          <div className="py-8 px-4 text-center rounded-xl bg-dark-800/20 border border-dark-700/50 text-slate-400 text-xs">
+            <p>Nenhuma reserva para este turno.</p>
+          </div>
+        ) : (
+          reservas.map((reserva) => {
+            const turmaObj = turmasMap.get(reserva.turma);
+            const nomeProfessor = reserva.usuario?.nome || turmaObj?.instrutor || 'Docente Responsável';
+            const nomeTurma = turmaObj?.curso || turmaObj?.nome_curso || `Turma ${reserva.turma}`;
+            const codigoTurma = reserva.turma;
+            const qtdEquipamentos = reserva.quantidade;
+
+            return (
+              <div
+                key={reserva.id}
+                onClick={() => onCardClick(reserva)}
+                className="glass-card p-4 border border-dark-600/60 hover:border-primary/40 transition-all rounded-xl cursor-pointer group bg-dark-850/50 hover:bg-dark-800/60 relative overflow-hidden"
+              >
+                {/* Status Badge */}
+                <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-dark-700/40">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Reserva #{reserva.id} • {reserva.data}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      reserva.status === 'Aprovada'
+                        ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
+                        : reserva.status === 'Pendente'
+                        ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/40'
+                        : 'bg-slate-500/10 text-slate-300 border border-slate-500/40'
+                    }`}
+                  >
+                    {reserva.status}
+                  </span>
+                </div>
+
+                {/* 1. Nome da Turma */}
+                <div className="mb-2">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">
+                    Nome da Turma
+                  </span>
+                  <h4 className="text-sm font-bold text-slate-100 group-hover:text-primary transition-colors leading-snug">
+                    {nomeTurma}
+                  </h4>
+                </div>
+
+                {/* 2. Código da Turma e Quantidade */}
+                <div className="grid grid-cols-2 gap-2 my-2 py-2 bg-dark-900/50 rounded-lg px-2.5 border border-dark-700/40">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">
+                      Código da Turma
+                    </span>
+                    <span className="text-xs font-mono font-bold text-primary">
+                      {codigoTurma}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">
+                      Equipamentos
+                    </span>
+                    <span className="text-xs font-mono font-bold text-emerald-400">
+                      {qtdEquipamentos} notebooks
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Nome do Professor */}
+                <div className="pt-1 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">
+                      Nome do Professor
+                    </span>
+                    <span className="font-semibold text-slate-200">
+                      {nomeProfessor}
+                    </span>
+                  </div>
+                  <Laptop size={18} className="text-slate-500 group-hover:text-primary transition-colors" weight="duotone" />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import Button from '../components/Button.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WarningCircle, LockKey, X } from '@phosphor-icons/react';
 import studentsTechImage from '../../students_tech.png';
-import senacLogo from '../assets/senac_logo.png';
+import senacLogo from '../assets/senac_logo_white.png';
 import { verificarEmailPrimeiroAcesso, validarSenhaPadraoPrimeiroAcesso, definirSenhaDefinitivaPrimeiroAcesso } from '../services/authService';
 
 export default function Login() {
@@ -171,11 +171,6 @@ export default function Login() {
               <span className="brand-title">RENOVE</span>
               <span className="brand-subtitle">Notebooks</span>
             </div>
-          </div>
-          
-          <div className="senac-badge">
-            <span className="senac-dot"></span>
-            <span className="senac-text">SENAC DF</span>
           </div>
         </header>
 

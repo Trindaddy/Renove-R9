@@ -1222,6 +1222,8 @@ async def cancelar_emprestimo(
 def list_historico(
     notebook_id: Optional[int] = None,
     usuario_id: Optional[int] = None,
+    tipo_movimentacao: Optional[str] = None,
+    autor_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -1230,9 +1232,25 @@ def list_historico(
     require_role(["ti", "professor", "aluno"])(current_user)
     
     if current_user.role == "aluno":
-        return crud.get_historico(db, notebook_id=notebook_id, usuario_id=current_user.id, skip=skip, limit=limit)
+        return crud.get_historico(
+            db,
+            notebook_id=notebook_id,
+            usuario_id=current_user.id,
+            tipo_movimentacao=tipo_movimentacao,
+            autor_id=None,
+            skip=skip,
+            limit=limit
+        )
         
-    return crud.get_historico(db, notebook_id=notebook_id, usuario_id=usuario_id, skip=skip, limit=limit)
+    return crud.get_historico(
+        db,
+        notebook_id=notebook_id,
+        usuario_id=usuario_id,
+        tipo_movimentacao=tipo_movimentacao,
+        autor_id=autor_id,
+        skip=skip,
+        limit=limit
+    )
 
 @app.get("/historico/notebook/{notebook_id}", response_model=List[schemas.HistoricoResponse])
 def get_historico_notebook(
@@ -2383,7 +2401,7 @@ def list_solicitacoes_alocacao_route(
             db=db,
             status=status,
             responsavel_ti_id=responsavel_ti_id,
-            solicitante_id=solicitante_filter,
+            solicitante_id=solicitante_id,
             data_abertura=data_abertura,
             termo_busca=termo_busca
         )

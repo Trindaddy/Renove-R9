@@ -408,7 +408,15 @@ def cancelar_emprestimo(db: Session, emprestimo_id: int, responsavel_id: Optiona
         db.rollback()
         raise e
 
-def get_historico(db: Session, notebook_id: Optional[int] = None, usuario_id: Optional[int] = None, skip: int = 0, limit: int = 100):
+def get_historico(
+    db: Session,
+    notebook_id: Optional[int] = None,
+    usuario_id: Optional[int] = None,
+    tipo_movimentacao: Optional[str] = None,
+    autor_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100
+):
     query = db.query(models.Historico).options(
         joinedload(models.Historico.notebook),
         joinedload(models.Historico.usuario),
@@ -418,6 +426,12 @@ def get_historico(db: Session, notebook_id: Optional[int] = None, usuario_id: Op
         query = query.filter(models.Historico.notebook_id == notebook_id)
     if usuario_id:
         query = query.filter(models.Historico.usuario_id == usuario_id)
+    if tipo_movimentacao:
+        query = query.filter(models.Historico.tipo_movimentacao == tipo_movimentacao)
+    if autor_id:
+        query = query.filter(
+            (models.Historico.responsavel_id == autor_id) | (models.Historico.usuario_id == autor_id)
+        )
     return query.order_by(models.Historico.created_at.desc()).offset(skip).limit(limit).all()
 
 def registrar_historico(db: Session, historico: schemas.HistoricoCreate):
