@@ -39,7 +39,7 @@ export default function Alocacoes() {
   const { lastMessage } = useWebSocket();
   const isTi = user?.role === 'ti';
   const isProfessor = user?.role === 'professor';
-  const canAvaliar = isTi || isProfessor;
+  const canAvaliar = isTi;
 
   // Abas
   const [activeTab, setActiveTab] = useState('solicitacoes');
@@ -144,6 +144,10 @@ export default function Alocacoes() {
   }, [solicitacoes, filtroSolicitante, filtroTecnico]);
 
   async function handleDecisao(decisao) {
+    if (!isTi) {
+      setErrorSolicitacoes('Apenas a equipe de TI possui permissão para aprovar ou reprovar solicitações.');
+      return;
+    }
     if (!motivoDecisao.trim() || !avaliarModal) return;
     try {
       setSubmittingAvaliacao(true);
@@ -601,7 +605,7 @@ export default function Alocacoes() {
 
       {/* MODAL: AVALIAÇÃO DE SOLICITAÇÃO (TI / ADM) */}
       <AnimatePresence>
-        {avaliarModal && (
+        {isTi && avaliarModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
             <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200 border border-primary/30 rounded-2xl">
               <button

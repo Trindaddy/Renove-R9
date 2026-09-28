@@ -2452,23 +2452,10 @@ async def avaliar_solicitacao_alocacao_route(
     db: Session = Depends(get_db),
     current_user: schemas.UsuarioResponse = Depends(get_current_user)
 ):
-    require_role(["ti", "professor"])(current_user)
+    require_role(["ti"])(current_user)
     
     if not payload.motivo or not payload.motivo.strip():
         raise HTTPException(status_code=400, detail="O campo de motivo é obrigatório tanto para aprovação quanto para reprovação.")
-        
-    if current_user.role == "professor":
-        sol_check = db.query(models.SolicitacaoAlocacao).filter(models.SolicitacaoAlocacao.id == solicitacao_id).first()
-        if not sol_check:
-            raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
-        turma_check = db.query(models.Turma).filter(models.Turma.codigo_turma == sol_check.turma_id).first()
-        instrutor_turma = (turma_check.instrutor or "").strip().lower() if turma_check else ""
-        instrutor_usuario = (current_user.nome or "").strip().lower()
-        if instrutor_turma != instrutor_usuario and sol_check.solicitante_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Você só pode avaliar solicitações de suas próprias turmas."
-            )
 
     ip, ua = get_client_metadata(request)
     try:

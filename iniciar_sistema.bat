@@ -5,6 +5,7 @@ echo     Iniciando Renove - R9 (Senac-DF)
 echo ===================================================
 
 cd /d "%~dp0"
+set "PATH=C:\Program Files\nodejs;%PATH%"
 
 echo [1/2] Iniciando Backend FastAPI (Porta 8000)...
 start "Renove Backend (FastAPI)" cmd /k "cd backend && .\venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000"

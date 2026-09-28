@@ -10,11 +10,45 @@ load_dotenv()
 def get_brasilia_time():
     return datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL or DATABASE_URL == "sqlite://" or DATABASE_URL == "sqlite:///:memory:":
+def get_sqlite_db_url(raw_url: str = None) -> str:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "r9_notebooks.db").replace("\\", "/")
-    DATABASE_URL = f"sqlite:///{db_path}"
+    default_db = os.path.join(BASE_DIR, "r9_notebooks.db")
+    
+    db_file = default_db
+    if raw_url and raw_url.startswith("sqlite:///"):
+        extracted = raw_url[len("sqlite:///"):]
+        if extracted and extracted != ":memory:":
+            db_file = os.path.abspath(extracted) if not os.path.isabs(extracted) else extracted
+
+    # Testar se a pasta onde o banco está localizado permite transações de escrita
+    # (Evita bloqueio do Windows Defender Acesso Controlado a Pastas / CFA em Documents)
+    is_writable = False
+    try:
+        import sqlite3
+        conn = sqlite3.connect(db_file)
+        conn.execute("BEGIN IMMEDIATE")
+        conn.rollback()
+        conn.close()
+        is_writable = True
+    except Exception:
+        is_writable = False
+
+    if is_writable:
+        return f"sqlite:///{db_file.replace('\\', '/')}"
+
+    # Fallback seguro fora da pasta Documentos protegida pelo Windows Defender
+    user_dir = os.path.join(os.path.expanduser("~"), ".renove")
+    os.makedirs(user_dir, exist_ok=True)
+    fallback_file = os.path.join(user_dir, "r9_notebooks.db")
+    if not os.path.exists(fallback_file) and os.path.exists(default_db):
+        import shutil
+        shutil.copy2(default_db, fallback_file)
+    
+    return f"sqlite:///{fallback_file.replace('\\', '/')}"
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL or DATABASE_URL.startswith("sqlite"):
+    DATABASE_URL = get_sqlite_db_url(DATABASE_URL)
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(

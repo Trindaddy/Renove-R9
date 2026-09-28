@@ -148,6 +148,10 @@ export default function Turmas() {
   }
 
   async function handleDecisaoTurma(decisao) {
+    if (!isTi) {
+      setError('Apenas o departamento de TI possui permissão para aprovar ou reprovar solicitações de alocação.');
+      return;
+    }
     if (!turmaMotivoDecisao.trim() || !turmaAvaliarModal) return;
     try {
       setSubmittingTurmaAvaliacao(true);
@@ -1046,7 +1050,7 @@ export default function Turmas() {
                     </div>
                     
                     <div className="flex items-center gap-2 shrink-0">
-                      {sol?.status === 'Aberto' && (
+                      {isTi && sol?.status === 'Aberto' && (
                         <Button
                           onClick={() => {
                             setTurmaAvaliarModal(sol);
@@ -1529,7 +1533,7 @@ export default function Turmas() {
 
       {/* MODAL: AVALIAÇÃO DE SOLICITAÇÃO EM TURMAS */}
       <AnimatePresence>
-        {turmaAvaliarModal && (
+        {isTi && turmaAvaliarModal && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
             <div className="glass-card p-6 w-full max-w-lg shadow-2xl relative mx-4 text-slate-200 border border-primary/30 rounded-2xl">
               <button

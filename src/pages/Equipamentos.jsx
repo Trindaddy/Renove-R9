@@ -273,15 +273,19 @@ export default function Equipamentos() {
   }
 
   async function handleSaveClasseS(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!selectedEq) return;
     try {
       setLoading(true);
       setError('');
       setSuccess('');
-      const statusValue = classeSSubcategory ? `Classe S - ${classeSSubcategory}` : 'Disponível';
+      const isRemoving = !classeSSubcategory || classeSSubcategory === 'none' || classeSSubcategory === 'Nenhum';
+      const statusValue = isRemoving ? 'Disponível' : `Classe S - ${classeSSubcategory}`;
       await atualizarEquipamento(selectedEq.id, { status: statusValue });
-      setSuccess(`Classificação do notebook ${selectedEq.patrimonio} atualizada com sucesso.`);
+      const msg = isRemoving
+        ? `Notebook ${selectedEq.patrimonio} desvinculado da Classe S e retornado para Disponível com sucesso.`
+        : `Classificação do notebook ${selectedEq.patrimonio} atualizada para ${statusValue}.`;
+      setSuccess(msg);
       setShowClasseSModal(false);
       setSelectedEq(null);
       setClasseSSubcategory('');
@@ -1548,14 +1552,16 @@ export default function Equipamentos() {
                   value={classeSSubcategory}
                   onChange={(e) => setClasseSSubcategory(e.target.value)}
                   className="tech-select w-full py-2.5 text-xs bg-dark-900 border border-dark-600 text-slate-100 rounded-xl"
-                  required
                 >
-                  <option value="">Nenhum (Remover Classe S / Tornar Disponível)</option>
+                  <option value="">Nenhum (Desvincular da Classe S / Tornar Disponível)</option>
                   <option value="Suporte">Suporte</option>
                   <option value="PCD">PCD</option>
                   <option value="Alocação Recanto">Alocação Recanto</option>
                   <option value="Eventos">Eventos</option>
                 </select>
+                <p className="text-[11px] text-slate-400">
+                  Selecione uma subcategoria ou selecione <strong>"Nenhum"</strong> para retirar a classificação e devolver o notebook ao estado <strong>Disponível</strong>.
+                </p>
               </div>
 
               <div className="flex gap-3 w-full pt-2">
@@ -1570,6 +1576,32 @@ export default function Equipamentos() {
                 >
                   Cancelar
                 </Button>
+                {selectedEq?.status?.startsWith('Classe S') && (
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setClasseSSubcategory('');
+                      if (!selectedEq) return;
+                      try {
+                        setLoading(true);
+                        await atualizarEquipamento(selectedEq.id, { status: 'Disponível' });
+                        setSuccess(`Notebook ${selectedEq.patrimonio} desvinculado da Classe S com sucesso.`);
+                        setShowClasseSModal(false);
+                        setSelectedEq(null);
+                        await load();
+                      } catch (err) {
+                        setError(err.response?.data?.detail || 'Erro ao desvincular da Classe S.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    variant="outline"
+                    className="flex-1 py-3 text-xs tracking-wider uppercase font-bold border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  >
+                    Remover Classe S
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   disabled={loading}

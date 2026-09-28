@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import os from 'node:os';
+import path from 'node:path';
 
 export default defineConfig({
+  cacheDir: path.resolve(os.tmpdir(), 'vite-r9-cache'),
   plugins: [react()],
   server: {
     host: '0.0.0.0',
