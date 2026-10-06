@@ -34,3 +34,28 @@ export async function deletarTurma(codigoTurma) {
   return response.data;
 }
 
+export async function importarTurmaSIG({ arquivo, codigoTurma, nomeCurso, onUploadProgress }) {
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  if (codigoTurma && codigoTurma.trim()) {
+    formData.append('codigo_turma', codigoTurma.trim());
+  }
+  if (nomeCurso && nomeCurso.trim()) {
+    formData.append('nome_curso', nomeCurso.trim());
+  }
+
+  const response = await api.post('/v1/turmas/importar-sig', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onUploadProgress && progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onUploadProgress(percent);
+      }
+    }
+  });
+  return response.data;
+}
+
+

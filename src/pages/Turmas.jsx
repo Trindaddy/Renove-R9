@@ -12,8 +12,9 @@ import {
 import { getHistorico } from '../services/emprestimosService';
 import { solicitarAlocacaoEmLote, listarSolicitacoesAlocacao, avaliarSolicitacaoAlocacao } from '../services/alocacoesService';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning, CalendarBlank, MapPin, Laptop, Clock, ShieldCheck } from '@phosphor-icons/react';
+import { WarningCircle, Plus, Trash, Users, X, Check, PencilSimple, ClockCounterClockwise, UserMinus, Lightning, CalendarBlank, MapPin, Laptop, Clock, ShieldCheck, UploadSimple } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ModalImportarTurmaSIG from '../components/modals/ModalImportarTurmaSIG.jsx';
 
 export default function Turmas() {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export default function Turmas() {
 
   // Modais e Estados de Edição
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportSIGModal, setShowImportSIGModal] = useState(false);
   const [selectedProfessor, setSelectedProfessor] = useState(null);
   const [editingTurmaId, setEditingTurmaId] = useState(null);
   const [newInstructorVal, setNewInstructorVal] = useState('');
@@ -418,10 +420,20 @@ export default function Turmas() {
           </p>
         </div>
         {isTi && (
-          <Button onClick={() => setShowAddModal(true)} variant="cyan" className="h-fit py-2 px-4 flex items-center gap-1.5 text-xs">
-            <Plus size={16} weight="bold" />
-            Nova Turma
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowImportSIGModal(true)}
+              variant="outline"
+              className="h-fit py-2 px-3.5 flex items-center gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10 transition-all font-semibold"
+            >
+              <UploadSimple size={15} weight="bold" />
+              Importar SIG
+            </Button>
+            <Button onClick={() => setShowAddModal(true)} variant="cyan" className="h-fit py-2 px-4 flex items-center gap-1.5 text-xs">
+              <Plus size={16} weight="bold" />
+              Nova Turma
+            </Button>
+          </div>
         )}
       </header>
 
@@ -1622,6 +1634,16 @@ export default function Turmas() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Importação de Turmas e Alunos via Relatório SIG */}
+      <ModalImportarTurmaSIG
+        isOpen={showImportSIGModal}
+        onClose={() => setShowImportSIGModal(false)}
+        onSuccess={(res) => {
+          loadData();
+          setSuccess(`Turma '${res.turma_codigo}' importada com sucesso via SIG! Foram processados ${res.total_lidos} alunos (${res.novos_alunos} novos, ${res.alunos_atualizados} atualizados).`);
+        }}
+      />
     </motion.div>
   );
 }

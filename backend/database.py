@@ -173,6 +173,20 @@ def run_db_migrations():
                 if "periodo_letivo" not in sol_cols:
                     conn.execute(text("ALTER TABLE solicitacoes_alocacao ADD COLUMN periodo_letivo VARCHAR(50)"))
                 conn.commit()
+
+            # Create turma_alunos table if not exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS turma_alunos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    turma_id VARCHAR(50) NOT NULL REFERENCES turmas(codigo_turma) ON DELETE CASCADE,
+                    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_turma_aluno UNIQUE (turma_id, usuario_id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_turma_alunos_turma_id ON turma_alunos(turma_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_turma_alunos_usuario_id ON turma_alunos(usuario_id)"))
+            conn.commit()
     except Exception as e:
         print(f"Error running db migration: {e}")
 

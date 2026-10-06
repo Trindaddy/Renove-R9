@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base, get_brasilia_time
@@ -166,3 +166,20 @@ class SolicitacaoAlocacao(Base):
     __table_args__ = (
         CheckConstraint("status IN ('Aberto', 'Aprovado', 'Reprovado')", name="check_solicitacao_alocacao_status"),
     )
+
+
+class TurmaAluno(Base):
+    __tablename__ = "turma_alunos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    turma_id = Column(String(50), ForeignKey("turmas.codigo_turma", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=get_brasilia_time)
+
+    turma = relationship("Turma", backref="vinculos_alunos")
+    usuario = relationship("Usuario", backref="vinculos_turmas")
+
+    __table_args__ = (
+        UniqueConstraint("turma_id", "usuario_id", name="uq_turma_aluno"),
+    )
+

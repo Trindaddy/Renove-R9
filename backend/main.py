@@ -2575,6 +2575,10 @@ def get_notificacoes_pendentes_route(
         for s in sols
     ]
 
+# ==================== ROTAS DE IMPORTAÇÃO EM LOTE SIG ====================
+from app.routers.importacao import router as importacao_sig_router
+app.include_router(importacao_sig_router)
+
 # ==================== ROTAS DE SAÚDE ====================
 
 @app.get("/health")
